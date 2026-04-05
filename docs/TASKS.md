@@ -83,7 +83,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Inserción de ds:Signature en el XML
   - Test: firmar XML con certificado de pruebas, verificar firma
 
-- [ ] **T-010** Implementar cifrado/descifrado de certificados (key49-signer)
+- [x] **T-010** Implementar cifrado/descifrado de certificados (key49-signer) ✓
   - CertificateEncryptor con AES-256-GCM
   - Cifrar .p12 y contraseña al almacenar
   - Descifrar al momento de firmar
