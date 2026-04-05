@@ -1,0 +1,163 @@
+### Variables
+@baseUrl = http://localhost:8080/v1
+@apiKey = fec_test_XXXXXXXXXXXXXXXXXXXXXXXX
+
+### ===========================
+### FACTURA ELECTRÓNICA
+### ===========================
+
+### Crear factura
+POST {{baseUrl}}/invoices
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+X-Idempotency-Key: {{$guid}}
+
+{
+  "establishment": "001",
+  "issue_point": "001",
+  "sequence_number": "000000042",
+  "issue_date": "2026-04-04",
+  "recipient": {
+    "id_type": "04",
+    "id": "1790012345001",
+    "name": "Empresa Cliente S.A.",
+    "address": "Av. Principal 123, Quito",
+    "email": "contabilidad@cliente.com",
+    "phone": "0991234567"
+  },
+  "items": [
+    {
+      "main_code": "SRV-001",
+      "description": "Servicio de hosting mensual - Plan Business",
+      "unit_of_measure": "UNIDAD",
+      "quantity": 1,
+      "unit_price": 50.00,
+      "discount": 0.00,
+      "taxes": [
+        {
+          "code": "2",
+          "rate_code": "4",
+          "rate": 15.00
+        }
+      ]
+    },
+    {
+      "main_code": "SRV-002",
+      "description": "Dominio .ec renovación anual",
+      "unit_of_measure": "UNIDAD",
+      "quantity": 1,
+      "unit_price": 35.00,
+      "discount": 5.00,
+      "taxes": [
+        {
+          "code": "2",
+          "rate_code": "4",
+          "rate": 15.00
+        }
+      ]
+    }
+  ],
+  "payments": [
+    {
+      "payment_method": "20",
+      "total": 84.25,
+      "term": 0,
+      "time_unit": "days"
+    }
+  ],
+  "additional_info": {
+    "Dirección": "Av. Principal 123, Quito",
+    "Email": "contabilidad@cliente.com",
+    "Observación": "Servicios del mes de abril 2026"
+  }
+}
+
+### Consultar factura por ID
+GET {{baseUrl}}/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851
+Authorization: Bearer {{apiKey}}
+
+### Listar facturas
+GET {{baseUrl}}/invoices?status=AUTHORIZED&date_from=2026-04-01&date_to=2026-04-30&page=1&per_page=20
+Authorization: Bearer {{apiKey}}
+
+### Descargar XML autorizado
+GET {{baseUrl}}/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/xml
+Authorization: Bearer {{apiKey}}
+
+### Descargar RIDE (PDF)
+GET {{baseUrl}}/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/ride
+Authorization: Bearer {{apiKey}}
+
+### Reenviar email
+POST {{baseUrl}}/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/resend-email
+Authorization: Bearer {{apiKey}}
+
+### ===========================
+### CONSULTA SRI DIRECTA
+### ===========================
+
+### Consultar autorización por clave de acceso
+GET {{baseUrl}}/sri/authorize/0404202601179001234500110010010000000421234567817
+Authorization: Bearer {{apiKey}}
+
+### ===========================
+### TENANT
+### ===========================
+
+### Obtener perfil del tenant
+GET {{baseUrl}}/tenant/profile
+Authorization: Bearer {{apiKey}}
+
+### Verificar estado del certificado
+GET {{baseUrl}}/tenant/certificate/status
+Authorization: Bearer {{apiKey}}
+
+### Subir certificado .p12
+# POST {{baseUrl}}/tenant/certificate
+# Authorization: Bearer {{apiKey}}
+# Content-Type: multipart/form-data; boundary=----FormBoundary
+# (usar Postman o curl para multipart)
+
+### ===========================
+### PUNTOS DE EMISIÓN
+### ===========================
+
+### Listar puntos de emisión
+GET {{baseUrl}}/emission-points
+Authorization: Bearer {{apiKey}}
+
+### Crear punto de emisión
+POST {{baseUrl}}/emission-points
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+
+{
+  "establecimiento": "002",
+  "punto_emision": "001",
+  "direccion": "Sucursal Norte, Av. América N32-123, Quito"
+}
+
+### Consultar secuenciales
+GET {{baseUrl}}/emission-points/e290f1ee-6c54-4b01-90e6-d701748f0852/sequentials
+Authorization: Bearer {{apiKey}}
+
+### ===========================
+### MÉTRICAS
+### ===========================
+
+### Resumen de actividad
+GET {{baseUrl}}/metrics/summary
+Authorization: Bearer {{apiKey}}
+
+### ===========================
+### HEALTH
+### ===========================
+
+### Health check
+GET http://localhost:8080/q/health
+
+### Readiness
+GET http://localhost:8080/q/health/ready
+
+### Liveness
+GET http://localhost:8080/q/health/live

@@ -1,0 +1,31 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Quarkus
+.quarkus/
+
+# IDE
+.idea/
+*.iml
+.vscode/settings.json
+*.swp
+*~
+.project
+.classpath
+.factorypath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment & Secrets
+.env
+*.p12
+*.jks
+
+# Logs
+*.log
