@@ -62,7 +62,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Validar formato: `establishment` 3 díg., `issue_point` 3 díg., `sequence_number` 9 díg.
   - Test: generar 1000 claves y verificar unicidad y checksum
 
-- [ ] **T-007** Implementar XML Builder de Factura (key49-xml)
+- [x] **T-007** Implementar XML Builder de Factura (key49-xml) ✓
   - Builder que genera XML conforme a XSD factura v2.1.0
   - Mapeo de DTO de API → estructura XML del SRI
   - Nodos: infoTributaria, infoFactura, detalles, infoAdicional, pagos
