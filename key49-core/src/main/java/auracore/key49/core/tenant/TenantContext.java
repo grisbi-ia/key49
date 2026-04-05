@@ -1,7 +1,8 @@
 package auracore.key49.core.tenant;
 
-import jakarta.enterprise.context.RequestScoped;
 import java.util.UUID;
+
+import jakarta.enterprise.context.RequestScoped;
 
 /**
  * Contexto del tenant activo en el request actual.

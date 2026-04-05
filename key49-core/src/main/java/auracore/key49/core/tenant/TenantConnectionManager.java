@@ -1,12 +1,13 @@
 package auracore.key49.core.tenant;
 
+import java.util.function.Function;
+
+import org.hibernate.reactive.mutiny.Mutiny;
+
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.hibernate.reactive.mutiny.Mutiny;
-
-import java.util.function.Function;
 
 /**
  * Ejecuta operaciones de base de datos dentro del esquema del tenant activo.
