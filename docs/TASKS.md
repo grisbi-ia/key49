@@ -92,7 +92,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 3: Integración SRI (Semana 5-6)
 
-- [ ] **T-011** Implementar cliente SOAP de Recepción (key49-sri)
+- [x] **T-011** Implementar cliente SOAP de Recepción (key49-sri) ✓
   - Consumir WSDL RecepcionComprobantesOffline
   - Enviar XML firmado codificado en base64
   - Parsear respuesta: RECIBIDA / DEVUELTA con mensajes

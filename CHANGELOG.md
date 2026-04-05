@@ -35,6 +35,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Utilidades: `generateMasterKey`, `decodeMasterKey` (Base64 desde env var)
   - Test integración round-trip: cifrar → descifrar → firmar
   - 28 tests unitarios
+- Cliente SOAP de Recepción del SRI (T-011)
+  - `SriReceptionClient`: envío de XML firmado (Base64) a `validarComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriReceptionResponseParser`: parser SOAP (RECIBIDA/DEVUELTA)
+  - Modelos: `ReceptionStatus`, `SriMessage`, `SriReceptionResponse`
+  - `SriEndpoints`: URLs por ambiente (TEST/PRODUCTION)
+  - HttpClient nativo con connect timeout 3s, read timeout 5s
+  - 40 tests unitarios
 
 ## [0.3.0] - 2026-04-05
 
