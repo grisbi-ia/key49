@@ -12,7 +12,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Configurar profiles: dev, test, prod
   - Archivo: `pom.xml`, módulos, `application.properties`
 
-- [ ] **T-002** Crear scripts SQL y configurar PostgreSQL schema-per-tenant
+- [x] **T-002** Crear scripts SQL y configurar PostgreSQL schema-per-tenant ✓
   - Crear scripts SQL de referencia en `db/migrations/public/` (tenants, api_keys)
   - Crear scripts SQL de referencia en `db/migrations/tenant/` (documents, outbox, webhook_deliveries, audit_log)
   - Configurar Hibernate Reactive con Panache (estrategia SCHEMA)
@@ -21,7 +21,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - NO configurar Flyway automático — las migraciones son manuales
   - Test: verificar que cada esquema de tenant aísla datos correctamente
 
-- [ ] **T-003** Implementar modelo de dominio (key49-core)
+- [x] **T-003** Implementar modelo de dominio (key49-core) ✓
   - Entidades JPA: Tenant, ApiKey, Document
   - Repositorios Panache para cada entidad
   - Enums SRI: DocumentType, DocumentStatus (con `canTransitionTo()`), TaxType, VatRate, PaymentMethod, IdentificationType, SriEnvironment
@@ -29,13 +29,13 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Excepción `InvalidStateTransitionException` para transiciones inválidas
   - Test: CRUD básico de entidades, transiciones de estado válidas/inválidas
 
-- [ ] **T-004** Configurar RabbitMQ con SmallRye Reactive Messaging
+- [x] **T-004** Configurar RabbitMQ con SmallRye Reactive Messaging ✓
   - Definir exchanges: key49.documents, key49.retry, key49.dlq
   - Definir colas según ARCHITECTURE.md
   - Implementar productores y consumidores base (skeleton)
   - Test: publicar y consumir mensaje simple
 
-- [ ] **T-005** Implementar autenticación por API Key
+- [x] **T-005** Implementar autenticación por API Key ✓
   - Generación de API keys con prefijo (fec*test*, fec*live*)
   - Hash SHA-256 para almacenamiento
   - Filter JAX-RS que extrae API key, valida, y setea tenant context
@@ -43,7 +43,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Cache de tenant config en Redis (TTL 300s, fallback a BD)
   - Test: request con API key válido/inválido
 
-- [ ] **T-005a** Implementar validaciones de formato en frontera (key49-api)
+- [x] **T-005a** Implementar validaciones de formato en frontera (key49-api) ✓
   - Validadores de RUC (módulo 11) y cédula (módulo 10)
   - Validación de `establishment` (3 dígitos), `issue_point` (3 dígitos), `sequence_number` (9 dígitos)
   - Validación de `issue_date = LocalDate.now(EC_ZONE)`

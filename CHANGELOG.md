@@ -17,7 +17,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - 5 consumers skeleton: Sign, Send, Authorize, Notify, DLQ
   - 5 tests unitarios
 - Autenticación por API Key con filtro reactivo (T-005)
-  - `ApiKeyService`: generación de claves (fec_test_/fec_live_), SHA-256, validación
+  - `ApiKeyService`: generación de claves (fec*test*/fec*live*), SHA-256, validación
   - `ApiKeyAuthFilter`: @ServerRequestFilter con PgPool directo (JOIN api_keys+tenants)
   - Paths públicos excluidos: /q/, /portal/login, /openapi, /swagger-ui
   - Actualización asíncrona de `last_used_at` (fire-and-forget)
