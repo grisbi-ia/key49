@@ -2,13 +2,13 @@ package auracore.key49.sri.client;
 
 import java.util.Base64;
 
-import auracore.key49.sri.SriException;
-
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import auracore.key49.sri.SriException;
 
 /**
  * Tests unitarios para SriReceptionClient.

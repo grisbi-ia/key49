@@ -1,10 +1,13 @@
 package auracore.key49.sri.model;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitarios para los modelos de respuesta del SRI.
@@ -147,6 +150,120 @@ class SriModelTest {
                     ReceptionStatus.RECIBIDA, null, java.util.List.of(msg));
             assertThrows(UnsupportedOperationException.class,
                     () -> response.messages().add(new SriMessage("20", "X", null, "ERROR")));
+        }
+    }
+
+    // ── AuthorizationStatus tests ──
+
+    @Nested
+    @DisplayName("AuthorizationStatus")
+    class AuthorizationStatusTest {
+
+        @Test
+        @DisplayName("parsea AUTORIZADO desde string")
+        void parseAutorizado() {
+            assertEquals(AuthorizationStatus.AUTORIZADO, AuthorizationStatus.fromValue("AUTORIZADO"));
+        }
+
+        @Test
+        @DisplayName("parsea NO AUTORIZADO desde string")
+        void parseNoAutorizado() {
+            assertEquals(AuthorizationStatus.NO_AUTORIZADO, AuthorizationStatus.fromValue("NO AUTORIZADO"));
+        }
+
+        @Test
+        @DisplayName("parsea case-insensitive")
+        void parseCaseInsensitive() {
+            assertEquals(AuthorizationStatus.AUTORIZADO, AuthorizationStatus.fromValue("autorizado"));
+            assertEquals(AuthorizationStatus.NO_AUTORIZADO, AuthorizationStatus.fromValue("no autorizado"));
+        }
+
+        @Test
+        @DisplayName("valor desconocido lanza excepción")
+        void unknownValueThrows() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> AuthorizationStatus.fromValue("INVALIDO"));
+        }
+
+        @Test
+        @DisplayName("value() retorna el string original")
+        void valueReturnsString() {
+            assertEquals("AUTORIZADO", AuthorizationStatus.AUTORIZADO.value());
+            assertEquals("NO AUTORIZADO", AuthorizationStatus.NO_AUTORIZADO.value());
+        }
+    }
+
+    // ── SriAuthorizationResponse tests ──
+
+    @Nested
+    @DisplayName("SriAuthorizationResponse")
+    class SriAuthorizationResponseTest {
+
+        @Test
+        @DisplayName("respuesta AUTORIZADO con datos completos")
+        void authorizedWithFullData() {
+            var response = new SriAuthorizationResponse(
+                    AuthorizationStatus.AUTORIZADO,
+                    "0504202601179001691900110010020000000011234567813",
+                    "05/04/2026 10:30:45",
+                    "0504202601179001691900110010020000000011234567813",
+                    "<factura/>",
+                    null);
+            assertTrue(response.isAuthorized());
+            assertFalse(response.hasBusinessErrors());
+            assertTrue(response.messages().isEmpty());
+        }
+
+        @Test
+        @DisplayName("respuesta NO AUTORIZADO con error de negocio")
+        void notAuthorizedWithBusinessError() {
+            var msg = new SriMessage("35", "DOCUMENTO PREVIAMENTE RECIBIDO", null, "ERROR");
+            var response = new SriAuthorizationResponse(
+                    AuthorizationStatus.NO_AUTORIZADO,
+                    null, null,
+                    "0504202601179001691900110010020000000011234567813",
+                    "<factura/>",
+                    java.util.List.of(msg));
+            assertFalse(response.isAuthorized());
+            assertTrue(response.hasBusinessErrors());
+            assertEquals(1, response.messages().size());
+        }
+
+        @Test
+        @DisplayName("respuesta NO AUTORIZADO sin número de autorización")
+        void notAuthorizedNullAuthNumber() {
+            var response = new SriAuthorizationResponse(
+                    AuthorizationStatus.NO_AUTORIZADO,
+                    null, null,
+                    "0504202601179001691900110010020000000011234567813",
+                    null, null);
+            assertNull(response.authorizationNumber());
+            assertNull(response.authorizationDate());
+            assertNull(response.authorizedXml());
+        }
+
+        @Test
+        @DisplayName("messages es lista inmutable")
+        void messagesAreImmutable() {
+            var msg = new SriMessage("10", "Test", null, "ERROR");
+            var response = new SriAuthorizationResponse(
+                    AuthorizationStatus.AUTORIZADO,
+                    "123", "05/04/2026", "key", "<xml/>",
+                    java.util.List.of(msg));
+            assertThrows(UnsupportedOperationException.class,
+                    () -> response.messages().add(new SriMessage("20", "X", null, "ERROR")));
+        }
+
+        @Test
+        @DisplayName("respuesta AUTORIZADO con advertencia no tiene errores de negocio")
+        void authorizedWithWarningNoBusinessErrors() {
+            var msg = new SriMessage("60", "Advertencia", null, "ADVERTENCIA");
+            var response = new SriAuthorizationResponse(
+                    AuthorizationStatus.AUTORIZADO,
+                    "123", "05/04/2026", "key", "<xml/>",
+                    java.util.List.of(msg));
+            assertTrue(response.isAuthorized());
+            assertFalse(response.hasBusinessErrors());
         }
     }
 }

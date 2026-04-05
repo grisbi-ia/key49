@@ -1,11 +1,11 @@
 package auracore.key49.sri.config;
 
-import auracore.key49.core.model.enums.SriEnvironment;
-
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import auracore.key49.core.model.enums.SriEnvironment;
 
 /**
  * Tests unitarios para SriEndpoints.
