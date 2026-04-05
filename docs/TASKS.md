@@ -54,7 +54,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 2: Generación XML y Firma (Semana 3-4)
 
-- [ ] **T-006** Implementar generador de clave de acceso (key49-xml)
+- [x] **T-006** Implementar generador de clave de acceso (key49-xml) ✓
   - Algoritmo módulo 11 para dígito verificador
   - Estructura completa de 49 dígitos
   - El secuencial (`sequence_number`) lo proporciona el cliente en su request
