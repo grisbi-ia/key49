@@ -107,7 +107,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Extraer XML autorizado y número de autorización
   - Test: consultar autorización de factura enviada en T-011
 
-- [ ] **T-013** Implementar pipeline de procesamiento en colas (key49-queue)
+- [x] **T-013** Implementar pipeline de procesamiento en colas (key49-queue)
   - Consumer `SignConsumer`: recibe doc CREATED → genera XML + clave acceso → firma → publica a doc.send
   - Consumer `SendConsumer`: envía al SRI → actualiza estado → publica a doc.authorize o doc.retry
   - Consumer `AuthorizeConsumer`: polling de autorización → publica a doc.notify o doc.retry

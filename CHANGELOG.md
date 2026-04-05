@@ -51,6 +51,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Modelos: `AuthorizationStatus`, `SriAuthorizationResponse`
   - Validación de longitud de clave de acceso en frontera
   - 40 tests unitarios (total 80 tests SRI)
+- Pipeline de procesamiento en colas (T-013)
+  - `SignConsumer`: genera XML + clave de acceso + firma XAdES-BES (CREATED → SIGNED)
+  - `SendConsumer`: envío SOAP Recepción SRI (SIGNED → SENT → RECEIVED | REJECTED | RETRY)
+  - `AuthorizeConsumer`: consulta SOAP Autorización SRI (RECEIVED → AUTHORIZED | REJECTED | RETRY)
+  - `NotifyConsumer`: stub transición (AUTHORIZED → NOTIFIED), pendiente T-015/T-016/T-017
+  - `DlqConsumer`: handler terminal Dead Letter Queue (→ FAILED)
+  - Outbox pattern: `OutboxEvent` entity, `OutboxRepository`, `OutboxPoller` (500ms), `OutboxCleanup` (cron 02:00 ECT), `OutboxEventRouter`
+  - `InvoiceDataMapper`: mapeo Document + Tenant + requestPayload JSON → InvoiceData
+  - `DocumentEvent.fromOutbox()` factory method
+  - `TenantRepository.findAllActive()` para iteración multi-tenant del outbox poller
+  - Máquina de estados enforced con `canTransitionTo()` en cada consumer
+  - 38 tests nuevos en key49-queue (508 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 
