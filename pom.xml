@@ -49,6 +49,10 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.version>3.34.2</quarkus.platform.version>
 
+        <!-- Library versions -->
+        <xmlsec.version>4.0.4</xmlsec.version>
+        <bouncycastle.version>1.80</bouncycastle.version>
+
         <!-- Plugin versions -->
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
         <surefire-plugin.version>3.5.2</surefire-plugin.version>
@@ -111,6 +115,25 @@
                 <groupId>auracore.key49</groupId>
                 <artifactId>key49-admin</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <!-- Apache Santuario (XML Security) -->
+            <dependency>
+                <groupId>org.apache.santuario</groupId>
+                <artifactId>xmlsec</artifactId>
+                <version>${xmlsec.version}</version>
+            </dependency>
+
+            <!-- BouncyCastle -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

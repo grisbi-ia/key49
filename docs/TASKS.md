@@ -69,7 +69,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Incluir los XSD del SRI en resources
   - Test: generar XML y validar contra XSD
 
-- [ ] **T-008** Implementar validador XSD (key49-xml)
+- [x] **T-008** Implementar validador XSD (key49-xml) ✓
   - Validación de XML generado contra esquema XSD correspondiente
   - Captura y mapeo de errores de validación a mensajes legibles
   - Carga dinámica de XSD por tipo y versión de documento
