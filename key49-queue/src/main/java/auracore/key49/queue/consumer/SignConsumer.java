@@ -1,11 +1,12 @@
 package auracore.key49.queue.consumer;
 
+import org.eclipse.microprofile.reactive.messaging.Incoming;
+import org.jboss.logging.Logger;
+
 import auracore.key49.queue.event.DocumentEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.reactive.messaging.Incoming;
-import org.jboss.logging.Logger;
 
 /**
  * Consumidor que firma documentos: genera XML, clave de acceso y firma XAdES-BES.

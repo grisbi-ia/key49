@@ -1,10 +1,10 @@
 package auracore.key49.queue.event;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.Test;
 
 class DocumentEventTest {
 

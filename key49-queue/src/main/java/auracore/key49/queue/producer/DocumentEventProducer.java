@@ -1,12 +1,13 @@
 package auracore.key49.queue.producer;
 
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.jboss.logging.Logger;
+
 import auracore.key49.queue.event.DocumentEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.reactive.messaging.MutinyEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.reactive.messaging.Channel;
-import org.jboss.logging.Logger;
 
 /**
  * Productor de eventos de documentos hacia RabbitMQ.
