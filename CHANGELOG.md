@@ -5,6 +5,37 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [No publicado]
+
+### Agregado
+
+- Generador de clave de acceso de 49 dígitos (T-006)
+  - Algoritmo módulo 11 para dígito verificador
+  - Validación de `issue_date` == fecha actual (zona Ecuador)
+  - Validación de formatos: establishment (3 díg), issue_point (3 díg), sequence_number (9 díg)
+  - 62 tests unitarios
+- XML Builder de Factura conforme a XSD v2.1.0 (T-007)
+  - Mapeo DTO API → estructura XML SRI (infoTributaria, infoFactura, detalles, pagos)
+  - XSDs del SRI incluidos en resources
+  - 38 tests unitarios
+- Validador XSD dinámico por tipo de documento (T-008)
+  - Carga dinámica de XSD por `DocumentType`
+  - Captura y mapeo de errores a mensajes legibles
+  - Cache concurrente de schemas compilados
+  - 27 tests unitarios
+- Firma digital XAdES-BES para comprobantes electrónicos (T-009)
+  - Firma enveloped XML-DSig con Apache Santuario 4.0.4
+  - RSA-SHA1, C14N inclusive, esquema XAdES-BES 1.3.2
+  - Carga de certificado .p12 con BouncyCastle 1.80
+  - Certificado de pruebas auto-generado
+  - 25 tests unitarios
+- Cifrado/descifrado AES-256-GCM de certificados (T-010)
+  - `CertificateEncryptor`: encrypt/decrypt de bytes y passwords
+  - IV aleatorio de 12 bytes por operación, tag de autenticación 128 bits
+  - Utilidades: `generateMasterKey`, `decodeMasterKey` (Base64 desde env var)
+  - Test integración round-trip: cifrar → descifrar → firmar
+  - 28 tests unitarios
+
 ## [0.3.0] - 2026-04-05
 
 ### Agregado

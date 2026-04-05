@@ -75,7 +75,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Carga dinámica de XSD por tipo y versión de documento
   - Test: XML válido pasa, XML con errores falla con mensaje claro
 
-- [ ] **T-009** Implementar firma XAdES-BES (key49-signer)
+- [x] **T-009** Implementar firma XAdES-BES (key49-signer) ✓
   - Carga de certificado .p12 con contraseña
   - Firma enveloped con Apache Santuario
   - Configuración: XAdES-BES, esquema XAdES 1.3.2, UTF-8
