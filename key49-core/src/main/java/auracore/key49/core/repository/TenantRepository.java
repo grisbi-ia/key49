@@ -1,11 +1,11 @@
 package auracore.key49.core.repository;
 
+import java.util.UUID;
+
 import auracore.key49.core.model.Tenant;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-
-import java.util.UUID;
 
 @ApplicationScoped
 public class TenantRepository implements PanacheRepositoryBase<Tenant, UUID> {

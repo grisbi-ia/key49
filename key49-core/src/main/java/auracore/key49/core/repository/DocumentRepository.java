@@ -1,13 +1,13 @@
 package auracore.key49.core.repository;
 
+import java.util.List;
+import java.util.UUID;
+
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.enums.DocumentStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-
-import java.util.List;
-import java.util.UUID;
 
 @ApplicationScoped
 public class DocumentRepository implements PanacheRepositoryBase<Document, UUID> {

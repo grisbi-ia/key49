@@ -1,15 +1,16 @@
 package auracore.key49.api.model;
 
+import java.time.Instant;
+
+import org.hibernate.reactive.mutiny.Mutiny;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.Test;
+
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import org.hibernate.reactive.mutiny.Mutiny;
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
 class TenantCrudTest {
