@@ -43,6 +43,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `SriEndpoints`: URLs por ambiente (TEST/PRODUCTION)
   - HttpClient nativo con connect timeout 3s, read timeout 5s
   - 40 tests unitarios
+- Cliente SOAP de Autorización del SRI (T-012)
+  - `SriAuthorizationClient`: consulta por clave de acceso (49 dígitos) a `autorizacionComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriAuthorizationResponseParser`: parser SOAP (AUTORIZADO/NO AUTORIZADO)
+  - Extracción de XML autorizado, número y fecha de autorización
+  - Modelos: `AuthorizationStatus`, `SriAuthorizationResponse`
+  - Validación de longitud de clave de acceso en frontera
+  - 40 tests unitarios (total 80 tests SRI)
 
 ## [0.3.0] - 2026-04-05
 

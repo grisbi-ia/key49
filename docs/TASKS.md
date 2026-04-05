@@ -100,7 +100,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Circuit breaker con MicroProfile Fault Tolerance
   - Test: enviar factura firmada al ambiente de pruebas del SRI
 
-- [ ] **T-012** Implementar cliente SOAP de Autorización (key49-sri)
+- [x] **T-012** Implementar cliente SOAP de Autorización (key49-sri) ✓
   - Consumir WSDL AutorizacionComprobantesOffline
   - Consultar por clave de acceso
   - Parsear respuesta: AUTORIZADO / NO AUTORIZADO
