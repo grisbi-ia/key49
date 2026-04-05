@@ -23,6 +23,10 @@ public record DocumentEvent(
         return new DocumentEvent(documentId, tenantSchemaName, eventType, retryCount, Instant.now());
     }
 
+    public static DocumentEvent fromOutbox(UUID aggregateId, String tenantSchemaName, String eventType, String payload) {
+        return new DocumentEvent(aggregateId, tenantSchemaName, eventType, 0, Instant.now());
+    }
+
     public DocumentEvent withRetryCount(int retryCount) {
         return new DocumentEvent(documentId, tenantSchemaName, eventType, retryCount, Instant.now());
     }

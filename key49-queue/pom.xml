@@ -20,14 +20,35 @@
             <artifactId>key49-core</artifactId>
         </dependency>
         <dependency>
+            <groupId>auracore.key49</groupId>
+            <artifactId>key49-xml</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>auracore.key49</groupId>
+            <artifactId>key49-signer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>auracore.key49</groupId>
+            <artifactId>key49-sri</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-messaging-rabbitmq</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
         </dependency>
 
         <!-- Test -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
