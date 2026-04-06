@@ -5,6 +5,112 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [No publicado]
+
+### Agregado
+
+- Generador de clave de acceso de 49 dígitos (T-006)
+  - Algoritmo módulo 11 para dígito verificador
+  - Validación de `issue_date` == fecha actual (zona Ecuador)
+  - Validación de formatos: establishment (3 díg), issue_point (3 díg), sequence_number (9 díg)
+  - 62 tests unitarios
+- XML Builder de Factura conforme a XSD v2.1.0 (T-007)
+  - Mapeo DTO API → estructura XML SRI (infoTributaria, infoFactura, detalles, pagos)
+  - XSDs del SRI incluidos en resources
+  - 38 tests unitarios
+- Validador XSD dinámico por tipo de documento (T-008)
+  - Carga dinámica de XSD por `DocumentType`
+  - Captura y mapeo de errores a mensajes legibles
+  - Cache concurrente de schemas compilados
+  - 27 tests unitarios
+- Firma digital XAdES-BES para comprobantes electrónicos (T-009)
+  - Firma enveloped XML-DSig con Apache Santuario 4.0.4
+  - RSA-SHA1, C14N inclusive, esquema XAdES-BES 1.3.2
+  - Carga de certificado .p12 con BouncyCastle 1.80
+  - Certificado de pruebas auto-generado
+  - 25 tests unitarios
+- Cifrado/descifrado AES-256-GCM de certificados (T-010)
+  - `CertificateEncryptor`: encrypt/decrypt de bytes y passwords
+  - IV aleatorio de 12 bytes por operación, tag de autenticación 128 bits
+  - Utilidades: `generateMasterKey`, `decodeMasterKey` (Base64 desde env var)
+  - Test integración round-trip: cifrar → descifrar → firmar
+  - 28 tests unitarios
+- Cliente SOAP de Recepción del SRI (T-011)
+  - `SriReceptionClient`: envío de XML firmado (Base64) a `validarComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriReceptionResponseParser`: parser SOAP (RECIBIDA/DEVUELTA)
+  - Modelos: `ReceptionStatus`, `SriMessage`, `SriReceptionResponse`
+  - `SriEndpoints`: URLs por ambiente (TEST/PRODUCTION)
+  - HttpClient nativo con connect timeout 3s, read timeout 5s
+  - 40 tests unitarios
+- Cliente SOAP de Autorización del SRI (T-012)
+  - `SriAuthorizationClient`: consulta por clave de acceso (49 dígitos) a `autorizacionComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriAuthorizationResponseParser`: parser SOAP (AUTORIZADO/NO AUTORIZADO)
+  - Extracción de XML autorizado, número y fecha de autorización
+  - Modelos: `AuthorizationStatus`, `SriAuthorizationResponse`
+  - Validación de longitud de clave de acceso en frontera
+  - 40 tests unitarios (total 80 tests SRI)
+- Pipeline de procesamiento en colas (T-013)
+  - `SignConsumer`: genera XML + clave de acceso + firma XAdES-BES (CREATED → SIGNED)
+  - `SendConsumer`: envío SOAP Recepción SRI (SIGNED → SENT → RECEIVED | REJECTED | RETRY)
+  - `AuthorizeConsumer`: consulta SOAP Autorización SRI (RECEIVED → AUTHORIZED | REJECTED | RETRY)
+  - `NotifyConsumer`: stub transición (AUTHORIZED → NOTIFIED), pendiente T-015/T-016/T-017
+  - `DlqConsumer`: handler terminal Dead Letter Queue (→ FAILED)
+  - Outbox pattern: `OutboxEvent` entity, `OutboxRepository`, `OutboxPoller` (500ms), `OutboxCleanup` (cron 02:00 ECT), `OutboxEventRouter`
+  - `InvoiceDataMapper`: mapeo Document + Tenant + requestPayload JSON → InvoiceData
+  - `DocumentEvent.fromOutbox()` factory method
+  - `TenantRepository.findAllActive()` para iteración multi-tenant del outbox poller
+  - Máquina de estados enforced con `canTransitionTo()` en cada consumer
+  - 38 tests nuevos en key49-queue (508 total proyecto, 0 failures)
+- Lógica de reintentos con backoff exponencial (T-014)
+  - `RetryDelayCalculator`: delays ×3 (5s, 15s, 45s, 135s, 405s)
+  - `RetryPoller`: job @Scheduled(5s) que re-encola docs RETRY con `nextRetryAt` vencido
+  - Determinación de tipo de reintento por `sriSubmissionDate` (doc.send o doc.authorize)
+  - `SendConsumer`/`AuthorizeConsumer`: verificación de agotamiento de reintentos → FAILED
+  - Cálculo de `nextRetryAt` con backoff exponencial en cada consumer
+  - Transición RETRY → AUTHORIZED agregada al state machine
+  - Configuración `key49.retry.poll-interval` en application.properties
+  - 22 tests nuevos (531 total proyecto, 0 failures)
+- Generador de RIDE (PDF) para factura electrónica (T-015)
+  - `InvoiceRideGenerator`: generación programática con OpenPDF 2.0.3
+  - Secciones: encabezado emisor, datos receptor, tabla de ítems, impuestos, totales, pagos, info adicional
+  - `QrCodeGenerator`: código QR con clave de acceso (ZXing 3.5.3)
+  - Logo del emisor opcional (PNG/JPEG)
+  - Marca de agua "SIN AUTORIZACIÓN" para documentos no autorizados
+  - `RideData`: record con datos de presentación para el RIDE
+  - `RideGenerationException`: excepción específica del módulo
+  - 31 tests nuevos (562 total proyecto, 0 failures)
+- Almacenamiento de artefactos en MinIO/S3 (T-016)
+  - `ObjectStorageService`: almacenamiento y descarga con MinIO Java SDK 8.5.17
+  - `StoragePath`: construcción de rutas `{tenant}/{year}/{month}/{docType}/{accessKey}/{filename}`
+  - `DocumentArtifact`: enum con 4 tipos (unsigned.xml, signed.xml, authorized.xml, ride.pdf)
+  - `StorageException`: excepción específica del módulo
+  - Configuración: endpoint, access-key, secret-key, bucket, region con env vars
+  - 31 tests nuevos (593 total proyecto, 0 failures)
+- Servicio de email para entrega de comprobantes (T-017)
+  - `EmailService`: envío reactivo con Quarkus Mailer + Qute template
+  - `EmailData`: record con datos de emisor, receptor, adjuntos y parseEmails()
+  - Template HTML responsive para email de entrega (document-delivery.html)
+  - Soporte múltiples destinatarios separados por `;` (primer email TO, resto CC)
+  - Adjuntos opcionales: RIDE (PDF) y XML autorizado
+  - Configuración SMTP con env vars, flag `key49.email.enabled` para desactivar
+  - 23 tests nuevos (616 total proyecto, 0 failures)
+- Endpoints REST de Factura (T-018)
+  - POST /v1/invoices — crear factura con validación completa y cola de procesamiento
+  - GET /v1/invoices/:id — consultar factura con detalle completo
+  - GET /v1/invoices — listar con filtros (status, fechas, recipient_id, access_key, document_type), paginación y ordenamiento
+  - GET /v1/invoices/:id/xml — descargar XML desde MinIO
+  - GET /v1/invoices/:id/ride — descargar RIDE (PDF) desde MinIO
+  - POST /v1/invoices/:id/resend-email — reenviar email vía outbox
+  - POST /v1/invoices/:id/void — anulación local (valida estado, plazo día 7, consumidor final)
+  - DTOs: CreateInvoiceRequest, InvoiceResponse (summary/detail), ApiResponse, PagedResponse, VoidRequest
+  - BusinessException con detalle de campos y BusinessExceptionMapper
+  - InvoiceService: validación de frontera, cálculo de totales, idempotencia, unicidad
+  - Jackson configurado: SNAKE_CASE, sin timestamps para fechas, CORS habilitado
+  - Jandex indexing para key49-storage (descubrimiento de beans CDI)
+  - 44 tests nuevos (660 total proyecto, 0 failures)
+
 ## [0.3.0] - 2026-04-05
 
 ### Agregado

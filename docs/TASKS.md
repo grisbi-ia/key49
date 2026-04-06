@@ -54,7 +54,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 2: Generación XML y Firma (Semana 3-4)
 
-- [ ] **T-006** Implementar generador de clave de acceso (key49-xml)
+- [x] **T-006** Implementar generador de clave de acceso (key49-xml) ✓
   - Algoritmo módulo 11 para dígito verificador
   - Estructura completa de 49 dígitos
   - El secuencial (`sequence_number`) lo proporciona el cliente en su request
@@ -62,20 +62,20 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Validar formato: `establishment` 3 díg., `issue_point` 3 díg., `sequence_number` 9 díg.
   - Test: generar 1000 claves y verificar unicidad y checksum
 
-- [ ] **T-007** Implementar XML Builder de Factura (key49-xml)
+- [x] **T-007** Implementar XML Builder de Factura (key49-xml) ✓
   - Builder que genera XML conforme a XSD factura v2.1.0
   - Mapeo de DTO de API → estructura XML del SRI
   - Nodos: infoTributaria, infoFactura, detalles, infoAdicional, pagos
   - Incluir los XSD del SRI en resources
   - Test: generar XML y validar contra XSD
 
-- [ ] **T-008** Implementar validador XSD (key49-xml)
+- [x] **T-008** Implementar validador XSD (key49-xml) ✓
   - Validación de XML generado contra esquema XSD correspondiente
   - Captura y mapeo de errores de validación a mensajes legibles
   - Carga dinámica de XSD por tipo y versión de documento
   - Test: XML válido pasa, XML con errores falla con mensaje claro
 
-- [ ] **T-009** Implementar firma XAdES-BES (key49-signer)
+- [x] **T-009** Implementar firma XAdES-BES (key49-signer) ✓
   - Carga de certificado .p12 con contraseña
   - Firma enveloped con Apache Santuario
   - Configuración: XAdES-BES, esquema XAdES 1.3.2, UTF-8
@@ -83,7 +83,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Inserción de ds:Signature en el XML
   - Test: firmar XML con certificado de pruebas, verificar firma
 
-- [ ] **T-010** Implementar cifrado/descifrado de certificados (key49-signer)
+- [x] **T-010** Implementar cifrado/descifrado de certificados (key49-signer) ✓
   - CertificateEncryptor con AES-256-GCM
   - Cifrar .p12 y contraseña al almacenar
   - Descifrar al momento de firmar
@@ -92,7 +92,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 3: Integración SRI (Semana 5-6)
 
-- [ ] **T-011** Implementar cliente SOAP de Recepción (key49-sri)
+- [x] **T-011** Implementar cliente SOAP de Recepción (key49-sri) ✓
   - Consumir WSDL RecepcionComprobantesOffline
   - Enviar XML firmado codificado en base64
   - Parsear respuesta: RECIBIDA / DEVUELTA con mensajes
@@ -100,14 +100,14 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Circuit breaker con MicroProfile Fault Tolerance
   - Test: enviar factura firmada al ambiente de pruebas del SRI
 
-- [ ] **T-012** Implementar cliente SOAP de Autorización (key49-sri)
+- [x] **T-012** Implementar cliente SOAP de Autorización (key49-sri) ✓
   - Consumir WSDL AutorizacionComprobantesOffline
   - Consultar por clave de acceso
   - Parsear respuesta: AUTORIZADO / NO AUTORIZADO
   - Extraer XML autorizado y número de autorización
   - Test: consultar autorización de factura enviada en T-011
 
-- [ ] **T-013** Implementar pipeline de procesamiento en colas (key49-queue)
+- [x] **T-013** Implementar pipeline de procesamiento en colas (key49-queue)
   - Consumer `SignConsumer`: recibe doc CREATED → genera XML + clave acceso → firma → publica a doc.send
   - Consumer `SendConsumer`: envía al SRI → actualiza estado → publica a doc.authorize o doc.retry
   - Consumer `AuthorizeConsumer`: polling de autorización → publica a doc.notify o doc.retry
@@ -119,7 +119,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Validar transiciones de estado con `DocumentStatus.canTransitionTo()` en cada consumer
   - Test: flujo completo end-to-end con SRI de pruebas
 
-- [ ] **T-014** Implementar lógica de reintentos (key49-queue)
+- [x] **T-014** Implementar lógica de reintentos (key49-queue)
   - Clasificación de errores: retriable vs definitivo
   - Backoff exponencial: 5s, 15s, 45s, 135s, 405s
   - Uso de TTL en mensajes de RabbitMQ para delays
@@ -129,7 +129,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 4: RIDE, Email y API REST (Semana 7-8)
 
-- [ ] **T-015** Implementar generador de RIDE (key49-ride)
+- [x] **T-015** Implementar generador de RIDE (key49-ride)
   - Generar PDF de factura con formato SRI
   - Incluir: datos emisor, receptor, detalle, totales, impuestos, pagos
   - Código QR con clave de acceso
@@ -137,20 +137,20 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Marca de agua si no está autorizado
   - Test: generar RIDE y verificar contenido visualmente
 
-- [ ] **T-016** Implementar almacenamiento en MinIO (key49-storage)
+- [x] **T-016** Implementar almacenamiento en MinIO (key49-storage) ✓
   - Guardar XML sin firmar, XML firmado, XML autorizado, RIDE
   - Estructura de paths: `{tenant_id}/{year}/{month}/{doc_type}/{access_key}/`
   - Política de retención: 7 años (configurar lifecycle en MinIO)
   - Test: upload y download de archivos
 
-- [ ] **T-017** Implementar servicio de email (key49-notify)
+- [x] **T-017** Implementar servicio de email (key49-notify) ✓
   - Template Qute para email de entrega de factura
   - Adjuntar RIDE (PDF) y XML autorizado
   - Configurar SMTP
   - Manejo de múltiples destinatarios (receptor_email con ;)
   - Test: enviar email con adjuntos
 
-- [ ] **T-018** Implementar endpoints REST de Factura (key49-api)
+- [x] **T-018** Implementar endpoints REST de Factura (key49-api)
   - POST /invoices — crear factura
   - GET /invoices/:id — consultar factura
   - GET /invoices — listar con filtros (status, date, recipient_id, access_key, document_type) y paginación

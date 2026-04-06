@@ -27,6 +27,7 @@ class DocumentStatusTest {
             "NOTIFIED, VOIDED",
             "RETRY, SIGNED",
             "RETRY, SENT",
+            "RETRY, AUTHORIZED",
             "RETRY, FAILED"
     })
     void shouldAllowValidTransition(DocumentStatus from, DocumentStatus to) {

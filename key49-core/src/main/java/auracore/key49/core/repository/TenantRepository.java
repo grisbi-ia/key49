@@ -1,5 +1,6 @@
 package auracore.key49.core.repository;
 
+import java.util.List;
 import java.util.UUID;
 
 import auracore.key49.core.model.Tenant;
@@ -16,5 +17,9 @@ public class TenantRepository implements PanacheRepositoryBase<Tenant, UUID> {
 
     public Uni<Tenant> findBySchemaName(String schemaName) {
         return find("schemaName", schemaName).firstResult();
+    }
+
+    public Uni<List<Tenant>> findAllActive() {
+        return find("status", "active").list();
     }
 }
