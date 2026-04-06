@@ -200,7 +200,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Generación, listado, revocación
   - Múltiples API keys por tenant
 
-- [ ] **T-025** Dashboard de métricas básico
+- [x] **T-025** Dashboard de métricas básico
   - GET /metrics/summary
   - Integración con Micrometer + Prometheus
   - Métricas custom: documentos procesados, tasa de error, latencia SRI

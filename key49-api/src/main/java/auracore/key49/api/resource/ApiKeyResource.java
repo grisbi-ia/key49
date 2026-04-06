@@ -24,12 +24,12 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * Endpoints de gestión de API keys del tenant autenticado.
- * POST /v1/tenant/api-keys — crear nueva API key
- * GET  /v1/tenant/api-keys — listar API keys del tenant
- * GET  /v1/tenant/api-keys/:id — consultar API key
- * DELETE /v1/tenant/api-keys/:id — revocar API key
+ * Endpoints de gestión de API keys del tenant autenticado. POST
+ * /v1/tenant/api-keys — crear nueva API key GET /v1/tenant/api-keys — listar
+ * API keys del tenant GET /v1/tenant/api-keys/:id — consultar API key DELETE
+ * /v1/tenant/api-keys/:id — revocar API key
  */
+
 @Path("/v1/tenant/api-keys")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

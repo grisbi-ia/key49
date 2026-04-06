@@ -1,11 +1,7 @@
 package auracore.key49.api.resource;
 
-import java.time.Instant;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
@@ -19,9 +15,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import auracore.key49.api.dto.UpdateProfileRequest;
 
 /**
- * Tests unitarios para UpdateProfileRequest y validaciones del TenantProfileResource.
+ * Tests unitarios para UpdateProfileRequest y validaciones del
+ * TenantProfileResource.
  */
-
 class TenantProfileResourceTest {
 
     private final ObjectMapper mapper = new ObjectMapper()
@@ -29,7 +25,6 @@ class TenantProfileResourceTest {
             .registerModule(new JavaTimeModule());
 
     // ── UpdateProfileRequest ──
-
     @Nested
     @DisplayName("UpdateProfileRequest")
     class UpdateProfile {
@@ -146,7 +141,6 @@ class TenantProfileResourceTest {
     }
 
     // ── UpdateProfileRequest → UpdateTenantData mapping ──
-
     @Nested
     @DisplayName("Mapping a UpdateTenantData")
     class MappingToService {

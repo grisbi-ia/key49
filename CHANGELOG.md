@@ -163,6 +163,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `ApiKeyExceptionMapper`: mapeo de errores a respuestas JSON con code/message
   - `@JsonInclude(NON_NULL)` para omitir rawKey en respuestas de listado/consulta
   - 34 tests nuevos (818 total proyecto, 0 failures)
+- Dashboard de métricas para tenant (T-025)
+  - `MetricsService`: consulta de documentos agrupados por estado con HQL en esquema tenant
+  - `GET /v1/metrics/summary`: resumen de hoy, mes actual, certificado y última factura
+  - `MetricsSummaryResponse`: DTO con `PeriodSnapshot` (total, authorized, rejected, pending, failed)
+  - Clasificación de estados: AUTHORIZED+NOTIFIED+VOIDED → authorized; REJECTED → rejected; FAILED → failed; resto → pending
+  - Días restantes de certificado calculados desde `certificate_expiration` del tenant
+  - `lastInvoiceAt`: fecha de última autorización (`MAX(authorization_date)`)
+  - Queries secuenciales para compatibilidad con Hibernate Reactive (una sesión, sin paralelismo)
+  - 20 tests nuevos (838 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

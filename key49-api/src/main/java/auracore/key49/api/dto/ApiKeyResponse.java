@@ -8,8 +8,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import auracore.key49.core.model.ApiKey;
 
 /**
- * Respuesta con datos de una API key.
- * El campo rawKey solo se incluye al momento de la creación.
+ * Respuesta con datos de una API key. El campo rawKey solo se incluye al
+ * momento de la creación.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ApiKeyResponse(

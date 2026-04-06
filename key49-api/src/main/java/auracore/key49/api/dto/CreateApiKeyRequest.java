@@ -12,4 +12,6 @@ public record CreateApiKeyRequest(
         String name,
         String environment,
         String permissions,
-        Instant expiresAt) {}
+        Instant expiresAt) {
+
+}

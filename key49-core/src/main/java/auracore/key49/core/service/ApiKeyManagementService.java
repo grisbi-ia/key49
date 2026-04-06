@@ -15,8 +15,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Servicio de gestión de API keys para tenants.
- * Generación, listado, consulta y revocación.
+ * Servicio de gestión de API keys para tenants. Generación, listado, consulta y
+ * revocación.
  */
 @ApplicationScoped
 public class ApiKeyManagementService {
@@ -45,8 +45,8 @@ public class ApiKeyManagementService {
         apiKey.status = "active";
         apiKey.createdAt = Instant.now();
 
-        return sessionFactory.withTransaction(session ->
-                apiKeyRepository.persist(apiKey)
+        return sessionFactory.withTransaction(session
+                -> apiKeyRepository.persist(apiKey)
                         .map(persisted -> {
                             Log.infof("API key created | tenantId=%s name=%s prefix=%s",
                                     tenantId, data.name(), generated.keyPrefix());
@@ -61,9 +61,9 @@ public class ApiKeyManagementService {
 
     public Uni<ApiKey> findById(UUID tenantId, UUID apiKeyId) {
         return apiKeyRepository.findById(apiKeyId)
-                .onItem().ifNull().failWith(() ->
-                        new ApiKeyException("API_KEY_NOT_FOUND",
-                                "API key not found: " + apiKeyId, 404))
+                .onItem().ifNull().failWith(()
+                        -> new ApiKeyException("API_KEY_NOT_FOUND",
+                        "API key not found: " + apiKeyId, 404))
                 .map(key -> {
                     if (!key.tenantId.equals(tenantId)) {
                         throw new ApiKeyException("API_KEY_NOT_FOUND",
@@ -74,8 +74,8 @@ public class ApiKeyManagementService {
     }
 
     public Uni<ApiKey> revoke(UUID tenantId, UUID apiKeyId) {
-        return sessionFactory.withTransaction(session ->
-                findById(tenantId, apiKeyId)
+        return sessionFactory.withTransaction(session
+                -> findById(tenantId, apiKeyId)
                         .map(key -> {
                             if ("revoked".equals(key.status)) {
                                 throw new ApiKeyException("ALREADY_REVOKED",
@@ -106,11 +106,16 @@ public class ApiKeyManagementService {
     }
 
     public record CreateApiKeyData(String name, String environment,
-                                   String permissions, Instant expiresAt) {}
+            String permissions, Instant expiresAt) {
 
-    public record CreatedApiKey(ApiKey apiKey, String rawKey) {}
+    }
+
+    public record CreatedApiKey(ApiKey apiKey, String rawKey) {
+
+    }
 
     public static class ApiKeyException extends RuntimeException {
+
         private final String code;
         private final int httpStatus;
 
@@ -120,7 +125,25 @@ public class ApiKeyManagementService {
             this.httpStatus = httpStatus;
         }
 
-        public String code() { return code; }
-        public int httpStatus() { return httpStatus; }
+        public String code() {
+            return code;
+        }
+
+        public int httpStatus() {
+            return httpStatus;
+        }
     }
 }
+
+
+        
+
+
+
+
+                                            
+        
+    
+    
+        
+    

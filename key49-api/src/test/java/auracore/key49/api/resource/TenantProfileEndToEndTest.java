@@ -24,9 +24,11 @@ import static org.hamcrest.Matchers.nullValue;
 /**
  * Test de integración para endpoints de perfil de tenant (/v1/tenant).
  *
- * <p>Crea un tenant con API key y ejercita GET/PUT /tenant/profile
- * y GET /tenant/certificate/status.</p>
+ * <p>
+ * Crea un tenant con API key y ejercita GET/PUT /tenant/profile y GET
+ * /tenant/certificate/status.</p>
  */
+
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

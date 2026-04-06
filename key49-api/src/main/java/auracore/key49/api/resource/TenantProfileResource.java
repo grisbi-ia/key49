@@ -31,10 +31,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * Endpoints de perfil del tenant autenticado.
- * A diferencia de TenantAdminResource, estos endpoints operan sobre el tenant
- * resuelto por el API key del request (TenantContext).
+ * Endpoints de perfil del tenant autenticado. A diferencia de
+ * TenantAdminResource, estos endpoints operan sobre el tenant resuelto por el
+ * API key del request (TenantContext).
  */
+
 @Path("/v1/tenant")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

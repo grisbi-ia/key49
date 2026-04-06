@@ -25,11 +25,14 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
 /**
- * Test de integración para endpoints de gestión de API keys (/v1/tenant/api-keys).
+ * Test de integración para endpoints de gestión de API keys
+ * (/v1/tenant/api-keys).
  *
- * <p>Crea un tenant con API key inicial (para autenticación) y ejercita
- * creación, listado, consulta y revocación de API keys adicionales.</p>
+ * <p>
+ * Crea un tenant con API key inicial (para autenticación) y ejercita creación,
+ * listado, consulta y revocación de API keys adicionales.</p>
  */
+
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
