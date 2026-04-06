@@ -1,12 +1,12 @@
 package auracore.key49.core.repository;
 
+import java.util.List;
+import java.util.UUID;
+
 import auracore.key49.core.model.WebhookDelivery;
 import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Repositorio para registros de entrega de webhooks.

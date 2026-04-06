@@ -6,7 +6,6 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.Document;
-import auracore.key49.core.model.WebhookDelivery;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
