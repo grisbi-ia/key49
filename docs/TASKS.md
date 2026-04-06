@@ -129,7 +129,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ### Sprint 4: RIDE, Email y API REST (Semana 7-8)
 
-- [ ] **T-015** Implementar generador de RIDE (key49-ride)
+- [x] **T-015** Implementar generador de RIDE (key49-ride)
   - Generar PDF de factura con formato SRI
   - Incluir: datos emisor, receptor, detalle, totales, impuestos, pagos
   - Código QR con clave de acceso

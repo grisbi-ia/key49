@@ -72,6 +72,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Transición RETRY → AUTHORIZED agregada al state machine
   - Configuración `key49.retry.poll-interval` en application.properties
   - 22 tests nuevos (531 total proyecto, 0 failures)
+- Generador de RIDE (PDF) para factura electrónica (T-015)
+  - `InvoiceRideGenerator`: generación programática con OpenPDF 2.0.3
+  - Secciones: encabezado emisor, datos receptor, tabla de ítems, impuestos, totales, pagos, info adicional
+  - `QrCodeGenerator`: código QR con clave de acceso (ZXing 3.5.3)
+  - Logo del emisor opcional (PNG/JPEG)
+  - Marca de agua "SIN AUTORIZACIÓN" para documentos no autorizados
+  - `RideData`: record con datos de presentación para el RIDE
+  - `RideGenerationException`: excepción específica del módulo
+  - 31 tests nuevos (562 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

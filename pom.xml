@@ -52,6 +52,8 @@
         <!-- Library versions -->
         <xmlsec.version>4.0.4</xmlsec.version>
         <bouncycastle.version>1.80</bouncycastle.version>
+        <openpdf.version>2.0.3</openpdf.version>
+        <zxing.version>3.5.3</zxing.version>
 
         <!-- Plugin versions -->
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
@@ -134,6 +136,25 @@
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcpkix-jdk18on</artifactId>
                 <version>${bouncycastle.version}</version>
+            </dependency>
+
+            <!-- OpenPDF (RIDE generation) -->
+            <dependency>
+                <groupId>com.github.librepdf</groupId>
+                <artifactId>openpdf</artifactId>
+                <version>${openpdf.version}</version>
+            </dependency>
+
+            <!-- ZXing (QR codes) -->
+            <dependency>
+                <groupId>com.google.zxing</groupId>
+                <artifactId>core</artifactId>
+                <version>${zxing.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.zxing</groupId>
+                <artifactId>javase</artifactId>
+                <version>${zxing.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
