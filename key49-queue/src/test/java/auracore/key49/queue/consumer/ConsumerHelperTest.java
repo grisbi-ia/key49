@@ -1,9 +1,8 @@
 package auracore.key49.queue.consumer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 import auracore.key49.core.model.enums.DocumentStatus;
