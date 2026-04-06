@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.hibernate.reactive.mutiny.Mutiny;
+
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.validation.SriValidator;
@@ -11,7 +13,6 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.hibernate.reactive.mutiny.Mutiny;
 
 /**
  * Servicio de administración de tenants: CRUD en esquema público.
@@ -26,12 +27,11 @@ public class TenantAdminService {
     Mutiny.SessionFactory sessionFactory;
 
     // ── Crear tenant ──
-
     public Uni<Tenant> create(CreateTenantData data) {
         validateCreateData(data);
 
-        return sessionFactory.withTransaction(session ->
-                tenantRepository.findByRuc(data.ruc())
+        return sessionFactory.withTransaction(session
+                -> tenantRepository.findByRuc(data.ruc())
                         .chain(existing -> {
                             if (existing != null) {
                                 return Uni.createFrom().failure(
@@ -70,16 +70,14 @@ public class TenantAdminService {
     }
 
     // ── Obtener tenant por ID ──
-
     public Uni<Tenant> findById(UUID id) {
         return tenantRepository.findById(id)
-                .onItem().ifNull().failWith(() ->
-                        new TenantException("TENANT_NOT_FOUND",
-                                "Tenant not found: " + id, 404));
+                .onItem().ifNull().failWith(()
+                        -> new TenantException("TENANT_NOT_FOUND",
+                        "Tenant not found: " + id, 404));
     }
 
     // ── Listar tenants con paginación ──
-
     public Uni<TenantListResult> listAll(int page, int perPage, Optional<String> statusFilter) {
         int offset = (page - 1) * perPage;
         String query = statusFilter.map(s -> "status = ?1").orElse("1=1");
@@ -98,30 +96,55 @@ public class TenantAdminService {
     }
 
     // ── Actualizar tenant ──
-
     public Uni<Tenant> update(UUID id, UpdateTenantData data) {
-        return sessionFactory.withTransaction(session ->
-                tenantRepository.findById(id)
-                        .onItem().ifNull().failWith(() ->
-                                new TenantException("TENANT_NOT_FOUND",
-                                        "Tenant not found: " + id, 404))
+        return sessionFactory.withTransaction(session
+                -> tenantRepository.findById(id)
+                        .onItem().ifNull().failWith(()
+                                -> new TenantException("TENANT_NOT_FOUND",
+                                "Tenant not found: " + id, 404))
                         .map(tenant -> {
-                            if (data.legalName() != null) tenant.legalName = data.legalName();
-                            if (data.tradeName() != null) tenant.tradeName = data.tradeName();
-                            if (data.mainAddress() != null) tenant.mainAddress = data.mainAddress();
-                            if (data.requiredAccounting() != null)
+                            if (data.legalName() != null) {
+                                tenant.legalName = data.legalName();
+                            }
+                            if (data.tradeName() != null) {
+                                tenant.tradeName = data.tradeName();
+                            }
+                            if (data.mainAddress() != null) {
+                                tenant.mainAddress = data.mainAddress();
+                            }
+                            if (data.requiredAccounting() != null) {
                                 tenant.requiredAccounting = data.requiredAccounting();
-                            if (data.specialTaxpayer() != null) tenant.specialTaxpayer = data.specialTaxpayer();
-                            if (data.microEnterpriseRegime() != null)
+                            }
+                            if (data.specialTaxpayer() != null) {
+                                tenant.specialTaxpayer = data.specialTaxpayer();
+                            }
+                            if (data.microEnterpriseRegime() != null) {
                                 tenant.microEnterpriseRegime = data.microEnterpriseRegime();
-                            if (data.withholdingAgent() != null) tenant.withholdingAgent = data.withholdingAgent();
-                            if (data.environment() != null) tenant.environment = data.environment();
-                            if (data.webhookUrl() != null) tenant.webhookUrl = data.webhookUrl();
-                            if (data.webhookSecret() != null) tenant.webhookSecret = data.webhookSecret();
-                            if (data.rateLimitRpm() != null) tenant.rateLimitRpm = data.rateLimitRpm();
-                            if (data.emailSenderName() != null) tenant.emailSenderName = data.emailSenderName();
-                            if (data.replyEmail() != null) tenant.replyEmail = data.replyEmail();
-                            if (data.status() != null) tenant.status = data.status();
+                            }
+                            if (data.withholdingAgent() != null) {
+                                tenant.withholdingAgent = data.withholdingAgent();
+                            }
+                            if (data.environment() != null) {
+                                tenant.environment = data.environment();
+                            }
+                            if (data.webhookUrl() != null) {
+                                tenant.webhookUrl = data.webhookUrl();
+                            }
+                            if (data.webhookSecret() != null) {
+                                tenant.webhookSecret = data.webhookSecret();
+                            }
+                            if (data.rateLimitRpm() != null) {
+                                tenant.rateLimitRpm = data.rateLimitRpm();
+                            }
+                            if (data.emailSenderName() != null) {
+                                tenant.emailSenderName = data.emailSenderName();
+                            }
+                            if (data.replyEmail() != null) {
+                                tenant.replyEmail = data.replyEmail();
+                            }
+                            if (data.status() != null) {
+                                tenant.status = data.status();
+                            }
                             tenant.updatedAt = Instant.now();
 
                             Log.infof("Updated tenant | id=%s ruc=%s", id, tenant.ruc);
@@ -131,14 +154,13 @@ public class TenantAdminService {
     }
 
     // ── Subir certificado ──
-
     public Uni<Tenant> uploadCertificate(UUID id, byte[] encryptedP12, byte[] encryptedPassword,
-                                         String subject, Instant expiration, String serial) {
-        return sessionFactory.withTransaction(session ->
-                tenantRepository.findById(id)
-                        .onItem().ifNull().failWith(() ->
-                                new TenantException("TENANT_NOT_FOUND",
-                                        "Tenant not found: " + id, 404))
+            String subject, Instant expiration, String serial) {
+        return sessionFactory.withTransaction(session
+                -> tenantRepository.findById(id)
+                        .onItem().ifNull().failWith(()
+                                -> new TenantException("TENANT_NOT_FOUND",
+                                "Tenant not found: " + id, 404))
                         .map(tenant -> {
                             tenant.certificateP12 = encryptedP12;
                             tenant.certificatePasswordEnc = encryptedPassword;
@@ -155,7 +177,6 @@ public class TenantAdminService {
     }
 
     // ── Validaciones ──
-
     private void validateCreateData(CreateTenantData data) {
         if (data.ruc() == null || !SriValidator.isValidRuc(data.ruc())) {
             throw new TenantException("VALIDATION_ERROR", "Invalid RUC: " + data.ruc(), 400);
@@ -181,7 +202,6 @@ public class TenantAdminService {
     }
 
     // ── Records ──
-
     public record CreateTenantData(
             String ruc,
             String legalName,
@@ -193,6 +213,7 @@ public class TenantAdminService {
             String withholdingAgent,
             String environment,
             String schemaName) {
+
     }
 
     public record UpdateTenantData(
@@ -210,15 +231,18 @@ public class TenantAdminService {
             String emailSenderName,
             String replyEmail,
             String status) {
+
     }
 
     public record TenantListResult(java.util.List<Tenant> items, long total) {
+
     }
 
     /**
      * Excepción de dominio para errores de gestión de tenants.
      */
     public static class TenantException extends RuntimeException {
+
         private final String code;
         private final int httpStatus;
 

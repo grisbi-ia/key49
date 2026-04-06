@@ -11,10 +11,12 @@ import java.time.Instant;
 import java.util.Collections;
 
 /**
- * Extrae metadata de un certificado PKCS#12 (.p12) para almacenar en la tabla tenants.
+ * Extrae metadata de un certificado PKCS#12 (.p12) para almacenar en la tabla
+ * tenants.
  *
- * <p>Permite verificar la validez del certificado y extraer: subject, serial, fecha de expiración
- * e issuer sin necesidad de realizar una firma.
+ * <p>
+ * Permite verificar la validez del certificado y extraer: subject, serial,
+ * fecha de expiración e issuer sin necesidad de realizar una firma.
  */
 public final class CertificateMetadataExtractor {
 
@@ -27,8 +29,9 @@ public final class CertificateMetadataExtractor {
      * @param p12Bytes contenido binario del archivo .p12
      * @param password contraseña del certificado
      * @return metadata extraída del certificado
-     * @throws SigningException si el archivo no es un PKCS#12 válido, la contraseña es incorrecta,
-     *                          o no se encuentra un certificado con clave privada
+     * @throws SigningException si el archivo no es un PKCS#12 válido, la
+     * contraseña es incorrecta, o no se encuentra un certificado con clave
+     * privada
      */
     public static CertificateMetadata extract(byte[] p12Bytes, char[] password) {
         if (p12Bytes == null || p12Bytes.length == 0) {
@@ -76,11 +79,11 @@ public final class CertificateMetadataExtractor {
     /**
      * Metadata extraída de un certificado .p12.
      *
-     * @param subject   nombre distinguido del sujeto (DN)
-     * @param serial    número de serie en hexadecimal
+     * @param subject nombre distinguido del sujeto (DN)
+     * @param serial número de serie en hexadecimal
      * @param expiresAt fecha de expiración del certificado
-     * @param issuer    nombre distinguido del emisor (DN)
-     * @param valid     {@code true} si el certificado no ha expirado
+     * @param issuer nombre distinguido del emisor (DN)
+     * @param valid {@code true} si el certificado no ha expirado
      */
     public record CertificateMetadata(
             String subject,

@@ -21,6 +21,7 @@ import auracore.key49.core.model.Tenant;
 /**
  * Tests unitarios para los DTOs de gestión de tenants.
  */
+
 class TenantDtoTest {
 
     private final ObjectMapper mapper = new ObjectMapper()

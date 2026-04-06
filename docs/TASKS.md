@@ -191,7 +191,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Verificación y extracción de metadata del certificado
   - Auto-detección de expiración
 
-- [ ] **T-022** Implementar endpoints de tenant profile
+- [x] **T-022** Implementar endpoints de tenant profile
   - GET/PUT /tenant/profile
   - POST /tenant/certificate
   - GET /tenant/certificate/status

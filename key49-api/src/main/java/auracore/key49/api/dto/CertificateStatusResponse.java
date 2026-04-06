@@ -15,4 +15,5 @@ public record CertificateStatusResponse(
         String issuer,
         boolean valid,
         long daysUntilExpiration) {
+
 }

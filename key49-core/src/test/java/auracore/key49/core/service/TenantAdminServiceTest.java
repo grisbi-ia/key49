@@ -13,9 +13,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests unitarios para validaciones de TenantAdminService.
- * Las operaciones de BD se prueban en integration tests.
+ * Tests unitarios para validaciones de TenantAdminService. Las operaciones de
+ * BD se prueban en integration tests.
  */
+
 class TenantAdminServiceTest {
 
     private TenantAdminService service = new TenantAdminService();

@@ -42,6 +42,7 @@ public record TenantResponse(
             Instant expiresAt,
             boolean configured,
             boolean valid) {
+
     }
 
     /**

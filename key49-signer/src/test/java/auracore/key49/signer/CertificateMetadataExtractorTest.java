@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests unitarios para CertificateMetadataExtractor.
  */
+
 class CertificateMetadataExtractorTest {
 
     private static final String TEST_CERT_PATH = "/test-cert.p12";

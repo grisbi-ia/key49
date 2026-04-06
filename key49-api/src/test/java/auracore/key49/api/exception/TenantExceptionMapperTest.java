@@ -1,12 +1,12 @@
 package auracore.key49.api.exception;
 
-import auracore.key49.core.service.TenantAdminService.TenantException;
-import jakarta.ws.rs.core.Response;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import auracore.key49.core.service.TenantAdminService.TenantException;
+import jakarta.ws.rs.core.Response;
 
 /**
  * Tests unitarios para TenantExceptionMapper.

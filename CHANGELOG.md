@@ -143,6 +143,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - DTOs: `CreateTenantRequest`, `UpdateTenantRequest`, `TenantResponse` (con `CertificateSummary`), `CertificateStatusResponse`
   - `TenantExceptionMapper` para errores de negocio de tenants
   - 50 tests nuevos (768 total proyecto, 0 failures)
+- Endpoints de perfil de tenant autenticado (T-022)
+  - `TenantProfileResource`: endpoints en `/v1/tenant` para self-service del tenant
+  - `GET /v1/tenant/profile`: obtener datos del tenant autenticado vía API key
+  - `PUT /v1/tenant/profile`: actualizar datos propios (razón social, dirección, webhook, email)
+  - `POST /v1/tenant/certificate`: subir certificado .p12 con validación y cifrado
+  - `GET /v1/tenant/certificate/status`: verificar vigencia del certificado
+  - `UpdateProfileRequest`: DTO restringido sin campos administrativos (status, rateLimitRpm)
+  - Integración con `TenantContext` para resolver tenant desde API key
+  - 16 tests nuevos (784 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

@@ -17,4 +17,5 @@ public record CreateTenantRequest(
         String withholdingAgent,
         String environment,
         String schemaName) {
+
 }

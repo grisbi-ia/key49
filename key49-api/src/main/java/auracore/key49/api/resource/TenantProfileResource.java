@@ -12,40 +12,33 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import auracore.key49.api.dto.ApiResponse;
 import auracore.key49.api.dto.CertificateStatusResponse;
-import auracore.key49.api.dto.CreateTenantRequest;
-import auracore.key49.api.dto.PagedResponse;
 import auracore.key49.api.dto.TenantResponse;
-import auracore.key49.api.dto.UpdateTenantRequest;
+import auracore.key49.api.dto.UpdateProfileRequest;
 import auracore.key49.core.service.TenantAdminService;
-import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
+import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * Endpoints de administración de tenants.
- *
- * <p>
- * Estos endpoints son para uso interno del administrador de la plataforma. La
- * creación del esquema PostgreSQL y sus tablas es responsabilidad del DBA.
+ * Endpoints de perfil del tenant autenticado.
+ * A diferencia de TenantAdminResource, estos endpoints operan sobre el tenant
+ * resuelto por el API key del request (TenantContext).
  */
-@Path("/v1/admin/tenants")
+@Path("/v1/tenant")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class TenantAdminResource {
+public class TenantProfileResource {
 
     @Inject
     Logger log;
@@ -53,66 +46,19 @@ public class TenantAdminResource {
     @Inject
     TenantAdminService tenantService;
 
+    @Inject
+    TenantContext tenantContext;
+
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
 
-    /**
-     * POST /v1/admin/tenants — Registrar un nuevo tenant.
-     */
-    @POST
-    public Uni<Response> create(CreateTenantRequest request) {
-        String requestId = generateRequestId();
-
-        var data = new CreateTenantData(
-                request.ruc(), request.legalName(), request.tradeName(),
-                request.mainAddress(), request.requiredAccounting(),
-                request.specialTaxpayer(), request.microEnterpriseRegime(),
-                request.withholdingAgent(), request.environment(),
-                request.schemaName());
-
-        return tenantService.create(data)
-                .map(tenant -> {
-                    var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
-                    return Response.status(Response.Status.CREATED)
-                            .header("X-Request-Id", requestId)
-                            .entity(body)
-                            .build();
-                });
-    }
-
-    /**
-     * GET /v1/admin/tenants — Listar tenants con paginación.
-     */
     @GET
-    public Uni<Response> list(
-            @QueryParam("status") String status,
-            @QueryParam("page") @DefaultValue("1") int page,
-            @QueryParam("per_page") @DefaultValue("20") int perPage) {
+    @Path("/profile")
+    public Uni<Response> getProfile() {
+        var requestId = generateRequestId();
+        var tenantId = requireTenantId();
 
-        String requestId = generateRequestId();
-        var statusFilter = Optional.ofNullable(status).filter(s -> !s.isBlank());
-
-        return tenantService.listAll(page, perPage, statusFilter)
-                .map(result -> {
-                    var responses = result.items().stream()
-                            .map(TenantResponse::fromEntity)
-                            .toList();
-                    var body = PagedResponse.of(responses, result.total(), page, perPage);
-                    return Response.ok()
-                            .header("X-Request-Id", requestId)
-                            .entity(body)
-                            .build();
-                });
-    }
-
-    /**
-     * GET /v1/admin/tenants/:id — Obtener tenant por ID.
-     */
-    @GET
-    @Path("/{id}")
-    public Uni<Response> getById(@PathParam("id") UUID id) {
-        String requestId = generateRequestId();
-        return tenantService.findById(id)
+        return tenantService.findById(tenantId)
                 .map(tenant -> {
                     var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
                     return Response.ok()
@@ -122,23 +68,21 @@ public class TenantAdminResource {
                 });
     }
 
-    /**
-     * PUT /v1/admin/tenants/:id — Actualizar tenant.
-     */
     @PUT
-    @Path("/{id}")
-    public Uni<Response> update(@PathParam("id") UUID id, UpdateTenantRequest request) {
-        String requestId = generateRequestId();
+    @Path("/profile")
+    public Uni<Response> updateProfile(UpdateProfileRequest request) {
+        var requestId = generateRequestId();
+        var tenantId = requireTenantId();
 
         var data = new UpdateTenantData(
                 request.legalName(), request.tradeName(), request.mainAddress(),
                 request.requiredAccounting(), request.specialTaxpayer(),
                 request.microEnterpriseRegime(), request.withholdingAgent(),
                 request.environment(), request.webhookUrl(), request.webhookSecret(),
-                request.rateLimitRpm(), request.emailSenderName(),
-                request.replyEmail(), request.status());
+                null, request.emailSenderName(),
+                request.replyEmail(), null);
 
-        return tenantService.update(id, data)
+        return tenantService.update(tenantId, data)
                 .map(tenant -> {
                     var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
                     return Response.ok()
@@ -148,18 +92,15 @@ public class TenantAdminResource {
                 });
     }
 
-    /**
-     * POST /v1/admin/tenants/:id/certificate — Subir certificado .p12.
-     */
     @POST
-    @Path("/{id}/certificate")
+    @Path("/certificate")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public Uni<Response> uploadCertificate(
-            @PathParam("id") UUID id,
             @RestForm("certificate") FileUpload certificate,
             @RestForm("password") String password) {
 
-        String requestId = generateRequestId();
+        var requestId = generateRequestId();
+        var tenantId = requireTenantId();
 
         if (certificate == null) {
             return Uni.createFrom().item(errorResponse(requestId, "VALIDATION_ERROR",
@@ -178,13 +119,12 @@ public class TenantAdminResource {
                     "Failed to read certificate file", 400));
         }
 
-        // Verificar y extraer metadata
         var passwordChars = password.toCharArray();
-        auracore.key49.signer.CertificateMetadataExtractor.CertificateMetadata metadata;
+        CertificateMetadataExtractor.CertificateMetadata metadata;
         try {
             metadata = CertificateMetadataExtractor.extract(p12Bytes, passwordChars);
         } catch (auracore.key49.signer.SigningException e) {
-            log.warnf("Invalid certificate upload for tenant %s: %s", id, e.getMessage());
+            log.warnf("Invalid certificate upload for tenant %s: %s", tenantId, e.getMessage());
             return Uni.createFrom().item(errorResponse(requestId, "INVALID_CERTIFICATE",
                     "Invalid certificate: " + e.getMessage(), 422));
         }
@@ -194,7 +134,6 @@ public class TenantAdminResource {
                     "Certificate is expired (expired at " + metadata.expiresAt() + ")", 422));
         }
 
-        // Cifrar .p12 y contraseña con master key
         var masterKey = CertificateEncryptor.decodeMasterKey(
                 masterKeyBase64.orElseThrow(()
                         -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
@@ -202,7 +141,7 @@ public class TenantAdminResource {
         var encryptedPassword = CertificateEncryptor.encryptPassword(passwordChars, masterKey);
 
         return tenantService.uploadCertificate(
-                id, encryptedP12, encryptedPassword,
+                tenantId, encryptedP12, encryptedPassword,
                 metadata.subject(), metadata.expiresAt(), metadata.serial())
                 .map(tenant -> {
                     var certResponse = new CertificateStatusResponse(
@@ -217,15 +156,13 @@ public class TenantAdminResource {
                 });
     }
 
-    /**
-     * GET /v1/admin/tenants/:id/certificate/status — Estado del certificado.
-     */
     @GET
-    @Path("/{id}/certificate/status")
-    public Uni<Response> certificateStatus(@PathParam("id") UUID id) {
-        String requestId = generateRequestId();
+    @Path("/certificate/status")
+    public Uni<Response> certificateStatus() {
+        var requestId = generateRequestId();
+        var tenantId = requireTenantId();
 
-        return tenantService.findById(id)
+        return tenantService.findById(tenantId)
                 .map(tenant -> {
                     if (tenant.certificateP12 == null || tenant.certificateP12.length == 0) {
                         return errorResponse(requestId, "CERTIFICATE_NOT_CONFIGURED",
@@ -249,17 +186,21 @@ public class TenantAdminResource {
                 });
     }
 
+    private UUID requireTenantId() {
+        if (!tenantContext.isSet()) {
+            throw new TenantAdminService.TenantException(
+                    "AUTHENTICATION_REQUIRED", "Tenant context not available", 401);
+        }
+        return tenantContext.getTenantId();
+    }
+
     private static String generateRequestId() {
         return "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
     private static Response errorResponse(String requestId, String code, String message, int status) {
-        record ErrorDetail(String code, String message) {
-
-        }
-        record ErrorWrapper(ErrorDetail error) {
-
-        }
+        record ErrorDetail(String code, String message) {}
+        record ErrorWrapper(ErrorDetail error) {}
         return Response.status(status)
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .header("X-Request-Id", requestId)
