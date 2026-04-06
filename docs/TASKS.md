@@ -143,7 +143,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Política de retención: 7 años (configurar lifecycle en MinIO)
   - Test: upload y download de archivos
 
-- [ ] **T-017** Implementar servicio de email (key49-notify)
+- [x] **T-017** Implementar servicio de email (key49-notify) ✓
   - Template Qute para email de entrega de factura
   - Adjuntar RIDE (PDF) y XML autorizado
   - Configurar SMTP

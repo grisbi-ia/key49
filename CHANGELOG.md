@@ -88,6 +88,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `StorageException`: excepción específica del módulo
   - Configuración: endpoint, access-key, secret-key, bucket, region con env vars
   - 31 tests nuevos (593 total proyecto, 0 failures)
+- Servicio de email para entrega de comprobantes (T-017)
+  - `EmailService`: envío reactivo con Quarkus Mailer + Qute template
+  - `EmailData`: record con datos de emisor, receptor, adjuntos y parseEmails()
+  - Template HTML responsive para email de entrega (document-delivery.html)
+  - Soporte múltiples destinatarios separados por `;` (primer email TO, resto CC)
+  - Adjuntos opcionales: RIDE (PDF) y XML autorizado
+  - Configuración SMTP con env vars, flag `key49.email.enabled` para desactivar
+  - 23 tests nuevos (616 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

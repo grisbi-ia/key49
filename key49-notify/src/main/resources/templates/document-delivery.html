@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: #1a5276; color: #fff; padding: 24px; text-align: center; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+        .content { padding: 24px; }
+        .info-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        .info-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+        .info-table td:first-child { font-weight: 600; color: #555; width: 40%; }
+        .total { font-size: 18px; font-weight: 700; color: #1a5276; }
+        .footer { background: #f8f8f8; padding: 16px 24px; font-size: 12px; color: #888; text-align: center; border-top: 1px solid #eee; }
+        .note { background: #eaf2f8; border-left: 4px solid #1a5276; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{data.issuerName}</h1>
+        </div>
+        <div class="content">
+            <p>Estimado/a <strong>{data.recipientName}</strong>,</p>
+            <p>Se adjunta su comprobante electrónico autorizado por el SRI:</p>
+
+            <table class="info-table">
+                <tr>
+                    <td>Tipo de documento</td>
+                    <td>{data.documentType}</td>
+                </tr>
+                <tr>
+                    <td>Número</td>
+                    <td>{data.documentNumber}</td>
+                </tr>
+                <tr>
+                    <td>Fecha de emisión</td>
+                    <td>{data.issueDate}</td>
+                </tr>
+                <tr>
+                    <td>RUC emisor</td>
+                    <td>{data.issuerRuc}</td>
+                </tr>
+                <tr>
+                    <td>Clave de acceso</td>
+                    <td style="font-size: 11px; word-break: break-all;">{data.accessKey}</td>
+                </tr>
+                <tr>
+                    <td>Total</td>
+                    <td class="total">${data.totalAmount} {data.currency}</td>
+                </tr>
+            </table>
+
+            <div class="note">
+                <strong>Archivos adjuntos:</strong><br>
+                &bull; RIDE (PDF) — Representación Impresa del Documento Electrónico<br>
+                &bull; XML autorizado por el SRI
+            </div>
+
+            <p style="font-size: 13px; color: #666;">
+                Si tiene alguna consulta sobre este comprobante, comuníquese directamente con <strong>{data.issuerName}</strong>.
+            </p>
+        </div>
+        <div class="footer">
+            Este es un mensaje generado automáticamente. Por favor no responda a este correo.<br>
+            Comprobante electrónico procesado por Key49 &mdash; Facturación Electrónica SRI Ecuador
+        </div>
+    </div>
+</body>
+</html>
