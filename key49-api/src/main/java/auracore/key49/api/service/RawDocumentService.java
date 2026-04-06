@@ -1,5 +1,20 @@
 package auracore.key49.api.service;
 
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+import org.w3c.dom.Element;
+import org.xml.sax.InputSource;
+
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
@@ -14,26 +29,13 @@ import auracore.key49.xml.validation.XsdValidator;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
-
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 /**
  * Servicio para procesamiento de documentos electrónicos enviados como XML raw.
  *
- * <p>Valida el XML contra XSD, extrae metadatos (receptor, totales, serie),
- * genera la clave de acceso, inyecta la clave en el XML y persiste el documento.
+ * <p>
+ * Valida el XML contra XSD, extrae metadatos (receptor, totales, serie), genera
+ * la clave de acceso, inyecta la clave en el XML y persiste el documento.
  */
 @ApplicationScoped
 public class RawDocumentService {
@@ -53,10 +55,11 @@ public class RawDocumentService {
     String sriEnvironment;
 
     /**
-     * Procesa un XML raw: valida, extrae datos, genera clave de acceso, persiste.
+     * Procesa un XML raw: valida, extrae datos, genera clave de acceso,
+     * persiste.
      */
     public Uni<Document> createFromRawXml(String xml, String documentTypeCode,
-                                           String idempotencyKey, String requestIp) {
+            String idempotencyKey, String requestIp) {
         // 1. Validate document type header
         if (documentTypeCode == null || documentTypeCode.isBlank()) {
             throw new BusinessException("MISSING_DOCUMENT_TYPE",
@@ -131,8 +134,8 @@ public class RawDocumentService {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), session -> {
             Uni<Document> existingCheck = idempotencyKey != null
                     ? session.createQuery("FROM Document d WHERE d.idempotencyKey = :key", Document.class)
-                    .setParameter("key", idempotencyKey)
-                    .getSingleResultOrNull()
+                            .setParameter("key", idempotencyKey)
+                            .getSingleResultOrNull()
                     : Uni.createFrom().nullItem();
 
             return existingCheck.chain(existing -> {
@@ -150,14 +153,13 @@ public class RawDocumentService {
      * Consulta documento raw por ID.
      */
     public Uni<Document> findById(UUID id) {
-        return tcm.withTenantSession(tenantContext.getSchemaName(), session ->
-                session.find(Document.class, id)
+        return tcm.withTenantSession(tenantContext.getSchemaName(), session
+                -> session.find(Document.class, id)
         ).onItem().ifNull().failWith(() -> new BusinessException(
                 "DOCUMENT_NOT_FOUND", "Document not found: " + id, 404));
     }
 
     // ── Private helpers ──
-
     private Uni<Document> checkUniquenessAndPersist(
             org.hibernate.reactive.mutiny.Mutiny.Session session,
             XmlMetadata metadata, DocumentType documentType,
@@ -165,8 +167,8 @@ public class RawDocumentService {
             String idempotencyKey, String requestIp) {
 
         return session.createQuery(
-                        "FROM Document d WHERE d.documentType = :dt AND d.establishment = :est " +
-                                "AND d.issuePoint = :ip AND d.sequenceNumber = :sn", Document.class)
+                "FROM Document d WHERE d.documentType = :dt AND d.establishment = :est "
+                + "AND d.issuePoint = :ip AND d.sequenceNumber = :sn", Document.class)
                 .setParameter("dt", documentType.sriCode())
                 .setParameter("est", metadata.establishment())
                 .setParameter("ip", metadata.issuePoint())
@@ -317,10 +319,11 @@ public class RawDocumentService {
     }
 
     /**
-     * Establece el texto de un elemento existente o lo crea después del elemento de referencia.
+     * Establece el texto de un elemento existente o lo crea después del
+     * elemento de referencia.
      */
     private void setOrCreateElement(org.w3c.dom.Document xmlDoc, Element parent,
-                                     String tagName, String value, String afterTag) {
+            String tagName, String value, String afterTag) {
         var existing = parent.getElementsByTagName(tagName);
         if (existing.getLength() > 0) {
             existing.item(0).setTextContent(value);
@@ -439,5 +442,6 @@ public class RawDocumentService {
             BigDecimal totalAmount,
             BigDecimal subtotalBeforeTax,
             BigDecimal vatAmount) {
+
     }
 }

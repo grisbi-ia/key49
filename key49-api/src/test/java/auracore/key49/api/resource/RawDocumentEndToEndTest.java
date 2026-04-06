@@ -21,11 +21,14 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.*;
 
 /**
- * Test end-to-end del endpoint POST /v1/documents/raw y GET /v1/documents/raw/:id.
+ * Test end-to-end del endpoint POST /v1/documents/raw y GET
+ * /v1/documents/raw/:id.
  *
- * <p>Verifica: envío de XML válido, validación XSD, mismatch de tipo,
- * header faltante, y consulta por ID.</p>
+ * <p>
+ * Verifica: envío de XML válido, validación XSD, mismatch de tipo, header
+ * faltante, y consulta por ID.</p>
  */
+
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

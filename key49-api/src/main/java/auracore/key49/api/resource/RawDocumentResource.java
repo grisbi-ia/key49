@@ -1,5 +1,9 @@
 package auracore.key49.api.resource;
 
+import java.util.UUID;
+
+import org.jboss.logging.Logger;
+
 import auracore.key49.api.dto.ApiResponse;
 import auracore.key49.api.dto.RawDocumentResponse;
 import auracore.key49.api.service.RawDocumentService;
@@ -16,16 +20,14 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.jboss.logging.Logger;
-
-import java.util.UUID;
 
 /**
  * Endpoint para recibir comprobantes electrónicos como XML pre-armado.
  *
- * <p>Canal avanzado para integradores que generan su propio XML conforme
- * a la ficha técnica del SRI. Key49 valida el XSD, genera la clave de acceso,
- * firma, envía y gestiona el ciclo de vida completo.
+ * <p>
+ * Canal avanzado para integradores que generan su propio XML conforme a la
+ * ficha técnica del SRI. Key49 valida el XSD, genera la clave de acceso, firma,
+ * envía y gestiona el ciclo de vida completo.
  */
 @Path("/v1/documents/raw")
 @Produces(MediaType.APPLICATION_JSON)

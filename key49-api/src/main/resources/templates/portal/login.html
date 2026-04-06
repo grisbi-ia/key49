@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .login-card { max-width: 400px; width: 100%; }
+        .login-card h2 { text-align: center; margin-bottom: 0.5rem; }
+        .login-card p { text-align: center; color: var(--pico-muted-color); }
+    </style>
+</head>
+<body>
+    <article class="login-card">
+        <h2>Key49</h2>
+        <p>Facturación Electrónica</p>
+        {#if error == "invalid"}
+        <p role="alert" style="color: var(--pico-del-color);">
+            API key inválida o tenant inactivo
+        </p>
+        {/if}
+        <form method="post" action="/portal/login">
+            <label for="api_key">API Key</label>
+            <input type="password" id="api_key" name="api_key"
+                   placeholder="fec_test_..." required autofocus>
+            <button type="submit">Ingresar</button>
+        </form>
+    </article>
+</body>
+</html>

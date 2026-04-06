@@ -228,7 +228,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Backup automático de PostgreSQL (por esquema) y MinIO
   - Documentar RPO/RTO y procedimiento de restore
 
-- [ ] **T-028a** Implementar portal web de consulta (key49-api, /portal/)
+- [x] **T-028a** Implementar portal web de consulta (key49-api, /portal/)
   - Server-side rendering con Qute (templates HTML)
   - Assets estáticos: Pico CSS (estilos sin clases) + HTMX (interactividad mínima)
   - Autenticación: login con API key del tenant, sesión por cookie

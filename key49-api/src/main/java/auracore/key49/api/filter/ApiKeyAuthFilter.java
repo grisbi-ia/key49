@@ -108,7 +108,7 @@ public class ApiKeyAuthFilter {
 
     private boolean isPublicPath(String path) {
         return path.startsWith("/q/")
-                || path.startsWith("/portal/login")
+                || path.startsWith("/portal")
                 || path.equals("/openapi")
                 || path.equals("/swagger-ui");
     }

@@ -1,12 +1,13 @@
 package auracore.key49.api.dto;
 
-import auracore.key49.core.model.Document;
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import auracore.key49.core.model.Document;
 
 /**
  * DTO de respuesta para documentos enviados por el canal XML raw.

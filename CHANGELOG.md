@@ -9,6 +9,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ### Agregado
 
+- Portal web de consulta para tenants (T-028a)
+  - Server-side rendering con Qute + Pico CSS v2 + HTMX v2.0.4
+  - Autenticación por API key con sesiones Redis (cookie HttpOnly, TTL 30min)
+  - PortalAuthFilter (priority 15) valida sesión en todas las rutas /portal/*
+  - Pantalla login: formulario con API key, mensajes de error
+  - Pantalla dashboard: tabla de documentos con filtros (estado, fechas, búsqueda) + paginación
+  - Pantalla detalle: datos del documento, receptor, totales, timeline de procesamiento
+  - Polling automático de estado con HTMX (hx-trigger="every 5s") para documentos en proceso
+  - Endpoint parcial GET /portal/documents/{id}/status para actualizaciones HTMX
+  - Portal solo lectura — no permite crear ni modificar documentos
+  - 10 tests E2E
 - Generador de clave de acceso de 49 dígitos (T-006)
   - Algoritmo módulo 11 para dígito verificador
   - Validación de `issue_date` == fecha actual (zona Ecuador)

@@ -1,0 +1,139 @@
+{#include portal/layout}
+{#title}Detalle{/title}
+{#body}
+<a href="/portal/">← Volver a documentos</a>
+
+{#if error}
+<article>
+    <p role="alert">{error}</p>
+</article>
+{#else if doc}
+
+<hgroup>
+    <h3>{docTypeLabel} {doc.establishment}-{doc.issuePoint}-{doc.sequenceNumber}</h3>
+    <p>
+        <span hx-get="/portal/documents/{doc.id}/status"
+              hx-trigger="{#if doc.status.name == 'CREATED' || doc.status.name == 'SIGNED' || doc.status.name == 'SENT' || doc.status.name == 'RECEIVED' || doc.status.name == 'RETRY'}every 5s{#else}none{/if}"
+              hx-swap="innerHTML">
+            <mark class="{statusClass}">{statusLabel}</mark>
+        </span>
+        {#if doc.requestOrigin == 'XML_RAW'}
+        <mark class="status-pending" style="margin-left:0.5rem">XML RAW</mark>
+        {/if}
+    </p>
+</hgroup>
+
+<div class="grid">
+    <article>
+        <header>Datos del Documento</header>
+        <table>
+            <tr><td>Tipo</td><td>{docTypeLabel} ({doc.documentType})</td></tr>
+            <tr><td>Fecha Emisión</td><td>{doc.issueDate}</td></tr>
+            <tr><td>Clave de Acceso</td><td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.accessKey}</td></tr>
+            {#if doc.authorizationNumber}
+            <tr><td>N° Autorización</td><td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.authorizationNumber}</td></tr>
+            {/if}
+            {#if doc.authorizationDate}
+            <tr><td>Fecha Autorización</td><td>{formatDateTime.format(doc.authorizationDate.atZone(ecZone))}</td></tr>
+            {/if}
+            <tr><td>Origen</td><td>{doc.requestOrigin}</td></tr>
+        </table>
+    </article>
+
+    <article>
+        <header>Receptor</header>
+        <table>
+            <tr><td>Nombre</td><td>{doc.recipientName}</td></tr>
+            <tr><td>Identificación</td><td>{doc.recipientId}</td></tr>
+            {#if doc.recipientEmail}
+            <tr><td>Email</td><td>{doc.recipientEmail}</td></tr>
+            {/if}
+            {#if doc.recipientAddress}
+            <tr><td>Dirección</td><td>{doc.recipientAddress}</td></tr>
+            {/if}
+            {#if doc.recipientPhone}
+            <tr><td>Teléfono</td><td>{doc.recipientPhone}</td></tr>
+            {/if}
+        </table>
+    </article>
+</div>
+
+<div class="grid">
+    <article>
+        <header>Totales</header>
+        <table>
+            <tr><td>Subtotal</td><td class="text-right amount">${doc.subtotalBeforeTax}</td></tr>
+            {#if doc.totalDiscount.doubleValue > 0}
+            <tr><td>Descuento</td><td class="text-right amount">-${doc.totalDiscount}</td></tr>
+            {/if}
+            <tr><td>IVA</td><td class="text-right amount">${doc.vatAmount}</td></tr>
+            {#if doc.iceAmount.doubleValue > 0}
+            <tr><td>ICE</td><td class="text-right amount">${doc.iceAmount}</td></tr>
+            {/if}
+            {#if doc.tip.doubleValue > 0}
+            <tr><td>Propina</td><td class="text-right amount">${doc.tip}</td></tr>
+            {/if}
+            <tr><th>Total</th><th class="text-right amount">${doc.totalAmount}</th></tr>
+        </table>
+    </article>
+
+    <article>
+        <header>Timeline</header>
+        <ul class="timeline">
+            {#for step in timeline}
+            <li class="{#if step.active}active{#else if step.completed}completed{/if}">
+                <span class="dot"></span>
+                <span>{step.label}</span>
+                <small style="color:var(--pico-muted-color)">{step.date}</small>
+            </li>
+            {/for}
+        </ul>
+
+        {#if doc.status.name == 'REJECTED' || doc.status.name == 'FAILED'}
+        <details>
+            <summary>Detalle del error</summary>
+            {#if doc.lastErrorCode}
+            <p><strong>Código:</strong> {doc.lastErrorCode}</p>
+            {/if}
+            {#if doc.lastErrorMessage}
+            <p>{doc.lastErrorMessage}</p>
+            {/if}
+        </details>
+        {/if}
+
+        {#if doc.status.name == 'VOIDED'}
+        <p><small>Anulado: {#if doc.voidReason}{doc.voidReason}{#else}Sin razón{/if}</small></p>
+        {/if}
+    </article>
+</div>
+
+{#if doc.status.name == 'AUTHORIZED' || doc.status.name == 'NOTIFIED' || doc.status.name == 'VOIDED'}
+<article>
+    <header>Descargas</header>
+    <div style="display:flex; gap:1rem;">
+        <a href="/v1/invoices/{doc.id}/xml" role="button" class="outline" target="_blank">
+            XML Autorizado
+        </a>
+        <a href="/v1/invoices/{doc.id}/ride" role="button" class="outline" target="_blank">
+            RIDE (PDF)
+        </a>
+    </div>
+</article>
+{/if}
+
+{#if doc.emailSentAt}
+<article>
+    <header>Email</header>
+    <table>
+        <tr><td>Enviado</td><td>{formatDateTime.format(doc.emailSentAt.atZone(ecZone))}</td></tr>
+        <tr><td>Estado</td><td>{doc.emailStatus ?: '—'}</td></tr>
+        {#if doc.emailError}
+        <tr><td>Error</td><td>{doc.emailError}</td></tr>
+        {/if}
+    </table>
+</article>
+{/if}
+
+{/if}
+{/body}
+{/include}
