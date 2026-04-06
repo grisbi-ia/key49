@@ -1,5 +1,20 @@
 package auracore.key49.api.resource;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.notNullValue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
+
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.service.ApiKeyService;
 import io.quarkus.test.junit.QuarkusTest;
@@ -8,28 +23,13 @@ import io.restassured.http.ContentType;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.Tuple;
 import jakarta.inject.Inject;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestMethodOrder;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.notNullValue;
 
 /**
  * Test de integración para el endpoint de métricas (/v1/metrics/summary).
  *
- * <p>Crea un tenant con esquema, inserta documentos con distintos estados,
- * y verifica que el resumen de métricas los contabilice correctamente.</p>
+ * <p>
+ * Crea un tenant con esquema, inserta documentos con distintos estados, y
+ * verifica que el resumen de métricas los contabilice correctamente.</p>
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -181,7 +181,6 @@ class MetricsEndToEndTest {
     }
 
     // ── GET /v1/metrics/summary — éxito ──
-
     @Test
     @Order(1)
     void summary_returnsTodayCounts() {
@@ -256,7 +255,6 @@ class MetricsEndToEndTest {
     }
 
     // ── Autenticación ──
-
     @Test
     @Order(6)
     void summary_withoutAuth_returns401() {
@@ -268,7 +266,6 @@ class MetricsEndToEndTest {
     }
 
     // ── Tenant sin certificado ──
-
     @Test
     @Order(7)
     void summary_withNoCertificate_returnsNegativeDays() {

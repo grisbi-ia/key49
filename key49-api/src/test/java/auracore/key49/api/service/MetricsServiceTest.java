@@ -13,7 +13,8 @@ import auracore.key49.core.model.enums.DocumentStatus;
 
 /**
  * Tests unitarios para la lógica de cálculo de snapshots en MetricsService.
- * Invoca el método privado toSnapshot via reflection para verificar la clasificación de estados.
+ * Invoca el método privado toSnapshot via reflection para verificar la
+ * clasificación de estados.
  */
 class MetricsServiceTest {
 

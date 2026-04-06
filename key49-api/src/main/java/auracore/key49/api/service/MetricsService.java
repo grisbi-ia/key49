@@ -22,8 +22,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Servicio de métricas para el dashboard del tenant autenticado.
- * Consulta conteos de documentos agrupados por estado para hoy y el mes actual.
+ * Servicio de métricas para el dashboard del tenant autenticado. Consulta
+ * conteos de documentos agrupados por estado para hoy y el mes actual.
  */
 @ApplicationScoped
 public class MetricsService {
@@ -46,16 +46,16 @@ public class MetricsService {
         var today = LocalDate.now(Key49Constants.EC_ZONE);
         var monthStart = YearMonth.from(today).atDay(1);
 
-        return tcm.withTenantSession(schemaName, session ->
-                countByDateRange(session, today, today)
+        return tcm.withTenantSession(schemaName, session
+                -> countByDateRange(session, today, today)
                         .chain(todayCounts -> countByDateRange(session, monthStart, today)
-                                .chain(monthCounts -> findLastAuthorizationDate(session)
-                                        .map(lastInvoiceAt -> new PendingResult(
-                                                toSnapshot(todayCounts),
-                                                toSnapshot(monthCounts),
-                                                lastInvoiceAt))))
-        ).chain(result ->
-                sessionFactory.withSession(s -> tenantRepository.findById(tenantId))
+                        .chain(monthCounts -> findLastAuthorizationDate(session)
+                        .map(lastInvoiceAt -> new PendingResult(
+                        toSnapshot(todayCounts),
+                        toSnapshot(monthCounts),
+                        lastInvoiceAt))))
+        ).chain(result
+                -> sessionFactory.withSession(s -> tenantRepository.findById(tenantId))
                         .map(tenant -> {
                             long certDays = -1;
                             if (tenant != null && tenant.certificateExpiration != null
@@ -71,11 +71,11 @@ public class MetricsService {
     }
 
     private Uni<Map<DocumentStatus, Long>> countByDateRange(Mutiny.Session session,
-                                                             LocalDate from, LocalDate to) {
+            LocalDate from, LocalDate to) {
         return session.createQuery(
-                        "SELECT d.status, COUNT(d) FROM Document d " +
-                                "WHERE d.issueDate >= :from AND d.issueDate <= :to GROUP BY d.status",
-                        Object[].class)
+                "SELECT d.status, COUNT(d) FROM Document d "
+                + "WHERE d.issueDate >= :from AND d.issueDate <= :to GROUP BY d.status",
+                Object[].class)
                 .setParameter("from", from)
                 .setParameter("to", to)
                 .getResultList()
@@ -90,8 +90,8 @@ public class MetricsService {
 
     private Uni<Instant> findLastAuthorizationDate(Mutiny.Session session) {
         return session.createQuery(
-                        "SELECT MAX(d.authorizationDate) FROM Document d " +
-                                "WHERE d.authorizationDate IS NOT NULL", Instant.class)
+                "SELECT MAX(d.authorizationDate) FROM Document d "
+                + "WHERE d.authorizationDate IS NOT NULL", Instant.class)
                 .getSingleResultOrNull();
     }
 
@@ -106,5 +106,7 @@ public class MetricsService {
         return new PeriodSnapshot(total, authorized, rejected, pending, failed);
     }
 
-    private record PendingResult(PeriodSnapshot today, PeriodSnapshot month, Instant lastInvoiceAt) {}
+    private record PendingResult(PeriodSnapshot today, PeriodSnapshot month, Instant lastInvoiceAt) {
+
+    }
 }

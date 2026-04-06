@@ -205,7 +205,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Integración con Micrometer + Prometheus
   - Métricas custom: documentos procesados, tasa de error, latencia SRI
 
-- [ ] **T-026** Rate limiting con Redis
+- [x] **T-026** Rate limiting con Redis
   - Sliding window rate limiter
   - Configuración por tenant
   - Headers X-RateLimit-\*

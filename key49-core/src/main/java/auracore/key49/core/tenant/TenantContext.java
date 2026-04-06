@@ -13,6 +13,8 @@ public class TenantContext {
 
     private UUID tenantId;
     private String schemaName;
+    private int rateLimitRpm = 100;
+    private String apiKeyPrefix;
 
     public UUID getTenantId() {
         return tenantId;
@@ -20,6 +22,14 @@ public class TenantContext {
 
     public String getSchemaName() {
         return schemaName;
+    }
+
+    public int getRateLimitRpm() {
+        return rateLimitRpm;
+    }
+
+    public String getApiKeyPrefix() {
+        return apiKeyPrefix;
     }
 
     /**
@@ -30,6 +40,20 @@ public class TenantContext {
         TenantSchemaResolver.validate(schemaName);
         this.tenantId = tenantId;
         this.schemaName = schemaName;
+    }
+
+    /**
+     * Establece el rate limit configurado para el tenant.
+     */
+    public void setRateLimitRpm(int rateLimitRpm) {
+        this.rateLimitRpm = rateLimitRpm;
+    }
+
+    /**
+     * Establece el prefijo de la API key usada en la autenticación.
+     */
+    public void setApiKeyPrefix(String apiKeyPrefix) {
+        this.apiKeyPrefix = apiKeyPrefix;
     }
 
     public boolean isSet() {

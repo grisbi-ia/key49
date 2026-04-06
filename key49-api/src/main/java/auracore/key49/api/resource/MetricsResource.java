@@ -16,8 +16,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * Endpoint de métricas del dashboard para el tenant autenticado.
- * GET /v1/metrics/summary — resumen de actividad
+ * Endpoint de métricas del dashboard para el tenant autenticado. GET
+ * /v1/metrics/summary — resumen de actividad
  */
 @Path("/v1/metrics")
 @Produces(MediaType.APPLICATION_JSON)
@@ -57,5 +57,7 @@ public class MetricsResource {
         return "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
-    private record ErrorBody(String code, String message) {}
+    private record ErrorBody(String code, String message) {
+
+    }
 }

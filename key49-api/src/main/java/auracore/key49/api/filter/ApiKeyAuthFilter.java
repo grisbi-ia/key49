@@ -34,7 +34,7 @@ public class ApiKeyAuthFilter {
     @Inject
     TenantContext tenantContext;
 
-    @ServerRequestFilter
+    @ServerRequestFilter(priority = 10)
     public Uni<Response> authenticate(ContainerRequestContext requestContext) {
         var path = requestContext.getUriInfo().getPath();
 
@@ -62,7 +62,8 @@ public class ApiKeyAuthFilter {
 
         return pgPool.preparedQuery("""
                         SELECT a.tenant_id, a.status AS key_status, a.expires_at,
-                               t.schema_name, t.status AS tenant_status
+                               t.schema_name, t.status AS tenant_status,
+                               t.rate_limit_rpm
                         FROM api_keys a JOIN tenants t ON a.tenant_id = t.tenant_id
                         WHERE a.key_hash = $1""")
                 .execute(Tuple.of(keyHash))
@@ -90,7 +91,10 @@ public class ApiKeyAuthFilter {
 
                     var tenantId = row.getUUID("tenant_id");
                     var schemaName = row.getString("schema_name");
+                    var rateLimitRpm = row.getInteger("rate_limit_rpm");
                     tenantContext.setTenant(tenantId, schemaName);
+                    tenantContext.setRateLimitRpm(rateLimitRpm);
+                    tenantContext.setApiKeyPrefix(prefix);
                     log.debugf("Authenticated tenant=%s, schema=%s", tenantId, schemaName);
 
                     // Update last_used_at asynchronously (fire-and-forget)

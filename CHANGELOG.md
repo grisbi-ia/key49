@@ -172,6 +172,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `lastInvoiceAt`: fecha de última autorización (`MAX(authorization_date)`)
   - Queries secuenciales para compatibilidad con Hibernate Reactive (una sesión, sin paralelismo)
   - 20 tests nuevos (838 total proyecto, 0 failures)
+- Rate limiting con Redis (T-026)
+  - `RateLimiter`: sliding window con Redis sorted sets y Lua script atómico (ZREMRANGEBYSCORE + ZADD + ZCARD + PEXPIRE)
+  - `RateLimitFilter`: `@ServerRequestFilter(priority=20)` que aplica rate limit después de autenticación
+  - `@ServerResponseFilter` para inyectar headers `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+  - Respuesta 429 con `Retry-After` y error code `RATE_LIMIT_EXCEEDED` cuando se excede el límite
+  - Configuración por tenant vía campo `rate_limit_rpm` en tabla `tenants` (default 100 RPM)
+  - Clave Redis: `ratelimit:{api_key_prefix}`, ventana deslizante de 60 segundos
+  - Modo permisivo si Redis no disponible (permite request, log warning)
+  - `TenantContext` extendido con `rateLimitRpm` y `apiKeyPrefix`
+  - `ApiKeyAuthFilter` actualizado: priority=10, consulta `rate_limit_rpm`, pobla TenantContext
+  - 16 tests nuevos (168 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 
