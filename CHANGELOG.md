@@ -152,6 +152,17 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `UpdateProfileRequest`: DTO restringido sin campos administrativos (status, rateLimitRpm)
   - Integración con `TenantContext` para resolver tenant desde API key
   - 16 tests nuevos (784 total proyecto, 0 failures)
+- Gestión de API keys para tenants (T-023)
+  - `ApiKeyManagementService`: CRUD de API keys (creación, listado, consulta, revocación)
+  - Validación de datos: nombre requerido (max 100 chars), environment (test/production)
+  - `POST /v1/tenant/api-keys`: crear nueva API key (devuelve rawKey solo una vez)
+  - `GET /v1/tenant/api-keys`: listar API keys del tenant autenticado
+  - `GET /v1/tenant/api-keys/:id`: consultar API key por ID con verificación de ownership
+  - `DELETE /v1/tenant/api-keys/:id`: revocar API key (409 si ya revocada)
+  - DTOs: `CreateApiKeyRequest`, `ApiKeyResponse` (fromEntity/fromCreated con rawKey condicional)
+  - `ApiKeyExceptionMapper`: mapeo de errores a respuestas JSON con code/message
+  - `@JsonInclude(NON_NULL)` para omitir rawKey en respuestas de listado/consulta
+  - 34 tests nuevos (818 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

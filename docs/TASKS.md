@@ -196,7 +196,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - POST /tenant/certificate
   - GET /tenant/certificate/status
 
-- [ ] **T-023** Implementar gestión de API keys
+- [x] **T-023** Implementar gestión de API keys
   - Generación, listado, revocación
   - Múltiples API keys por tenant
 
