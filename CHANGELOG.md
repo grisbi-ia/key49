@@ -122,6 +122,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Jandex indexing para key49-notify (descubrimiento de beans CDI)
   - Configuración: connect-timeout-ms, read-timeout-ms, enabled (flag on/off)
   - 33 tests nuevos (693 total proyecto, 0 failures)
+- Test end-to-end de factura electrónica (T-020)
+  - `InvoiceEndToEndTest`: 25 tests ordenados ejercitando el flujo completo vía REST API
+  - Creación de factura (202), idempotencia, consulta por ID, listado con filtros
+  - Filtros: status, rango de fechas, recipient_id
+  - Documento duplicado (409), validaciones de request (400): establishment, recipient, items, fecha, pago
+  - XML y RIDE no disponibles para documento recién creado (404)
+  - Anulación: rechazo en CREATED (409), éxito en AUTHORIZED (200), sin razón (400)
+  - Autenticación requerida (401), paginación, rechazo resend-email en CREATED (409)
+  - Verificación de eventos outbox (`doc.sign`) y cálculo correcto de totales
+  - Fix: `InvoiceResource.downloadXml/downloadRide` convertidos a `Uni<Response>` (corrige error Vert.x EventLoop)
+  - Fix: `InvoiceResource.create` cambiado de `io.vertx.mutiny.core.http.HttpServerRequest` a `io.vertx.core.http.HttpServerRequest`
+  - 25 tests nuevos (718 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

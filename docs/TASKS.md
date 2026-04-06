@@ -171,7 +171,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Registro de entregas en webhook_deliveries
   - Test: disparar webhook y verificar firma
 
-- [ ] **T-020** Test end-to-end completo
+- [x] **T-020** Test end-to-end completo
   - POST /invoices → verificar 202
   - Esperar webhook document.authorized
   - GET /invoices/:id → verificar status AUTHORIZED

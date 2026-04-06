@@ -9,7 +9,7 @@ import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.service.InvoiceService;
 import auracore.key49.storage.ObjectStorageService;
 import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.http.HttpServerRequest;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -122,17 +122,22 @@ public class InvoiceResource {
     @GET
     @Path("/{id}/xml")
     @Produces(MediaType.APPLICATION_XML)
-    public Response downloadXml(@PathParam("id") UUID id) {
-        var doc = invoiceService.findById(id).await().indefinitely();
-        if (doc.authorizedXmlPath == null) {
-            throw new BusinessException("DOCUMENT_NOT_FOUND", "Authorized XML not available yet", 404);
-        }
-        byte[] bytes = storageService.retrieve(doc.authorizedXmlPath);
-        return Response.ok(bytes)
-                .type(MediaType.APPLICATION_XML)
-                .header("Content-Disposition",
-                        "attachment; filename=\"%s.xml\"".formatted(doc.accessKey != null ? doc.accessKey : doc.id))
-                .build();
+    public Uni<Response> downloadXml(@PathParam("id") UUID id) {
+        return invoiceService.findById(id)
+                .chain(doc -> {
+                    if (doc.authorizedXmlPath == null) {
+                        return Uni.createFrom().failure(
+                                new BusinessException("DOCUMENT_NOT_FOUND", "Authorized XML not available yet", 404));
+                    }
+                    return Uni.createFrom().item(() -> storageService.retrieve(doc.authorizedXmlPath))
+                            .runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
+                            .map(bytes -> Response.ok(bytes)
+                                    .type(MediaType.APPLICATION_XML)
+                                    .header("Content-Disposition",
+                                            "attachment; filename=\"%s.xml\"".formatted(
+                                                    doc.accessKey != null ? doc.accessKey : doc.id))
+                                    .build());
+                });
     }
 
     /**
@@ -141,17 +146,22 @@ public class InvoiceResource {
     @GET
     @Path("/{id}/ride")
     @Produces("application/pdf")
-    public Response downloadRide(@PathParam("id") UUID id) {
-        var doc = invoiceService.findById(id).await().indefinitely();
-        if (doc.ridePath == null) {
-            throw new BusinessException("DOCUMENT_NOT_FOUND", "RIDE not available yet", 404);
-        }
-        byte[] bytes = storageService.retrieve(doc.ridePath);
-        return Response.ok(bytes)
-                .type("application/pdf")
-                .header("Content-Disposition",
-                        "attachment; filename=\"%s.pdf\"".formatted(doc.accessKey != null ? doc.accessKey : doc.id))
-                .build();
+    public Uni<Response> downloadRide(@PathParam("id") UUID id) {
+        return invoiceService.findById(id)
+                .chain(doc -> {
+                    if (doc.ridePath == null) {
+                        return Uni.createFrom().failure(
+                                new BusinessException("DOCUMENT_NOT_FOUND", "RIDE not available yet", 404));
+                    }
+                    return Uni.createFrom().item(() -> storageService.retrieve(doc.ridePath))
+                            .runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
+                            .map(bytes -> Response.ok(bytes)
+                                    .type("application/pdf")
+                                    .header("Content-Disposition",
+                                            "attachment; filename=\"%s.pdf\"".formatted(
+                                                    doc.accessKey != null ? doc.accessKey : doc.id))
+                                    .build());
+                });
     }
 
     /**
