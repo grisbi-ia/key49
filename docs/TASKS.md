@@ -183,7 +183,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ## Fase 2: Multi-Tenant y Producción (4 semanas)
 
-- [ ] **T-021** Implementar gestión de tenants
+- [x] **T-021** Implementar gestión de tenants
   - CRUD de tenants en esquema público (admin)
   - Registro de tenant = INSERT en public.tenants con campo `schema_name`
   - La creación del esquema PostgreSQL y sus tablas es manual (DBA)

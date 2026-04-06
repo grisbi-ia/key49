@@ -134,6 +134,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Fix: `InvoiceResource.downloadXml/downloadRide` convertidos a `Uni<Response>` (corrige error Vert.x EventLoop)
   - Fix: `InvoiceResource.create` cambiado de `io.vertx.mutiny.core.http.HttpServerRequest` a `io.vertx.core.http.HttpServerRequest`
   - 25 tests nuevos (718 total proyecto, 0 failures)
+- Gestión de tenants para administración (T-021)
+  - `CertificateMetadataExtractor`: extracción de metadata (subject, serial, expiración, issuer) de certificados .p12
+  - `TenantAdminService`: CRUD de tenants en esquema público con validación de RUC y unicidad de schema_name
+  - REST API `/v1/admin/tenants`: crear, listar (paginación + filtro por status), consultar, actualizar
+  - Upload de certificado .p12 (`POST /v1/admin/tenants/:id/certificate`): validación, extracción de metadata, cifrado AES-256-GCM
+  - Consulta de estado de certificado (`GET /v1/admin/tenants/:id/certificate/status`): subject, serial, expiración, días restantes
+  - DTOs: `CreateTenantRequest`, `UpdateTenantRequest`, `TenantResponse` (con `CertificateSummary`), `CertificateStatusResponse`
+  - `TenantExceptionMapper` para errores de negocio de tenants
+  - 50 tests nuevos (768 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 
