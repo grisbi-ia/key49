@@ -12,7 +12,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - Portal web de consulta para tenants (T-028a)
   - Server-side rendering con Qute + Pico CSS v2 + HTMX v2.0.4
   - Autenticación por API key con sesiones Redis (cookie HttpOnly, TTL 30min)
-  - PortalAuthFilter (priority 15) valida sesión en todas las rutas /portal/*
+  - PortalAuthFilter (priority 15) valida sesión en todas las rutas /portal/\*
   - Pantalla login: formulario con API key, mensajes de error
   - Pantalla dashboard: tabla de documentos con filtros (estado, fechas, búsqueda) + paginación
   - Pantalla detalle: datos del documento, receptor, totales, timeline de procesamiento

@@ -25,8 +25,9 @@ import java.util.UUID;
 /**
  * Controlador del portal web de consulta de documentos.
  *
- * <p>Usa Qute para server-side rendering con Pico CSS + HTMX.
- * Solo lectura — no permite crear ni modificar documentos.</p>
+ * <p>
+ * Usa Qute para server-side rendering con Pico CSS + HTMX. Solo lectura — no
+ * permite crear ni modificar documentos.</p>
  */
 @Path("/portal")
 public class PortalResource {
@@ -60,7 +61,6 @@ public class PortalResource {
     ContainerRequestContext requestContext;
 
     // ── Login ──
-
     @GET
     @Path("/login")
     @Produces(MediaType.TEXT_HTML)
@@ -91,7 +91,6 @@ public class PortalResource {
     }
 
     // ── Logout ──
-
     @GET
     @Path("/logout")
     public Uni<Response> logout() {
@@ -111,7 +110,6 @@ public class PortalResource {
     }
 
     // ── Dashboard ──
-
     @GET
     @Path("/")
     @Produces(MediaType.TEXT_HTML)
@@ -146,21 +144,20 @@ public class PortalResource {
 
             return countQuery.getSingleResult()
                     .chain(total -> query.getResultList()
-                            .map(docs -> buildDashboard(session, docs, total, page, perPage,
-                                    status, dateFromStr, dateToStr, searchQuery)));
+                    .map(docs -> buildDashboard(session, docs, total, page, perPage,
+                    status, dateFromStr, dateToStr, searchQuery)));
         });
     }
 
     // ── Document detail ──
-
     @GET
     @Path("/documents/{id}")
     @Produces(MediaType.TEXT_HTML)
     public Uni<TemplateInstance> documentDetail(@PathParam("id") UUID id) {
         var session = getSession();
 
-        return tcm.withTenantSession(session.schemaName(), s ->
-                s.find(Document.class, id)
+        return tcm.withTenantSession(session.schemaName(), s
+                -> s.find(Document.class, id)
         ).map(doc -> {
             if (doc == null) {
                 return detail.data("session", session)
@@ -181,17 +178,18 @@ public class PortalResource {
     }
 
     // ── HTMX partial: status badge refresh ──
-
     @GET
     @Path("/documents/{id}/status")
     @Produces(MediaType.TEXT_HTML)
     public Uni<String> documentStatusBadge(@PathParam("id") UUID id) {
         var session = getSession();
 
-        return tcm.withTenantSession(session.schemaName(), s ->
-                s.find(Document.class, id)
+        return tcm.withTenantSession(session.schemaName(), s
+                -> s.find(Document.class, id)
         ).map(doc -> {
-            if (doc == null) return "<span>—</span>";
+            if (doc == null) {
+                return "<span>—</span>";
+            }
             var label = statusLabel(doc.status);
             var cls = statusClass(doc.status);
             return "<mark class=\"%s\">%s</mark>".formatted(cls, label);
@@ -199,10 +197,8 @@ public class PortalResource {
     }
 
     // ── Helpers ──
-
     private PortalSessionService.PortalSession getSession() {
-        return (PortalSessionService.PortalSession)
-                requestContext.getProperty(PortalAuthFilter.PORTAL_SESSION_ATTR);
+        return (PortalSessionService.PortalSession) requestContext.getProperty(PortalAuthFilter.PORTAL_SESSION_ATTR);
     }
 
     private String buildFilterConditions(String status, String dateFrom, String dateTo, String q) {
@@ -263,6 +259,7 @@ public class PortalResource {
     }
 
     record TimelineEntry(String label, String date, boolean completed, boolean active) {
+
     }
 
     private List<TimelineEntry> buildTimeline(Document doc) {
@@ -289,45 +286,67 @@ public class PortalResource {
     }
 
     private TimelineEntry entry(String label, java.time.Instant instant, ZoneId zone,
-                                 DateTimeFormatter fmt, boolean completed, boolean active) {
+            DateTimeFormatter fmt, boolean completed, boolean active) {
         var dateStr = instant != null ? fmt.format(instant.atZone(zone)) : "—";
         return new TimelineEntry(label, dateStr, completed, active);
     }
 
     static String documentTypeLabel(String code) {
         return switch (code) {
-            case "01" -> "Factura";
-            case "03" -> "Liquidación de Compra";
-            case "04" -> "Nota de Crédito";
-            case "05" -> "Nota de Débito";
-            case "06" -> "Guía de Remisión";
-            case "07" -> "Retención";
-            default -> code;
+            case "01" ->
+                "Factura";
+            case "03" ->
+                "Liquidación de Compra";
+            case "04" ->
+                "Nota de Crédito";
+            case "05" ->
+                "Nota de Débito";
+            case "06" ->
+                "Guía de Remisión";
+            case "07" ->
+                "Retención";
+            default ->
+                code;
         };
     }
 
     static String statusLabel(DocumentStatus s) {
         return switch (s) {
-            case CREATED -> "Creado";
-            case SIGNED -> "Firmado";
-            case SENT -> "Enviado";
-            case RECEIVED -> "Recibido";
-            case AUTHORIZED -> "Autorizado";
-            case NOTIFIED -> "Notificado";
-            case REJECTED -> "Rechazado";
-            case FAILED -> "Fallido";
-            case RETRY -> "Reintentando";
-            case VOIDED -> "Anulado";
+            case CREATED ->
+                "Creado";
+            case SIGNED ->
+                "Firmado";
+            case SENT ->
+                "Enviado";
+            case RECEIVED ->
+                "Recibido";
+            case AUTHORIZED ->
+                "Autorizado";
+            case NOTIFIED ->
+                "Notificado";
+            case REJECTED ->
+                "Rechazado";
+            case FAILED ->
+                "Fallido";
+            case RETRY ->
+                "Reintentando";
+            case VOIDED ->
+                "Anulado";
         };
     }
 
     static String statusClass(DocumentStatus s) {
         return switch (s) {
-            case AUTHORIZED, NOTIFIED -> "status-ok";
-            case REJECTED, FAILED -> "status-error";
-            case VOIDED -> "status-void";
-            case RETRY -> "status-warn";
-            default -> "status-pending";
+            case AUTHORIZED, NOTIFIED ->
+                "status-ok";
+            case REJECTED, FAILED ->
+                "status-error";
+            case VOIDED ->
+                "status-void";
+            case RETRY ->
+                "status-warn";
+            default ->
+                "status-pending";
         };
     }
 }

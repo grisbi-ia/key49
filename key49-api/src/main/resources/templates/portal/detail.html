@@ -13,8 +13,8 @@
     <h3>{docTypeLabel} {doc.establishment}-{doc.issuePoint}-{doc.sequenceNumber}</h3>
     <p>
         <span hx-get="/portal/documents/{doc.id}/status"
-              hx-trigger="{#if doc.status.name == 'CREATED' || doc.status.name == 'SIGNED' || doc.status.name == 'SENT' || doc.status.name == 'RECEIVED' || doc.status.name == 'RETRY'}every 5s{#else}none{/if}"
-              hx-swap="innerHTML">
+            hx-trigger="{#if doc.status.name == 'CREATED' || doc.status.name == 'SIGNED' || doc.status.name == 'SENT' || doc.status.name == 'RECEIVED' || doc.status.name == 'RETRY'}every 5s{#else}none{/if}"
+            hx-swap="innerHTML">
             <mark class="{statusClass}">{statusLabel}</mark>
         </span>
         {#if doc.requestOrigin == 'XML_RAW'}
@@ -27,32 +27,65 @@
     <article>
         <header>Datos del Documento</header>
         <table>
-            <tr><td>Tipo</td><td>{docTypeLabel} ({doc.documentType})</td></tr>
-            <tr><td>Fecha Emisión</td><td>{doc.issueDate}</td></tr>
-            <tr><td>Clave de Acceso</td><td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.accessKey}</td></tr>
+            <tr>
+                <td>Tipo</td>
+                <td>{docTypeLabel} ({doc.documentType})</td>
+            </tr>
+            <tr>
+                <td>Fecha Emisión</td>
+                <td>{doc.issueDate}</td>
+            </tr>
+            <tr>
+                <td>Clave de Acceso</td>
+                <td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.accessKey}</td>
+            </tr>
             {#if doc.authorizationNumber}
-            <tr><td>N° Autorización</td><td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.authorizationNumber}</td></tr>
+            <tr>
+                <td>N° Autorización</td>
+                <td class="doc-number" style="word-break:break-all;font-size:0.8em">{doc.authorizationNumber}</td>
+            </tr>
             {/if}
             {#if doc.authorizationDate}
-            <tr><td>Fecha Autorización</td><td>{formatDateTime.format(doc.authorizationDate.atZone(ecZone))}</td></tr>
+            <tr>
+                <td>Fecha Autorización</td>
+                <td>{formatDateTime.format(doc.authorizationDate.atZone(ecZone))}</td>
+            </tr>
             {/if}
-            <tr><td>Origen</td><td>{doc.requestOrigin}</td></tr>
+            <tr>
+                <td>Origen</td>
+                <td>{doc.requestOrigin}</td>
+            </tr>
         </table>
     </article>
 
     <article>
         <header>Receptor</header>
         <table>
-            <tr><td>Nombre</td><td>{doc.recipientName}</td></tr>
-            <tr><td>Identificación</td><td>{doc.recipientId}</td></tr>
+            <tr>
+                <td>Nombre</td>
+                <td>{doc.recipientName}</td>
+            </tr>
+            <tr>
+                <td>Identificación</td>
+                <td>{doc.recipientId}</td>
+            </tr>
             {#if doc.recipientEmail}
-            <tr><td>Email</td><td>{doc.recipientEmail}</td></tr>
+            <tr>
+                <td>Email</td>
+                <td>{doc.recipientEmail}</td>
+            </tr>
             {/if}
             {#if doc.recipientAddress}
-            <tr><td>Dirección</td><td>{doc.recipientAddress}</td></tr>
+            <tr>
+                <td>Dirección</td>
+                <td>{doc.recipientAddress}</td>
+            </tr>
             {/if}
             {#if doc.recipientPhone}
-            <tr><td>Teléfono</td><td>{doc.recipientPhone}</td></tr>
+            <tr>
+                <td>Teléfono</td>
+                <td>{doc.recipientPhone}</td>
+            </tr>
             {/if}
         </table>
     </article>
@@ -62,18 +95,36 @@
     <article>
         <header>Totales</header>
         <table>
-            <tr><td>Subtotal</td><td class="text-right amount">${doc.subtotalBeforeTax}</td></tr>
+            <tr>
+                <td>Subtotal</td>
+                <td class="text-right amount">${doc.subtotalBeforeTax}</td>
+            </tr>
             {#if doc.totalDiscount.doubleValue > 0}
-            <tr><td>Descuento</td><td class="text-right amount">-${doc.totalDiscount}</td></tr>
+            <tr>
+                <td>Descuento</td>
+                <td class="text-right amount">-${doc.totalDiscount}</td>
+            </tr>
             {/if}
-            <tr><td>IVA</td><td class="text-right amount">${doc.vatAmount}</td></tr>
+            <tr>
+                <td>IVA</td>
+                <td class="text-right amount">${doc.vatAmount}</td>
+            </tr>
             {#if doc.iceAmount.doubleValue > 0}
-            <tr><td>ICE</td><td class="text-right amount">${doc.iceAmount}</td></tr>
+            <tr>
+                <td>ICE</td>
+                <td class="text-right amount">${doc.iceAmount}</td>
+            </tr>
             {/if}
             {#if doc.tip.doubleValue > 0}
-            <tr><td>Propina</td><td class="text-right amount">${doc.tip}</td></tr>
+            <tr>
+                <td>Propina</td>
+                <td class="text-right amount">${doc.tip}</td>
+            </tr>
             {/if}
-            <tr><th>Total</th><th class="text-right amount">${doc.totalAmount}</th></tr>
+            <tr>
+                <th>Total</th>
+                <th class="text-right amount">${doc.totalAmount}</th>
+            </tr>
         </table>
     </article>
 
@@ -125,10 +176,19 @@
 <article>
     <header>Email</header>
     <table>
-        <tr><td>Enviado</td><td>{formatDateTime.format(doc.emailSentAt.atZone(ecZone))}</td></tr>
-        <tr><td>Estado</td><td>{doc.emailStatus ?: '—'}</td></tr>
+        <tr>
+            <td>Enviado</td>
+            <td>{formatDateTime.format(doc.emailSentAt.atZone(ecZone))}</td>
+        </tr>
+        <tr>
+            <td>Estado</td>
+            <td>{doc.emailStatus ?: '—'}</td>
+        </tr>
         {#if doc.emailError}
-        <tr><td>Error</td><td>{doc.emailError}</td></tr>
+        <tr>
+            <td>Error</td>
+            <td>{doc.emailError}</td>
+        </tr>
         {/if}
     </table>
 </article>

@@ -13,7 +13,8 @@ import java.net.URI;
 /**
  * Filtro de autenticación para el portal web.
  *
- * <p>Valida la cookie {@code KEY49_SESSION} contra Redis en todas las rutas
+ * <p>
+ * Valida la cookie {@code KEY49_SESSION} contra Redis en todas las rutas
  * {@code /portal/*} excepto {@code /portal/login}. Redirige al login si la
  * sesión no es válida.</p>
  */

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,23 +11,50 @@
         :root {
             --pico-font-size: 15px;
         }
-        .status-ok { background-color: #2ecc40; color: #fff; }
-        .status-error { background-color: #ff4136; color: #fff; }
-        .status-void { background-color: #85144b; color: #fff; }
-        .status-warn { background-color: #ff851b; color: #fff; }
-        .status-pending { background-color: #adb5bd; color: #fff; }
+
+        .status-ok {
+            background-color: #2ecc40;
+            color: #fff;
+        }
+
+        .status-error {
+            background-color: #ff4136;
+            color: #fff;
+        }
+
+        .status-void {
+            background-color: #85144b;
+            color: #fff;
+        }
+
+        .status-warn {
+            background-color: #ff851b;
+            color: #fff;
+        }
+
+        .status-pending {
+            background-color: #adb5bd;
+            color: #fff;
+        }
+
         mark[class^="status-"] {
             padding: 0.15em 0.5em;
             border-radius: 4px;
             font-size: 0.85em;
             font-weight: 600;
         }
-        nav .brand { font-weight: 700; font-size: 1.1rem; }
+
+        nav .brand {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
         .timeline {
             list-style: none;
             padding: 0;
             margin: 1rem 0;
         }
+
         .timeline li {
             display: flex;
             align-items: center;
@@ -35,30 +63,69 @@
             border-left: 3px solid var(--pico-muted-border-color);
             padding-left: 1rem;
         }
+
         .timeline li.completed {
             border-left-color: #2ecc40;
         }
+
         .timeline li.active {
             border-left-color: #0069d9;
             font-weight: 600;
         }
+
         .timeline .dot {
-            width: 12px; height: 12px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             background: var(--pico-muted-border-color);
             flex-shrink: 0;
         }
-        .timeline li.completed .dot { background: #2ecc40; }
-        .timeline li.active .dot { background: #0069d9; }
-        .filters { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
-        .filters label { margin-bottom: 0; }
-        .doc-number { font-family: monospace; font-size: 0.9em; }
-        .text-right { text-align: right; }
-        .amount { font-family: monospace; }
-        .pagination { display: flex; gap: 0.5rem; justify-content: center; align-items: center; }
-        table { font-size: 0.9rem; }
+
+        .timeline li.completed .dot {
+            background: #2ecc40;
+        }
+
+        .timeline li.active .dot {
+            background: #0069d9;
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        .filters label {
+            margin-bottom: 0;
+        }
+
+        .doc-number {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .amount {
+            font-family: monospace;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        table {
+            font-size: 0.9rem;
+        }
     </style>
 </head>
+
 <body>
     <nav class="container">
         <ul>
@@ -78,4 +145,5 @@
         <small>Key49 — Facturación Electrónica</small>
     </footer>
 </body>
+
 </html>

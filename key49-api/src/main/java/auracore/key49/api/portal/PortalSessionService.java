@@ -16,8 +16,10 @@ import java.util.UUID;
 /**
  * Servicio de sesiones del portal web respaldado por Redis.
  *
- * <p>Gestiona login vía API key, creación/validación de sesiones en Redis,
- * y renovación de TTL. Las sesiones almacenan tenantId, schemaName y legalName.</p>
+ * <p>
+ * Gestiona login vía API key, creación/validación de sesiones en Redis, y
+ * renovación de TTL. Las sesiones almacenan tenantId, schemaName y
+ * legalName.</p>
  */
 @ApplicationScoped
 public class PortalSessionService {
@@ -76,10 +78,10 @@ public class PortalSessionService {
                     var hash = redis.hash(String.class);
 
                     return hash.hset(key, Map.of(
-                                    "tenant_id", tenantId,
-                                    "schema_name", schemaName,
-                                    "legal_name", legalName != null ? legalName : ""
-                            ))
+                            "tenant_id", tenantId,
+                            "schema_name", schemaName,
+                            "legal_name", legalName != null ? legalName : ""
+                    ))
                             .chain(() -> redis.key().pexpire(key, SESSION_TTL.toMillis()))
                             .replaceWith(sessionId)
                             .invoke(() -> log.infof("Portal session created | tenant=%s", tenantId));
@@ -87,8 +89,8 @@ public class PortalSessionService {
     }
 
     /**
-     * Valida una sesión y devuelve los datos del tenant.
-     * Renueva el TTL en cada acceso.
+     * Valida una sesión y devuelve los datos del tenant. Renueva el TTL en cada
+     * acceso.
      */
     public Uni<PortalSession> validate(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
@@ -130,5 +132,6 @@ public class PortalSessionService {
      * Datos de sesión del portal.
      */
     public record PortalSession(UUID tenantId, String schemaName, String legalName) {
+
     }
 }

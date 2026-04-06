@@ -35,52 +35,55 @@
 <p>No se encontraron documentos.</p>
 {#else}
 <figure>
-<table>
-    <thead>
-        <tr>
-            <th>Fecha</th>
-            <th>Tipo</th>
-            <th>Serie</th>
-            <th>Receptor</th>
-            <th class="text-right">Total</th>
-            <th>Estado</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {#for doc in docs}
-        <tr>
-            <td>{doc.issueDate}</td>
-            <td>{doc.documentType}</td>
-            <td class="doc-number">{doc.establishment}-{doc.issuePoint}-{doc.sequenceNumber}</td>
-            <td>
-                <small>{doc.recipientName}</small><br>
-                <small style="color:var(--pico-muted-color)">{doc.recipientId}</small>
-            </td>
-            <td class="text-right amount">${doc.totalAmount}</td>
-            <td>
-                <span hx-get="/portal/documents/{doc.id}/status"
-                      hx-trigger="{#if doc.status.name == 'CREATED' || doc.status.name == 'SIGNED' || doc.status.name == 'SENT' || doc.status.name == 'RECEIVED' || doc.status.name == 'RETRY'}every 5s{#else}none{/if}"
-                      hx-swap="innerHTML">
-                    <mark class="{#if doc.status.name == 'AUTHORIZED' || doc.status.name == 'NOTIFIED'}status-ok{#else if doc.status.name == 'REJECTED' || doc.status.name == 'FAILED'}status-error{#else if doc.status.name == 'VOIDED'}status-void{#else if doc.status.name == 'RETRY'}status-warn{#else}status-pending{/if}">{doc.status.name}</mark>
-                </span>
-            </td>
-            <td><a href="/portal/documents/{doc.id}">Ver</a></td>
-        </tr>
-        {/for}
-    </tbody>
-</table>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Serie</th>
+                <th>Receptor</th>
+                <th class="text-right">Total</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {#for doc in docs}
+            <tr>
+                <td>{doc.issueDate}</td>
+                <td>{doc.documentType}</td>
+                <td class="doc-number">{doc.establishment}-{doc.issuePoint}-{doc.sequenceNumber}</td>
+                <td>
+                    <small>{doc.recipientName}</small><br>
+                    <small style="color:var(--pico-muted-color)">{doc.recipientId}</small>
+                </td>
+                <td class="text-right amount">${doc.totalAmount}</td>
+                <td>
+                    <span hx-get="/portal/documents/{doc.id}/status"
+                        hx-trigger="{#if doc.status.name == 'CREATED' || doc.status.name == 'SIGNED' || doc.status.name == 'SENT' || doc.status.name == 'RECEIVED' || doc.status.name == 'RETRY'}every 5s{#else}none{/if}"
+                        hx-swap="innerHTML">
+                        <mark
+                            class="{#if doc.status.name == 'AUTHORIZED' || doc.status.name == 'NOTIFIED'}status-ok{#else if doc.status.name == 'REJECTED' || doc.status.name == 'FAILED'}status-error{#else if doc.status.name == 'VOIDED'}status-void{#else if doc.status.name == 'RETRY'}status-warn{#else}status-pending{/if}">{doc.status.name}</mark>
+                    </span>
+                </td>
+                <td><a href="/portal/documents/{doc.id}">Ver</a></td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
 </figure>
 
 {#if totalPages > 1}
 <nav class="pagination">
     {#if page > 1}
-    <a href="/portal/?page={page - 1}{#if filterStatus}&status={filterStatus}{/if}{#if filterDateFrom}&date_from={filterDateFrom}{/if}{#if filterDateTo}&date_to={filterDateTo}{/if}{#if filterQ}&q={filterQ}{/if}" role="button" class="outline">← Anterior</a>
+    <a href="/portal/?page={page - 1}{#if filterStatus}&status={filterStatus}{/if}{#if filterDateFrom}&date_from={filterDateFrom}{/if}{#if filterDateTo}&date_to={filterDateTo}{/if}{#if filterQ}&q={filterQ}{/if}"
+        role="button" class="outline">← Anterior</a>
     {/if}
     <span>Página {page} de {totalPages}</span>
-    {#if page < totalPages}
-    <a href="/portal/?page={page + 1}{#if filterStatus}&status={filterStatus}{/if}{#if filterDateFrom}&date_from={filterDateFrom}{/if}{#if filterDateTo}&date_to={filterDateTo}{/if}{#if filterQ}&q={filterQ}{/if}" role="button" class="outline">Siguiente →</a>
-    {/if}
+    {#if page < totalPages} <a
+        href="/portal/?page={page + 1}{#if filterStatus}&status={filterStatus}{/if}{#if filterDateFrom}&date_from={filterDateFrom}{/if}{#if filterDateTo}&date_to={filterDateTo}{/if}{#if filterQ}&q={filterQ}{/if}"
+        role="button" class="outline">Siguiente →</a>
+        {/if}
 </nav>
 {/if}
 {/if}

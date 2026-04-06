@@ -24,7 +24,8 @@ import static org.hamcrest.Matchers.*;
 /**
  * Tests end-to-end del portal web de consulta.
  *
- * <p>Verifica: login con API key válido/inválido, redirección sin sesión,
+ * <p>
+ * Verifica: login con API key válido/inválido, redirección sin sesión,
  * dashboard con documentos, filtros, detalle de documento, logout.</p>
  */
 @QuarkusTest
