@@ -14,7 +14,6 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.model.enums.SriEnvironment;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
