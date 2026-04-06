@@ -54,6 +54,7 @@
         <bouncycastle.version>1.80</bouncycastle.version>
         <openpdf.version>2.0.3</openpdf.version>
         <zxing.version>3.5.3</zxing.version>
+        <minio.version>8.5.17</minio.version>
 
         <!-- Plugin versions -->
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
@@ -155,6 +156,13 @@
                 <groupId>com.google.zxing</groupId>
                 <artifactId>javase</artifactId>
                 <version>${zxing.version}</version>
+            </dependency>
+
+            <!-- MinIO (S3-compatible storage) -->
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

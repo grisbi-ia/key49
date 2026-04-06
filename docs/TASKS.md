@@ -137,7 +137,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Marca de agua si no está autorizado
   - Test: generar RIDE y verificar contenido visualmente
 
-- [ ] **T-016** Implementar almacenamiento en MinIO (key49-storage)
+- [x] **T-016** Implementar almacenamiento en MinIO (key49-storage) ✓
   - Guardar XML sin firmar, XML firmado, XML autorizado, RIDE
   - Estructura de paths: `{tenant_id}/{year}/{month}/{doc_type}/{access_key}/`
   - Política de retención: 7 años (configurar lifecycle en MinIO)

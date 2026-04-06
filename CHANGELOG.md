@@ -81,6 +81,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `RideData`: record con datos de presentación para el RIDE
   - `RideGenerationException`: excepción específica del módulo
   - 31 tests nuevos (562 total proyecto, 0 failures)
+- Almacenamiento de artefactos en MinIO/S3 (T-016)
+  - `ObjectStorageService`: almacenamiento y descarga con MinIO Java SDK 8.5.17
+  - `StoragePath`: construcción de rutas `{tenant}/{year}/{month}/{docType}/{accessKey}/{filename}`
+  - `DocumentArtifact`: enum con 4 tipos (unsigned.xml, signed.xml, authorized.xml, ride.pdf)
+  - `StorageException`: excepción específica del módulo
+  - Configuración: endpoint, access-key, secret-key, bucket, region con env vars
+  - 31 tests nuevos (593 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 
