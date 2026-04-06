@@ -1,17 +1,18 @@
 package auracore.key49.api.dto;
 
-import auracore.key49.core.model.Document;
-import auracore.key49.core.model.enums.DocumentStatus;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import auracore.key49.core.model.Document;
+import auracore.key49.core.model.enums.DocumentStatus;
 
 class InvoiceResponseTest {
 

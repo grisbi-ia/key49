@@ -1,8 +1,8 @@
 package auracore.key49.api.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.Instant;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * Wrapper genérico para respuestas exitosas de un solo objeto.

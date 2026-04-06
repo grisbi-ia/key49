@@ -1,5 +1,21 @@
 package auracore.key49.api.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import auracore.key49.api.dto.CreateInvoiceRequest;
 import auracore.key49.api.dto.CreateInvoiceRequest.ItemRequest;
 import auracore.key49.api.dto.CreateInvoiceRequest.PaymentRequest;
@@ -8,20 +24,6 @@ import auracore.key49.api.dto.CreateInvoiceRequest.TaxRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
-import auracore.key49.core.tenant.TenantConnectionManager;
-import auracore.key49.core.tenant.TenantContext;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitarios para InvoiceService: validación y cálculo de totales.

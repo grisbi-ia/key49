@@ -1,11 +1,13 @@
 package auracore.key49.api.exception;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import java.util.List;
+
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
-import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 /**
  * Mapper que convierte BusinessException en el formato de error estándar de Key49.
