@@ -1,16 +1,18 @@
 package auracore.key49.admin.health;
 
-import auracore.key49.storage.ObjectStorageService;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.eclipse.microprofile.health.Readiness;
 
+import auracore.key49.storage.ObjectStorageService;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
 /**
  * Health check de readiness para MinIO/S3.
  *
- * <p>Verifica que el bucket configurado existe y es accesible.</p>
+ * <p>
+ * Verifica que el bucket configurado existe y es accesible.</p>
  */
 @Readiness
 @ApplicationScoped

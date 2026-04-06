@@ -1,15 +1,16 @@
 package auracore.key49.admin.health;
 
-import org.eclipse.microprofile.health.HealthCheckResponse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitarios para SriReceptionHealthCheck y SriAuthorizationHealthCheck.
  *
- * <p>Verifica que los health checks manejan correctamente errores de conexión.
- * No se prueban conexiones reales al SRI (eso es E2E).</p>
+ * <p>
+ * Verifica que los health checks manejan correctamente errores de conexión. No
+ * se prueban conexiones reales al SRI (eso es E2E).</p>
  */
 class SriHealthCheckTest {
 

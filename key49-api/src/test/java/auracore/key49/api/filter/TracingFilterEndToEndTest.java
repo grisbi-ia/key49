@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test de integración para el TracingFilter.
  *
- * <p>Verifica que todas las respuestas incluyen {@code X-Request-Id} y que
- * el formato del request ID es correcto ({@code req_} + 16 caracteres).</p>
+ * <p>
+ * Verifica que todas las respuestas incluyen {@code X-Request-Id} y que el
+ * formato del request ID es correcto ({@code req_} + 16 caracteres).</p>
  */
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)

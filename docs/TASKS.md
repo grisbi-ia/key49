@@ -241,7 +241,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Templates: `src/main/resources/templates/portal/`
   - Test: login con API key válido/inválido, ver lista, ver detalle
 
-- [ ] **T-028b** Implementar endpoint XML Raw (key49-api, key49-xml)
+- [x] **T-028b** Implementar endpoint XML Raw (key49-api, key49-xml)
   - POST /v1/documents/raw — recibir XML pre-armado (ver ADR-006)
   - Validar XML contra XSD correspondiente según header `X-Document-Type`
   - Parser XML → extraer datos del receptor y totales para persistir en tabla `documents`

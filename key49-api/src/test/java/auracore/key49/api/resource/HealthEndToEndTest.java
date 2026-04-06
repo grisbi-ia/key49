@@ -10,7 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test de integración para los health check endpoints.
  *
- * <p>Verifica que los endpoints {@code /q/health}, {@code /q/health/ready} y
+ * <p>
+ * Verifica que los endpoints {@code /q/health}, {@code /q/health/ready} y
  * {@code /q/health/live} están disponibles y retornan datos estructurados.</p>
  */
 @QuarkusTest

@@ -1,9 +1,9 @@
 package auracore.key49.admin.health;
 
 import org.eclipse.microprofile.health.HealthCheckResponse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitarios para MinioHealthCheck.

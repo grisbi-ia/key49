@@ -1,25 +1,28 @@
 package auracore.key49.admin.health;
 
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.pgclient.PgPool;
-import io.vertx.mutiny.sqlclient.Row;
-import io.vertx.mutiny.sqlclient.Tuple;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.eclipse.microprofile.health.HealthCheckResponseBuilder;
 import org.eclipse.microprofile.health.Readiness;
 import org.jboss.logging.Logger;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Row;
+import io.vertx.mutiny.sqlclient.Tuple;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
- * Health check de readiness que verifica la expiración de certificados de tenants.
+ * Health check de readiness que verifica la expiración de certificados de
+ * tenants.
  *
- * <p>Reporta warning si algún tenant activo tiene un certificado que expira en menos de 30 días.
- * No marca DOWN el servicio, pero incluye datos de los certificados próximos a vencer.</p>
+ * <p>
+ * Reporta warning si algún tenant activo tiene un certificado que expira en
+ * menos de 30 días. No marca DOWN el servicio, pero incluye datos de los
+ * certificados próximos a vencer.</p>
  */
 @Readiness
 @ApplicationScoped
@@ -36,10 +39,10 @@ public class CertificateExpirationHealthCheck implements HealthCheck {
         try {
             var threshold = Instant.now().plus(WARNING_DAYS, ChronoUnit.DAYS);
             var rows = pgPool.preparedQuery(
-                            "SELECT legal_name, certificate_expiration FROM public.tenants " +
-                                    "WHERE status = 'active' AND certificate_expiration IS NOT NULL " +
-                                    "AND certificate_expiration < $1 " +
-                                    "ORDER BY certificate_expiration ASC")
+                    "SELECT legal_name, certificate_expiration FROM public.tenants "
+                    + "WHERE status = 'active' AND certificate_expiration IS NOT NULL "
+                    + "AND certificate_expiration < $1 "
+                    + "ORDER BY certificate_expiration ASC")
                     .execute(Tuple.of(threshold.atOffset(java.time.ZoneOffset.UTC)))
                     .await().atMost(java.time.Duration.ofSeconds(5));
 

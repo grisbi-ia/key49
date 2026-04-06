@@ -1,23 +1,26 @@
 package auracore.key49.admin.health;
 
-import auracore.key49.sri.config.SriEndpoints;
-import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.eclipse.microprofile.health.HealthCheck;
-import org.eclipse.microprofile.health.HealthCheckResponse;
-import org.eclipse.microprofile.health.Liveness;
-import org.jboss.logging.Logger;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.health.HealthCheck;
+import org.eclipse.microprofile.health.HealthCheckResponse;
+import org.eclipse.microprofile.health.Liveness;
+import org.jboss.logging.Logger;
+
+import auracore.key49.sri.config.SriEndpoints;
+import jakarta.enterprise.context.ApplicationScoped;
+
 /**
  * Health check de liveness para el servicio SOAP de Recepción del SRI.
  *
- * <p>Ejecuta un HTTP HEAD al WSDL del SRI para verificar que el servicio está accesible.</p>
+ * <p>
+ * Ejecuta un HTTP HEAD al WSDL del SRI para verificar que el servicio está
+ * accesible.</p>
  */
 @Liveness
 @ApplicationScoped

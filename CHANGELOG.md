@@ -183,13 +183,29 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `TenantContext` extendido con `rateLimitRpm` y `apiKeyPrefix`
   - `ApiKeyAuthFilter` actualizado: priority=10, consulta `rate_limit_rpm`, pobla TenantContext
   - 16 tests nuevos (168 total proyecto, 0 failures)
+- Endpoint XML Raw para documentos pre-armados (T-028b)
+  - `POST /v1/documents/raw`: recibe XML completo con `Content-Type: application/xml`
+  - Header `X-Document-Type` obligatorio para indicar tipo de comprobante (01-07)
+  - Validación XSD dinámica según tipo de documento
+  - Validación `<codDoc>` en XML coincide con header `X-Document-Type`
+  - Extracción de metadatos: receptor (varía por tipo), totales, serie, email de infoAdicional
+  - Clave de acceso siempre generada por Key49, reemplaza cualquier `<claveAcceso>` del XML
+  - RUC extraído del XML (`<ruc>` en `<infoTributaria>`)
+  - Prevención XXE: deshabilitación de DOCTYPE y entidades externas
+  - Documento persiste con `request_origin = 'XML_RAW'` y `original_xml` almacena XML final
+  - `GET /v1/documents/raw/:id`: consultar estado de documento
+  - `RawDocumentResponse`: DTO con campo `origin` para diferenciar de documentos JSON
+  - Idempotencia con `X-Idempotency-Key`, unicidad por serie, duplicados (409)
+  - Continúa pipeline normal: firmar → enviar → autorizar → notificar
+  - Errores: MISSING_DOCUMENT_TYPE, INVALID_XML_STRUCTURE, DOCUMENT_TYPE_MISMATCH, XSD_VALIDATION_FAILED
+  - 10 tests E2E nuevos (186 total proyecto, 0 failures)
 - Health checks y observabilidad (T-027)
   - `MinioHealthCheck` (@Readiness): verifica accesibilidad del bucket en MinIO
   - `SriReceptionHealthCheck` (@Liveness): HTTP HEAD al WSDL de Recepción del SRI
   - `SriAuthorizationHealthCheck` (@Liveness): HTTP HEAD al WSDL de Autorización del SRI
   - `CertificateExpirationHealthCheck` (@Readiness): detecta certificados que vencen en < 30 días
   - `CertificateExpirationNotifier`: job diario (08:00 ECT) que envía email y webhook `certificate.expiring`
-  - `TracingFilter`: genera `X-Request-Id` (req_{uuid}) y `X-Trace-Id` (OpenTelemetry) en todas las respuestas
+  - `TracingFilter`: genera `X-Request-Id` (req\_{uuid}) y `X-Trace-Id` (OpenTelemetry) en todas las respuestas
   - OpenTelemetry configurado: tracing automático HTTP, JDBC, RabbitMQ
   - Logs con traceId/spanId en formato de consola (desarrollo)
   - Producción: exportar a Grafana Tempo vía OTLP (`KEY49_OTEL_TRACES_EXPORTER=otlp`)

@@ -21,11 +21,15 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Job programado que verifica certificados próximos a vencer y notifica proactivamente.
+ * Job programado que verifica certificados próximos a vencer y notifica
+ * proactivamente.
  *
- * <p>Ejecuta diariamente a las 08:00 ECT. Para cada tenant activo con certificado
- * que vence en menos de 30 días, envía email al tenant y webhook {@code certificate.expiring}.</p>
+ * <p>
+ * Ejecuta diariamente a las 08:00 ECT. Para cada tenant activo con certificado
+ * que vence en menos de 30 días, envía email al tenant y webhook
+ * {@code certificate.expiring}.</p>
  */
+
 @ApplicationScoped
 public class CertificateExpirationNotifier {
 

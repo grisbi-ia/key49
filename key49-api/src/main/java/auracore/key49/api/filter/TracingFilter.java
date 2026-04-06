@@ -13,11 +13,14 @@ import java.util.UUID;
 /**
  * Filtro que agrega headers de trazabilidad a todas las respuestas HTTP.
  *
- * <p>Genera un {@code X-Request-Id} único por request (formato {@code req_{16chars}})
- * y extrae el {@code X-Trace-Id} del contexto de OpenTelemetry si está disponible.</p>
+ * <p>
+ * Genera un {@code X-Request-Id} único por request (formato
+ * {@code req_{16chars}}) y extrae el {@code X-Trace-Id} del contexto de
+ * OpenTelemetry si está disponible.</p>
  *
- * <p>Priority 5: se ejecuta antes del filtro de autenticación (10), para que
- * el request ID esté disponible desde el inicio del procesamiento.</p>
+ * <p>
+ * Priority 5: se ejecuta antes del filtro de autenticación (10), para que el
+ * request ID esté disponible desde el inicio del procesamiento.</p>
  */
 @ApplicationScoped
 public class TracingFilter {
@@ -40,7 +43,7 @@ public class TracingFilter {
 
     @ServerResponseFilter
     public void addTracingHeaders(ResteasyReactiveContainerRequestContext requestContext,
-                                  jakarta.ws.rs.container.ContainerResponseContext responseContext) {
+            jakarta.ws.rs.container.ContainerResponseContext responseContext) {
         var requestId = requestContext.getProperty(REQUEST_ID_PROPERTY);
         if (requestId != null && responseContext.getHeaderString("X-Request-Id") == null) {
             responseContext.getHeaders().putSingle("X-Request-Id", requestId);
