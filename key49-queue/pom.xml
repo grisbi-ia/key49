@@ -32,6 +32,10 @@
             <artifactId>key49-sri</artifactId>
         </dependency>
         <dependency>
+            <groupId>auracore.key49</groupId>
+            <artifactId>key49-notify</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-messaging-rabbitmq</artifactId>
         </dependency>

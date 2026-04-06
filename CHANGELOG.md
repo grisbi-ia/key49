@@ -110,6 +110,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Jackson configurado: SNAKE_CASE, sin timestamps para fechas, CORS habilitado
   - Jandex indexing para key49-storage (descubrimiento de beans CDI)
   - 44 tests nuevos (660 total proyecto, 0 failures)
+- Webhooks con firma HMAC-SHA256 (T-019)
+  - `WebhookDispatcher`: envío HTTP POST con firma HMAC-SHA256 en header `X-Key49-Signature`
+  - `WebhookPayload`: record con 12 campos del evento (documentId, accessKey, status, etc.)
+  - `WebhookDelivery`: entidad JPA para registro de entregas en `webhook_deliveries`
+  - `WebhookDeliveryRepository`: consultas de reintentos pendientes y por documento
+  - Reintentos con backoff: 10s, 60s, 300s (3 intentos máximo)
+  - Headers: `X-Key49-Signature` (sha256=hex), `X-Key49-Event`, `X-Key49-Delivery`
+  - `NotifyConsumer` integrado: despacha webhook al tenant tras autorización
+  - Dependencia `quarkus-jackson` en key49-notify para serialización JSON
+  - Jandex indexing para key49-notify (descubrimiento de beans CDI)
+  - Configuración: connect-timeout-ms, read-timeout-ms, enabled (flag on/off)
+  - 33 tests nuevos (693 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

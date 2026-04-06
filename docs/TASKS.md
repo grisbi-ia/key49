@@ -165,7 +165,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Documentación OpenAPI automática
   - Test: integration tests con Quarkus @QuarkusTest
 
-- [ ] **T-019** Implementar webhooks (key49-notify)
+- [x] **T-019** Implementar webhooks (key49-notify)
   - Dispatcher de webhooks con firma HMAC-SHA256
   - Reintentos: 3 intentos con backoff 10s, 60s, 300s
   - Registro de entregas en webhook_deliveries
