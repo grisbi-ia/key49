@@ -17,8 +17,8 @@ import java.time.OffsetDateTime;
 import java.time.Instant;
 
 /**
- * Filtro de autenticación por API Key.
- * Usa PgPool directamente (sin Hibernate session) para consultar api_keys y tenants.
+ * Filtro de autenticación por API Key. Usa PgPool directamente (sin Hibernate
+ * session) para consultar api_keys y tenants.
  */
 public class ApiKeyAuthFilter {
 
@@ -99,7 +99,8 @@ public class ApiKeyAuthFilter {
 
                     // Update last_used_at asynchronously (fire-and-forget)
                     pgPool.preparedQuery("UPDATE api_keys SET last_used_at = now() WHERE key_hash = $1")
-                            .execute(Tuple.of(keyHash)).subscribe().with(v -> {}, e -> log.warnf("Failed to update last_used_at: %s", e.getMessage()));
+                            .execute(Tuple.of(keyHash)).subscribe().with(v -> {
+                    }, e -> log.warnf("Failed to update last_used_at: %s", e.getMessage()));
 
                     return Uni.createFrom().nullItem();
                 });

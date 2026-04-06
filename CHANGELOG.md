@@ -183,6 +183,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `TenantContext` extendido con `rateLimitRpm` y `apiKeyPrefix`
   - `ApiKeyAuthFilter` actualizado: priority=10, consulta `rate_limit_rpm`, pobla TenantContext
   - 16 tests nuevos (168 total proyecto, 0 failures)
+- Health checks y observabilidad (T-027)
+  - `MinioHealthCheck` (@Readiness): verifica accesibilidad del bucket en MinIO
+  - `SriReceptionHealthCheck` (@Liveness): HTTP HEAD al WSDL de Recepción del SRI
+  - `SriAuthorizationHealthCheck` (@Liveness): HTTP HEAD al WSDL de Autorización del SRI
+  - `CertificateExpirationHealthCheck` (@Readiness): detecta certificados que vencen en < 30 días
+  - `CertificateExpirationNotifier`: job diario (08:00 ECT) que envía email y webhook `certificate.expiring`
+  - `TracingFilter`: genera `X-Request-Id` (req_{uuid}) y `X-Trace-Id` (OpenTelemetry) en todas las respuestas
+  - OpenTelemetry configurado: tracing automático HTTP, JDBC, RabbitMQ
+  - Logs con traceId/spanId en formato de consola (desarrollo)
+  - Producción: exportar a Grafana Tempo vía OTLP (`KEY49_OTEL_TRACES_EXPORTER=otlp`)
+  - Jandex indexing para key49-admin (descubrimiento de beans CDI)
+  - 15 tests nuevos (176 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

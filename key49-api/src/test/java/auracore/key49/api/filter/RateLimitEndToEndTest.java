@@ -28,8 +28,9 @@ import jakarta.inject.Inject;
 /**
  * Test de integración para rate limiting con Redis.
  *
- * <p>Crea un tenant con rate_limit_rpm bajo (5 req/min) y verifica que al
- * exceder el límite se retorne 429 con los headers correctos.</p>
+ * <p>
+ * Crea un tenant con rate_limit_rpm bajo (5 req/min) y verifica que al exceder
+ * el límite se retorne 429 con los headers correctos.</p>
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

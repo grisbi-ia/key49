@@ -14,7 +14,8 @@ import org.jboss.resteasy.reactive.server.ServerResponseFilter;
 /**
  * Filtro de rate limiting por tenant con ventana deslizante en Redis.
  *
- * <p>Se ejecuta después del filtro de autenticación (prioridad mayor = después).
+ * <p>
+ * Se ejecuta después del filtro de autenticación (prioridad mayor = después).
  * Solo aplica a requests autenticados con API key (TenantContext activo).
  * Agrega headers X-RateLimit-* a todas las respuestas autenticadas.</p>
  */
@@ -67,7 +68,7 @@ public class RateLimitFilter {
 
     @ServerResponseFilter
     public void addHeaders(ContainerRequestContext requestContext,
-                           ContainerResponseContext responseContext) {
+            ContainerResponseContext responseContext) {
         var result = requestContext.getProperty(RATE_LIMIT_RESULT);
         if (result instanceof RateLimiter.RateLimitResult rlr) {
             responseContext.getHeaders().putSingle("X-RateLimit-Limit", rlr.limit());

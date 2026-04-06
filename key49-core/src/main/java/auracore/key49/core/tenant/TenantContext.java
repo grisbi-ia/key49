@@ -5,8 +5,8 @@ import java.util.UUID;
 import jakarta.enterprise.context.RequestScoped;
 
 /**
- * Contexto del tenant activo en el request actual.
- * Almacena el tenant_id y schema_name resueltos durante la autenticación.
+ * Contexto del tenant activo en el request actual. Almacena el tenant_id y
+ * schema_name resueltos durante la autenticación.
  */
 @RequestScoped
 public class TenantContext {
@@ -33,8 +33,8 @@ public class TenantContext {
     }
 
     /**
-     * Establece el contexto del tenant para el request actual.
-     * Valida el schema antes de aceptarlo.
+     * Establece el contexto del tenant para el request actual. Valida el schema
+     * antes de aceptarlo.
      */
     public void setTenant(UUID tenantId, String schemaName) {
         TenantSchemaResolver.validate(schemaName);

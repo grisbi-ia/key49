@@ -210,7 +210,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Configuración por tenant
   - Headers X-RateLimit-\*
 
-- [ ] **T-027** Health checks y observabilidad
+- [x] **T-027** Health checks y observabilidad
   - Readiness: PostgreSQL, RabbitMQ, MinIO, Redis
   - Liveness: SRI Recepción, SRI Autorización
   - Certificados próximos a vencer (warning < 30 días)
