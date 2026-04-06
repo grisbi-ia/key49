@@ -96,6 +96,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Adjuntos opcionales: RIDE (PDF) y XML autorizado
   - Configuración SMTP con env vars, flag `key49.email.enabled` para desactivar
   - 23 tests nuevos (616 total proyecto, 0 failures)
+- Endpoints REST de Factura (T-018)
+  - POST /v1/invoices — crear factura con validación completa y cola de procesamiento
+  - GET /v1/invoices/:id — consultar factura con detalle completo
+  - GET /v1/invoices — listar con filtros (status, fechas, recipient_id, access_key, document_type), paginación y ordenamiento
+  - GET /v1/invoices/:id/xml — descargar XML desde MinIO
+  - GET /v1/invoices/:id/ride — descargar RIDE (PDF) desde MinIO
+  - POST /v1/invoices/:id/resend-email — reenviar email vía outbox
+  - POST /v1/invoices/:id/void — anulación local (valida estado, plazo día 7, consumidor final)
+  - DTOs: CreateInvoiceRequest, InvoiceResponse (summary/detail), ApiResponse, PagedResponse, VoidRequest
+  - BusinessException con detalle de campos y BusinessExceptionMapper
+  - InvoiceService: validación de frontera, cálculo de totales, idempotencia, unicidad
+  - Jackson configurado: SNAKE_CASE, sin timestamps para fechas, CORS habilitado
+  - Jandex indexing para key49-storage (descubrimiento de beans CDI)
+  - 44 tests nuevos (660 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

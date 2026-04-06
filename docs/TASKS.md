@@ -150,7 +150,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Manejo de múltiples destinatarios (receptor_email con ;)
   - Test: enviar email con adjuntos
 
-- [ ] **T-018** Implementar endpoints REST de Factura (key49-api)
+- [x] **T-018** Implementar endpoints REST de Factura (key49-api)
   - POST /invoices — crear factura
   - GET /invoices/:id — consultar factura
   - GET /invoices — listar con filtros (status, date, recipient_id, access_key, document_type) y paginación
