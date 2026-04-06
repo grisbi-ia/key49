@@ -103,7 +103,7 @@ public class InvoiceResource {
 
         String requestId = generateRequestId();
         return invoiceService.listInvoices(status, dateFrom, dateTo, recipientId, accessKey, documentType,
-                        page, perPage, sort)
+                page, perPage, sort)
                 .map(result -> {
                     var responses = result.items().stream()
                             .map(InvoiceResponse::summary)
@@ -132,11 +132,11 @@ public class InvoiceResource {
                     return Uni.createFrom().item(() -> storageService.retrieve(doc.authorizedXmlPath))
                             .runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
                             .map(bytes -> Response.ok(bytes)
-                                    .type(MediaType.APPLICATION_XML)
-                                    .header("Content-Disposition",
-                                            "attachment; filename=\"%s.xml\"".formatted(
-                                                    doc.accessKey != null ? doc.accessKey : doc.id))
-                                    .build());
+                            .type(MediaType.APPLICATION_XML)
+                            .header("Content-Disposition",
+                                    "attachment; filename=\"%s.xml\"".formatted(
+                                            doc.accessKey != null ? doc.accessKey : doc.id))
+                            .build());
                 });
     }
 
@@ -156,11 +156,11 @@ public class InvoiceResource {
                     return Uni.createFrom().item(() -> storageService.retrieve(doc.ridePath))
                             .runSubscriptionOn(io.smallrye.mutiny.infrastructure.Infrastructure.getDefaultWorkerPool())
                             .map(bytes -> Response.ok(bytes)
-                                    .type("application/pdf")
-                                    .header("Content-Disposition",
-                                            "attachment; filename=\"%s.pdf\"".formatted(
-                                                    doc.accessKey != null ? doc.accessKey : doc.id))
-                                    .build());
+                            .type("application/pdf")
+                            .header("Content-Disposition",
+                                    "attachment; filename=\"%s.pdf\"".formatted(
+                                            doc.accessKey != null ? doc.accessKey : doc.id))
+                            .build());
                 });
     }
 
@@ -174,6 +174,7 @@ public class InvoiceResource {
         return invoiceService.resendEmail(id)
                 .map(sentAt -> {
                     record ResendData(String message, Instant sentAt2) {
+
                     }
                     // Use simple map for clean snake_case output
                     var data = java.util.Map.of(

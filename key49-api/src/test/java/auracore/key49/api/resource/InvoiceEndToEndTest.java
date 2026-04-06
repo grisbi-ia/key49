@@ -25,11 +25,13 @@ import static org.hamcrest.Matchers.*;
 /**
  * Test end-to-end del flujo completo de factura electrónica vía REST API.
  *
- * <p>Crea un tenant con esquema en PostgreSQL, genera API key, y ejercita
- * todos los endpoints de /v1/invoices: creación, consulta, listado,
- * idempotencia, validaciones y anulación.</p>
+ * <p>
+ * Crea un tenant con esquema en PostgreSQL, genera API key, y ejercita todos
+ * los endpoints de /v1/invoices: creación, consulta, listado, idempotencia,
+ * validaciones y anulación.</p>
  *
- * <p>El pipeline de procesamiento (sign, send, authorize) se ejecuta
+ * <p>
+ * El pipeline de procesamiento (sign, send, authorize) se ejecuta
  * asíncronamente en colas, por lo que este test verifica las respuestas HTTP
  * inmediatas del API (sin esperar procesamiento SRI).</p>
  */
@@ -155,7 +157,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 1. Crear factura exitosamente ──
-
     @Test
     @Order(1)
     void shouldCreateInvoice_returns202() {
@@ -187,7 +188,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 2. Idempotencia ──
-
     @Test
     @Order(2)
     void shouldReturnSameDocument_whenIdempotencyKeyRepeated() {
@@ -210,7 +210,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 3. Consultar factura por ID ──
-
     @Test
     @Order(3)
     void shouldGetInvoiceById() {
@@ -230,7 +229,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 4. Listar facturas ──
-
     @Test
     @Order(4)
     void shouldListInvoices() {
@@ -288,7 +286,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 5. Documento duplicado ──
-
     @Test
     @Order(8)
     void shouldRejectDuplicateDocument() {
@@ -307,7 +304,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 6. Validaciones de request ──
-
     @Test
     @Order(9)
     void shouldRejectInvalidEstablishment() {
@@ -399,7 +395,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 7. XML no disponible (documento recién creado) ──
-
     @Test
     @Order(14)
     void shouldReturn404_whenXmlNotAvailable() {
@@ -413,7 +408,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 8. RIDE no disponible (documento recién creado) ──
-
     @Test
     @Order(15)
     void shouldReturn404_whenRideNotAvailable() {
@@ -427,7 +421,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 9. Anulación: no se puede anular CREATED ──
-
     @Test
     @Order(16)
     void shouldRejectVoid_whenStatusIsCreated() {
@@ -443,7 +436,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 10. Anulación exitosa de documento AUTHORIZED ──
-
     @Test
     @Order(17)
     void shouldVoidAuthorizedDocument() {
@@ -483,7 +475,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 11. Void sin razón ──
-
     @Test
     @Order(18)
     void shouldRejectVoid_withoutReason() {
@@ -518,7 +509,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 12. Crear segunda factura y verificar listado ──
-
     @Test
     @Order(19)
     void shouldCreateSecondInvoice_andListMultiple() {
@@ -546,7 +536,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 13. Consulta inexistente ──
-
     @Test
     @Order(20)
     void shouldReturn404_forNonExistentDocument() {
@@ -560,7 +549,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 14. Autenticación requerida ──
-
     @Test
     @Order(21)
     void shouldRequireAuthentication() {
@@ -572,7 +560,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 15. Paginación ──
-
     @Test
     @Order(22)
     void shouldPaginate() {
@@ -591,7 +578,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 16. Resend email en estado CREATED falla ──
-
     @Test
     @Order(23)
     void shouldRejectResendEmail_whenStatusIsCreated() {
@@ -605,7 +591,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 17. Verificar outbox event generado ──
-
     @Test
     @Order(24)
     void shouldHaveOutboxEvents() {
@@ -627,7 +612,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── 18. Calculos correctos de totales ──
-
     @Test
     @Order(25)
     void shouldCalculateTotalsCorrectly() {
@@ -643,7 +627,6 @@ class InvoiceEndToEndTest {
     }
 
     // ── Helpers ──
-
     private Map<String, Object> buildValidInvoiceRequest(String sequenceNumber) {
         var recipient = Map.of(
                 "id_type", "04",
