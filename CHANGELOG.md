@@ -63,6 +63,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - `TenantRepository.findAllActive()` para iteración multi-tenant del outbox poller
   - Máquina de estados enforced con `canTransitionTo()` en cada consumer
   - 38 tests nuevos en key49-queue (508 total proyecto, 0 failures)
+- Lógica de reintentos con backoff exponencial (T-014)
+  - `RetryDelayCalculator`: delays ×3 (5s, 15s, 45s, 135s, 405s)
+  - `RetryPoller`: job @Scheduled(5s) que re-encola docs RETRY con `nextRetryAt` vencido
+  - Determinación de tipo de reintento por `sriSubmissionDate` (doc.send o doc.authorize)
+  - `SendConsumer`/`AuthorizeConsumer`: verificación de agotamiento de reintentos → FAILED
+  - Cálculo de `nextRetryAt` con backoff exponencial en cada consumer
+  - Transición RETRY → AUTHORIZED agregada al state machine
+  - Configuración `key49.retry.poll-interval` en application.properties
+  - 22 tests nuevos (531 total proyecto, 0 failures)
 
 ## [0.3.0] - 2026-04-05
 

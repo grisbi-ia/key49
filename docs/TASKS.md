@@ -119,7 +119,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Validar transiciones de estado con `DocumentStatus.canTransitionTo()` en cada consumer
   - Test: flujo completo end-to-end con SRI de pruebas
 
-- [ ] **T-014** Implementar lógica de reintentos (key49-queue)
+- [x] **T-014** Implementar lógica de reintentos (key49-queue)
   - Clasificación de errores: retriable vs definitivo
   - Backoff exponencial: 5s, 15s, 45s, 135s, 405s
   - Uso de TTL en mensajes de RabbitMQ para delays
