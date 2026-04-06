@@ -27,7 +27,7 @@ public enum DocumentStatus {
             RECEIVED, Set.of(AUTHORIZED, REJECTED, RETRY),
             AUTHORIZED, Set.of(NOTIFIED, VOIDED),
             NOTIFIED, Set.of(VOIDED),
-            RETRY, Set.of(SIGNED, SENT, FAILED),
+            RETRY, Set.of(SIGNED, SENT, AUTHORIZED, FAILED),
             REJECTED, Set.of(),
             FAILED, Set.of(),
             VOIDED, Set.of()

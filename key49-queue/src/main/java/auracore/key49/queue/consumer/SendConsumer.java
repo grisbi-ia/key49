@@ -17,6 +17,7 @@ import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.retry.RetryDelayCalculator;
 import auracore.key49.sri.SriException;
 import auracore.key49.sri.client.SriReceptionClient;
 import auracore.key49.sri.model.SriMessage;
@@ -115,20 +116,19 @@ public class SendConsumer {
                                 return session.persist(outbox).replaceWithVoid();
 
                             } else if (response.hasBusinessErrors()) {
-                                doc.transitionTo(DocumentStatus.REJECTED);
+                                var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
+                                        ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
+                                doc.transitionTo(targetStatus);
                                 doc.lastErrorCode = extractFirstErrorCode(response.messages());
                                 doc.lastErrorMessage = extractErrorSummary(response.messages());
-                                log.warnf("SendConsumer: document %s rejected by SRI: %s",
-                                        doc.id, doc.lastErrorMessage);
+                                log.warnf("SendConsumer: document %s %s by SRI: %s",
+                                        doc.id, targetStatus, doc.lastErrorMessage);
                                 return Uni.createFrom().voidItem();
 
                             } else {
-                                doc.transitionTo(DocumentStatus.RETRY);
-                                doc.retryCount++;
-                                doc.lastErrorMessage = extractErrorSummary(response.messages());
-                                log.warnf("SendConsumer: document %s devuelta, scheduling retry: %s",
-                                        doc.id, doc.lastErrorMessage);
-                                return Uni.createFrom().voidItem();
+                                return handleRetryTransition(doc,
+                                        extractErrorSummary(response.messages()),
+                                        "SendConsumer");
                             }
                         })
         );
@@ -143,18 +143,41 @@ public class SendConsumer {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
                             }
-                            try {
-                                doc.transitionTo(DocumentStatus.RETRY);
-                            } catch (InvalidStateTransitionException iste) {
-                                log.warnf("SendConsumer: cannot transition to RETRY from %s for document %s",
-                                        doc.status, doc.id);
-                            }
-                            doc.retryCount++;
-                            doc.lastErrorMessage = ex.getMessage();
-                            doc.updatedAt = Instant.now();
-                            return Uni.createFrom().voidItem();
+                            return handleRetryTransition(doc, ex.getMessage(), "SendConsumer");
                         })
         );
+    }
+
+    private Uni<Void> handleRetryTransition(Document doc, String errorMessage, String consumer) {
+        doc.retryCount++;
+        doc.lastErrorMessage = errorMessage;
+        doc.updatedAt = Instant.now();
+
+        if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
+            var targetStatus = doc.status.canTransitionTo(DocumentStatus.FAILED)
+                    ? DocumentStatus.FAILED : DocumentStatus.FAILED;
+            try {
+                doc.transitionTo(targetStatus);
+            } catch (InvalidStateTransitionException e) {
+                log.warnf("%s: cannot transition to FAILED from %s for document %s",
+                        consumer, doc.status, doc.id);
+            }
+            log.warnf("%s: retries exhausted for document %s (%d/%d): %s",
+                    consumer, doc.id, doc.retryCount, doc.maxRetries, errorMessage);
+        } else {
+            if (doc.status != DocumentStatus.RETRY) {
+                try {
+                    doc.transitionTo(DocumentStatus.RETRY);
+                } catch (InvalidStateTransitionException e) {
+                    log.warnf("%s: cannot transition to RETRY from %s for document %s",
+                            consumer, doc.status, doc.id);
+                }
+            }
+            doc.nextRetryAt = RetryDelayCalculator.calculateNextRetryAt(doc.retryCount);
+            log.infof("%s: scheduling retry %d/%d for document %s, nextRetryAt=%s",
+                    consumer, doc.retryCount, doc.maxRetries, doc.id, doc.nextRetryAt);
+        }
+        return Uni.createFrom().voidItem();
     }
 
     private Uni<Void> markFailed(DocumentEvent event, String reason) {

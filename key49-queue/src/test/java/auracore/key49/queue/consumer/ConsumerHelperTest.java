@@ -89,6 +89,7 @@ class ConsumerHelperTest {
         // RETRY transitions
         assertEquals(true, DocumentStatus.RETRY.canTransitionTo(DocumentStatus.SIGNED));
         assertEquals(true, DocumentStatus.RETRY.canTransitionTo(DocumentStatus.SENT));
+        assertEquals(true, DocumentStatus.RETRY.canTransitionTo(DocumentStatus.AUTHORIZED));
         assertEquals(true, DocumentStatus.RETRY.canTransitionTo(DocumentStatus.FAILED));
 
         // Terminal states have no transitions

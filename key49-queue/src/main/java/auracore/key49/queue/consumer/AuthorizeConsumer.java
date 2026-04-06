@@ -17,6 +17,7 @@ import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.retry.RetryDelayCalculator;
 import auracore.key49.sri.SriException;
 import auracore.key49.sri.client.SriAuthorizationClient;
 import auracore.key49.sri.model.SriAuthorizationResponse;
@@ -120,20 +121,19 @@ public class AuthorizeConsumer {
                                 return session.persist(outbox).replaceWithVoid();
 
                             } else if (response.hasBusinessErrors()) {
-                                doc.transitionTo(DocumentStatus.REJECTED);
+                                var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
+                                        ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
+                                doc.transitionTo(targetStatus);
                                 doc.lastErrorCode = SendConsumer.extractFirstErrorCode(response.messages());
                                 doc.lastErrorMessage = SendConsumer.extractErrorSummary(response.messages());
-                                log.warnf("AuthorizeConsumer: document %s rejected: %s",
-                                        doc.id, doc.lastErrorMessage);
+                                log.warnf("AuthorizeConsumer: document %s %s: %s",
+                                        doc.id, targetStatus, doc.lastErrorMessage);
                                 return Uni.createFrom().voidItem();
 
                             } else {
-                                doc.transitionTo(DocumentStatus.RETRY);
-                                doc.retryCount++;
-                                doc.lastErrorMessage = SendConsumer.extractErrorSummary(response.messages());
-                                log.warnf("AuthorizeConsumer: document %s not authorized, scheduling retry: %s",
-                                        doc.id, doc.lastErrorMessage);
-                                return Uni.createFrom().voidItem();
+                                return handleRetryTransition(doc,
+                                        SendConsumer.extractErrorSummary(response.messages()),
+                                        "AuthorizeConsumer");
                             }
                         })
         );
@@ -148,18 +148,39 @@ public class AuthorizeConsumer {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
                             }
-                            try {
-                                doc.transitionTo(DocumentStatus.RETRY);
-                            } catch (InvalidStateTransitionException iste) {
-                                log.warnf("AuthorizeConsumer: cannot transition to RETRY from %s for document %s",
-                                        doc.status, doc.id);
-                            }
-                            doc.retryCount++;
-                            doc.lastErrorMessage = ex.getMessage();
-                            doc.updatedAt = Instant.now();
-                            return Uni.createFrom().voidItem();
+                            return handleRetryTransition(doc, ex.getMessage(), "AuthorizeConsumer");
                         })
         );
+    }
+
+    private Uni<Void> handleRetryTransition(Document doc, String errorMessage, String consumer) {
+        doc.retryCount++;
+        doc.lastErrorMessage = errorMessage;
+        doc.updatedAt = Instant.now();
+
+        if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
+            try {
+                doc.transitionTo(DocumentStatus.FAILED);
+            } catch (InvalidStateTransitionException e) {
+                log.warnf("%s: cannot transition to FAILED from %s for document %s",
+                        consumer, doc.status, doc.id);
+            }
+            log.warnf("%s: retries exhausted for document %s (%d/%d): %s",
+                    consumer, doc.id, doc.retryCount, doc.maxRetries, errorMessage);
+        } else {
+            if (doc.status != DocumentStatus.RETRY) {
+                try {
+                    doc.transitionTo(DocumentStatus.RETRY);
+                } catch (InvalidStateTransitionException e) {
+                    log.warnf("%s: cannot transition to RETRY from %s for document %s",
+                            consumer, doc.status, doc.id);
+                }
+            }
+            doc.nextRetryAt = RetryDelayCalculator.calculateNextRetryAt(doc.retryCount);
+            log.infof("%s: scheduling retry %d/%d for document %s, nextRetryAt=%s",
+                    consumer, doc.retryCount, doc.maxRetries, doc.id, doc.nextRetryAt);
+        }
+        return Uni.createFrom().voidItem();
     }
 
     private String serializeMessages(List<SriMessage> messages) {
