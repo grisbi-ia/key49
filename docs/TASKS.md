@@ -278,7 +278,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Ejemplos en curl, Python, Node.js, Java
   - Catálogo de errores con soluciones
 
-- [ ] **T-037** Alertas
+- [x] **T-037** Alertas
   - SRI no responde > 5 min
   - DLQ con mensajes > 0
   - Certificado expira < 30 días

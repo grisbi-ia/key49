@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.15.0] - 2026-04-07
+
+### Agregado
+
+- Alertas operativas con 5 reglas y notificación email/webhook (T-037)
+  - `AlertResult`, `AlertState`, `AlertRule` — modelo de alertas inmutable
+  - `AlertStateRepository` — persistencia de estado de alertas en Redis (HSET/HGETALL, TTL 7 días)
+  - `AlertNotifier` — notificaciones por email (ReactiveMailer) y webhook (HMAC-SHA256)
+  - `SriHealthAlertRule` — alerta cuando SRI no responde > 5 minutos (reutiliza health checks)
+  - `DlqAlertRule` — alerta cuando DLQ tiene mensajes (RabbitMQ Management API)
+  - `CertificateExpiryAlertRule` — alerta cuando certificados vencen en < 30 días
+  - `ErrorRateAlertRule` — alerta cuando tasa de error > 5% (Micrometer counters)
+  - `QueueDepthAlertRule` — alerta cuando colas de procesamiento > 1000 mensajes
+  - `AlertEvaluator` — orquestador con evaluación cada 60s (infra) y 6h (certificados)
+  - Transiciones de estado OK→FIRING→RESOLVED con reminders cada 4 horas
+  - 23 tests unitarios para modelo, reglas y evaluador
+  - 14 propiedades de configuración con valores por defecto sensatos
+
 ## [0.14.0] - 2026-04-07
 
 ### Agregado
