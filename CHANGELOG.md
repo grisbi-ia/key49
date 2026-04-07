@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.9.0] - 2026-04-06
+
+### Agregado
+
+- Comprobante de Retención ATS — tipo 07, XSD v2.0.0 (T-031)
+  - `WithholdingData`, `WithholdingXmlBuilder` — generación XML con soporte completo de `docsSustento` (impuestos, retenciones, pagos)
+  - `CreateWithholdingRequest`, `WithholdingResponse` — DTOs de API REST
+  - `WithholdingService` — validación de sujeto retenido, periodo fiscal (MM/yyyy), documentos de sustento, códigos de retención (1=Renta, 2=IVA, 6=ISD)
+  - `WithholdingResource` — endpoints REST: POST/GET `/v1/withholdings`, XML, RIDE, void, resend-email
+  - `WithholdingDataMapper` — mapeo Document→WithholdingData para firma
+  - `WithholdingRideData`, `WithholdingRideGenerator` — generación RIDE PDF con tabla de retenciones
+  - `SignConsumer` actualizado con caso WITHHOLDING
+  - 46 tests unitarios (XmlBuilder, DataMapper, RideGenerator)
+
 ## [0.8.0] - 2026-04-06
 
 ### Agregado

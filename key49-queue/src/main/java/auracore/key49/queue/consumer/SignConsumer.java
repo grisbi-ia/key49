@@ -21,12 +21,14 @@ import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.mapper.CreditNoteDataMapper;
 import auracore.key49.queue.mapper.DebitNoteDataMapper;
 import auracore.key49.queue.mapper.InvoiceDataMapper;
+import auracore.key49.queue.mapper.WithholdingDataMapper;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.XAdESBESSigner;
 import auracore.key49.xml.accesskey.AccessKeyGenerator;
 import auracore.key49.xml.builder.CreditNoteXmlBuilder;
 import auracore.key49.xml.builder.DebitNoteXmlBuilder;
 import auracore.key49.xml.builder.InvoiceXmlBuilder;
+import auracore.key49.xml.builder.WithholdingXmlBuilder;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -56,6 +58,9 @@ public class SignConsumer {
 
     @Inject
     DebitNoteDataMapper debitNoteMapper;
+
+    @Inject
+    WithholdingDataMapper withholdingMapper;
 
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
@@ -156,6 +161,10 @@ public class SignConsumer {
             case DEBIT_NOTE -> {
                 var data = debitNoteMapper.build(doc, tenant, accessKey);
                 yield DebitNoteXmlBuilder.build(data);
+            }
+            case WITHHOLDING -> {
+                var data = withholdingMapper.build(doc, tenant, accessKey);
+                yield WithholdingXmlBuilder.build(data);
             }
             default ->
                 throw new UnsupportedOperationException(
