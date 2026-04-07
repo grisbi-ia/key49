@@ -5,6 +5,15 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.12.0] - 2026-04-07
+
+### Agregado
+
+- RIDE templates para todos los tipos de documento (T-034)
+  - `PurchaseClearanceRideData`, `PurchaseClearanceRideGenerator` — generación RIDE (PDF) para liquidación de compra con datos de proveedor, ítems, impuestos, pagos, totales, QR y marca de agua
+  - 8 tests unitarios para PurchaseClearanceRideGenerator
+  - Los 6 tipos de documento ahora tienen RIDE completo: Factura, Nota de Crédito, Nota de Débito, Guía de Remisión, Comprobante de Retención, Liquidación de Compra
+
 ## [0.11.0] - 2026-04-07
 
 ### Agregado
