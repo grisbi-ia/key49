@@ -9,6 +9,7 @@ import java.util.Map;
 /**
  * Fixtures de datos para tests de comprobantes de retención.
  */
+
 final class WithholdingDataFixtures {
 
     private WithholdingDataFixtures() {

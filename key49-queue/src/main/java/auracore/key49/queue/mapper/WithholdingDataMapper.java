@@ -18,7 +18,6 @@ import jakarta.inject.Inject;
  * Mapea Document + Tenant + accessKey a WithholdingData para generar el XML de
  * comprobante de retención.
  */
-
 @ApplicationScoped
 public class WithholdingDataMapper {
 
@@ -30,8 +29,8 @@ public class WithholdingDataMapper {
     }
 
     /**
-     * Construye un WithholdingData completo a partir de los datos del documento,
-     * el tenant emisor y la clave de acceso generada.
+     * Construye un WithholdingData completo a partir de los datos del
+     * documento, el tenant emisor y la clave de acceso generada.
      */
     public WithholdingData build(Document doc, Tenant tenant, String accessKey) {
         var payload = parsePayload(doc.requestPayload);
@@ -111,7 +110,7 @@ public class WithholdingDataMapper {
         }
         return taxes.stream()
                 .map(t -> new WithholdingData.SupportingDocTax(
-                        t.taxCode(), t.rateCode(), t.taxableBase(), t.rate(), t.amount()))
+                t.taxCode(), t.rateCode(), t.taxableBase(), t.rate(), t.amount()))
                 .toList();
     }
 
@@ -122,8 +121,8 @@ public class WithholdingDataMapper {
         }
         return lines.stream()
                 .map(wh -> new WithholdingData.WithholdingLine(
-                        wh.code(), wh.retentionCode(), wh.taxableBase(),
-                        wh.retentionRate(), wh.retainedAmount()))
+                wh.code(), wh.retentionCode(), wh.taxableBase(),
+                wh.retentionRate(), wh.retainedAmount()))
                 .toList();
     }
 
@@ -154,17 +153,18 @@ public class WithholdingDataMapper {
     }
 
     // ── Payload records ──
-
     record WithholdingPayload(
             PayloadSubject subject,
             String fiscalPeriod,
             boolean relatedParty,
             List<PayloadSupportingDocument> supportingDocuments,
             Map<String, String> additionalInfo) {
+
     }
 
     record PayloadSubject(
             String idType, String id, String name, String subjectType) {
+
     }
 
     record PayloadSupportingDocument(
@@ -178,19 +178,27 @@ public class WithholdingDataMapper {
             List<PayloadSupportingDocTax> taxes,
             List<PayloadWithholdingLine> withholdings,
             List<PayloadPayment> payments) {
+
     }
 
     record PayloadSupportingDocTax(
             String taxCode, String rateCode,
             BigDecimal taxableBase, BigDecimal rate, BigDecimal amount) {
+
     }
 
     record PayloadWithholdingLine(
             String code, String retentionCode,
             BigDecimal taxableBase, BigDecimal retentionRate,
             BigDecimal retainedAmount) {
+
     }
 
     record PayloadPayment(String paymentMethod, BigDecimal total) {
+
     }
 }
+
+
+
+  

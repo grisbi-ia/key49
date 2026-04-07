@@ -40,6 +40,7 @@ public record WithholdingRideData(
             BigDecimal totalWithoutTax, BigDecimal totalAmount,
             List<WithholdingLineSummary> withholdings,
             List<RideData.Payment> payments) {
+
     }
 
     /**
@@ -49,6 +50,7 @@ public record WithholdingRideData(
             String code, String retentionCode,
             BigDecimal taxableBase, BigDecimal retentionRate,
             BigDecimal retainedAmount) {
+
     }
 
     /**

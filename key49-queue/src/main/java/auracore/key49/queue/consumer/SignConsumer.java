@@ -21,6 +21,7 @@ import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.mapper.CreditNoteDataMapper;
 import auracore.key49.queue.mapper.DebitNoteDataMapper;
 import auracore.key49.queue.mapper.InvoiceDataMapper;
+import auracore.key49.queue.mapper.WaybillDataMapper;
 import auracore.key49.queue.mapper.WithholdingDataMapper;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.XAdESBESSigner;
@@ -28,6 +29,7 @@ import auracore.key49.xml.accesskey.AccessKeyGenerator;
 import auracore.key49.xml.builder.CreditNoteXmlBuilder;
 import auracore.key49.xml.builder.DebitNoteXmlBuilder;
 import auracore.key49.xml.builder.InvoiceXmlBuilder;
+import auracore.key49.xml.builder.WaybillXmlBuilder;
 import auracore.key49.xml.builder.WithholdingXmlBuilder;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -58,6 +60,9 @@ public class SignConsumer {
 
     @Inject
     DebitNoteDataMapper debitNoteMapper;
+
+    @Inject
+    WaybillDataMapper waybillMapper;
 
     @Inject
     WithholdingDataMapper withholdingMapper;
@@ -165,6 +170,10 @@ public class SignConsumer {
             case WITHHOLDING -> {
                 var data = withholdingMapper.build(doc, tenant, accessKey);
                 yield WithholdingXmlBuilder.build(data);
+            }
+            case WAYBILL -> {
+                var data = waybillMapper.build(doc, tenant, accessKey);
+                yield WaybillXmlBuilder.build(data);
             }
             default ->
                 throw new UnsupportedOperationException(

@@ -35,9 +35,11 @@ public record WithholdingResponse(
         Instant updatedAt) {
 
     public record SubjectSummary(String idType, String id, String name) {
+
     }
 
     public record DownloadLinks(String xml, String ride) {
+
     }
 
     /**

@@ -17,29 +17,31 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("WithholdingDataMapper")
-class WithholdingDataMapperTest {
 
-    private WithholdingDataMapper mapper;
+@DisplayName("WaybillDataMapper")
+class WaybillDataMapperTest {
+
+    private WaybillDataMapper mapper;
 
     @BeforeEach
     void setUp() {
         var objectMapper = new ObjectMapper();
         objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         objectMapper.registerModule(new JavaTimeModule());
-        mapper = new WithholdingDataMapper(objectMapper);
+        mapper = new WaybillDataMapper(objectMapper);
     }
 
     @Test
-    @DisplayName("construye WithholdingData desde Document y Tenant")
-    void shouldBuildWithholdingDataFromDocumentAndTenant() {
+    @DisplayName("construye WaybillData desde Document y Tenant")
+    void shouldBuildWaybillDataFromDocumentAndTenant() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
-        var result = mapper.build(doc, tenant, "4904202507179214673900110010010000001230000001231");
+        var result = mapper.build(doc, tenant,
+                "4904202506179214673900110010010000001230000001231");
 
         assertNotNull(result);
-        assertEquals("4904202507179214673900110010010000001230000001231", result.accessKey());
+        assertEquals("4904202506179214673900110010010000001230000001231", result.accessKey());
         assertEquals("001", result.establishment());
         assertEquals("001", result.issuePoint());
         assertEquals("000000123", result.sequenceNumber());
@@ -86,101 +88,87 @@ class WithholdingDataMapperTest {
     }
 
     @Test
-    @DisplayName("mapea sujeto retenido desde Document y payload")
-    void shouldMapSubjectFromDocumentAndPayload() {
+    @DisplayName("mapea datos del transportista desde payload")
+    void shouldMapCarrierFromPayload() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        assertEquals("04", result.subject().idType());
-        assertEquals("1790016919001", result.subject().id());
-        assertEquals("PROVEEDOR TEST CIA. LTDA.", result.subject().name());
-        assertEquals("01", result.subject().subjectType());
+        assertNotNull(result.carrier());
+        assertEquals("04", result.carrier().idType());
+        assertEquals("1790016919001", result.carrier().id());
+        assertEquals("TRANSPORTES NORTE CIA. LTDA.", result.carrier().name());
     }
 
     @Test
-    @DisplayName("parsea periodo fiscal y parte relacionada desde payload")
-    void shouldParseFiscalPeriodAndRelatedParty() {
+    @DisplayName("parsea dirección de partida desde payload")
+    void shouldParseDepartureAddress() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        assertEquals("03/2025", result.fiscalPeriod());
-        assertFalse(result.relatedParty());
+        assertEquals("Quito, Bodega Central Km 10", result.departureAddress());
     }
 
     @Test
-    @DisplayName("parsea documentos de sustento desde payload")
-    void shouldParseSupportingDocumentsFromPayload() {
+    @DisplayName("parsea fechas de transporte desde payload")
+    void shouldParseTransportDates() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        assertNotNull(result.supportingDocuments());
-        assertEquals(1, result.supportingDocuments().size());
-
-        var sd = result.supportingDocuments().getFirst();
-        assertEquals("01", sd.supportCode());
-        assertEquals("01", sd.documentCode());
-        assertEquals("001-001-000000234", sd.documentNumber());
-        assertEquals("01", sd.paymentLocality());
+        assertEquals(LocalDate.of(2025, 4, 15), result.transportStartDate());
+        assertEquals(LocalDate.of(2025, 4, 16), result.transportEndDate());
     }
 
     @Test
-    @DisplayName("parsea retenciones desde payload")
-    void shouldParseWithholdingLinesFromPayload() {
+    @DisplayName("parsea placa desde payload")
+    void shouldParseLicensePlate() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        var sd = result.supportingDocuments().getFirst();
-        assertNotNull(sd.withholdings());
-        assertEquals(1, sd.withholdings().size());
-
-        var wh = sd.withholdings().getFirst();
-        assertEquals("1", wh.code());
-        assertEquals("303", wh.retentionCode());
-        assertEquals(0, new BigDecimal("1000.00").compareTo(wh.taxableBase()));
-        assertEquals(0, new BigDecimal("10.00").compareTo(wh.retentionRate()));
-        assertEquals(0, new BigDecimal("100.00").compareTo(wh.retainedAmount()));
+        assertEquals("PBB-1234", result.licensePlate());
     }
 
     @Test
-    @DisplayName("parsea impuestos del documento de sustento")
-    void shouldParseSupportingDocTaxes() {
+    @DisplayName("parsea destinatarios desde payload")
+    void shouldParseAddresseesFromPayload() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        var sd = result.supportingDocuments().getFirst();
-        assertNotNull(sd.taxes());
-        assertEquals(1, sd.taxes().size());
+        assertNotNull(result.addressees());
+        assertEquals(1, result.addressees().size());
 
-        var tax = sd.taxes().getFirst();
-        assertEquals("2", tax.taxCode());
-        assertEquals("4", tax.rateCode());
+        var addr = result.addressees().getFirst();
+        assertEquals("1790016919001", addr.id());
+        assertEquals("CLIENTE NACIONAL CIA. LTDA.", addr.name());
+        assertEquals("Guayaquil, Av. 9 de Octubre", addr.address());
+        assertEquals("Venta de mercadería", addr.transferReason());
     }
 
     @Test
-    @DisplayName("parsea pagos del documento de sustento")
-    void shouldParsePaymentsFromPayload() {
+    @DisplayName("parsea ítems de destinatario desde payload")
+    void shouldParseItemsFromPayload() {
         var doc = createTestDocument();
         var tenant = createTestTenant();
 
         var result = mapper.build(doc, tenant, "accesskey123");
 
-        var sd = result.supportingDocuments().getFirst();
-        assertNotNull(sd.payments());
-        assertEquals(1, sd.payments().size());
+        var addr = result.addressees().getFirst();
+        assertNotNull(addr.items());
+        assertEquals(1, addr.items().size());
 
-        var payment = sd.payments().getFirst();
-        assertEquals("20", payment.paymentMethod());
-        assertEquals(0, new BigDecimal("1150.00").compareTo(payment.total()));
+        var item = addr.items().getFirst();
+        assertEquals("PROD001", item.mainCode());
+        assertEquals("Producto de prueba", item.description());
+        assertEquals(0, new BigDecimal("100").compareTo(item.quantity()));
     }
 
     @Test
@@ -192,7 +180,7 @@ class WithholdingDataMapperTest {
         var result = mapper.build(doc, tenant, "accesskey123");
 
         assertNotNull(result.additionalInfo());
-        assertEquals("proveedor@test.com", result.additionalInfo().get("Email"));
+        assertEquals("transportes@test.com", result.additionalInfo().get("Email"));
     }
 
     @Test
@@ -205,7 +193,7 @@ class WithholdingDataMapperTest {
         var result = mapper.build(doc, tenant, "accesskey123");
 
         assertNotNull(result);
-        assertTrue(result.supportingDocuments().isEmpty());
+        assertTrue(result.addressees().isEmpty());
     }
 
     @Test
@@ -220,19 +208,20 @@ class WithholdingDataMapperTest {
     }
 
     // ── Factories ──
+
     private Document createTestDocument() {
         var doc = new Document();
         doc.id = UUID.randomUUID();
-        doc.documentType = DocumentType.WITHHOLDING.sriCode();
+        doc.documentType = DocumentType.WAYBILL.sriCode();
         doc.establishment = "001";
         doc.issuePoint = "001";
         doc.sequenceNumber = "000000123";
         doc.issueDate = LocalDate.of(2025, 4, 15);
         doc.recipientIdType = "04";
         doc.recipientId = "1790016919001";
-        doc.recipientName = "PROVEEDOR TEST CIA. LTDA.";
-        doc.subtotalBeforeTax = new BigDecimal("1000.00");
-        doc.totalAmount = new BigDecimal("100.00");
+        doc.recipientName = "TRANSPORTES NORTE CIA. LTDA.";
+        doc.subtotalBeforeTax = BigDecimal.ZERO;
+        doc.totalAmount = BigDecimal.ZERO;
         doc.vatAmount = BigDecimal.ZERO;
         doc.iceAmount = BigDecimal.ZERO;
         doc.totalDiscount = BigDecimal.ZERO;
@@ -240,52 +229,36 @@ class WithholdingDataMapperTest {
         doc.updatedAt = Instant.now();
         doc.requestPayload = """
                 {
-                    "subject": {
+                    "departure_address": "Quito, Bodega Central Km 10",
+                    "carrier": {
                         "id_type": "04",
                         "id": "1790016919001",
-                        "name": "PROVEEDOR TEST CIA. LTDA.",
-                        "subject_type": "01"
+                        "name": "TRANSPORTES NORTE CIA. LTDA."
                     },
-                    "fiscal_period": "03/2025",
-                    "related_party": false,
-                    "supporting_documents": [
+                    "transport_start_date": "2025-04-15",
+                    "transport_end_date": "2025-04-16",
+                    "license_plate": "PBB-1234",
+                    "addressees": [
                         {
-                            "support_code": "01",
-                            "document_code": "01",
-                            "document_number": "001-001-000000234",
-                            "issue_date": "2025-03-15",
-                            "authorization_number": "1503202501179214673900110010010000002340000002341",
-                            "payment_locality": "01",
-                            "total_without_tax": 1000.00,
-                            "total_amount": 1150.00,
-                            "taxes": [
+                            "id": "1790016919001",
+                            "name": "CLIENTE NACIONAL CIA. LTDA.",
+                            "address": "Guayaquil, Av. 9 de Octubre",
+                            "transfer_reason": "Venta de mercadería",
+                            "destination_establishment": "002",
+                            "route": "Quito-Guayaquil",
+                            "support_document_code": "01",
+                            "support_document_number": "001-001-000000234",
+                            "items": [
                                 {
-                                    "tax_code": "2",
-                                    "rate_code": "4",
-                                    "taxable_base": 1000.00,
-                                    "rate": 15.00,
-                                    "amount": 150.00
-                                }
-                            ],
-                            "withholdings": [
-                                {
-                                    "code": "1",
-                                    "retention_code": "303",
-                                    "taxable_base": 1000.00,
-                                    "retention_rate": 10.00,
-                                    "retained_amount": 100.00
-                                }
-                            ],
-                            "payments": [
-                                {
-                                    "payment_method": "20",
-                                    "total": 1150.00
+                                    "main_code": "PROD001",
+                                    "description": "Producto de prueba",
+                                    "quantity": 100
                                 }
                             ]
                         }
                     ],
                     "additional_info": {
-                        "Email": "proveedor@test.com"
+                        "Email": "transportes@test.com"
                     }
                 }
                 """;

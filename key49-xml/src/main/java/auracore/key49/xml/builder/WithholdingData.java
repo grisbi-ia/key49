@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Datos del comprobante de retención para generación de XML.
- * Estructura basada en XSD ComprobanteRetencion v2.0.0.
+ * Datos del comprobante de retención para generación de XML. Estructura basada
+ * en XSD ComprobanteRetencion v2.0.0.
  */
 public record WithholdingData(
         TaxpayerInfo taxpayer,
@@ -28,11 +28,13 @@ public record WithholdingData(
             String establishmentAddress, boolean requiredAccounting,
             String specialTaxpayer, String withholdingAgent,
             String rimpeContributor) {
+
     }
 
     public record Subject(
             String idType, String id, String name,
             String subjectType) {
+
     }
 
     public record SupportingDocument(
@@ -46,20 +48,24 @@ public record WithholdingData(
             List<SupportingDocTax> taxes,
             List<WithholdingLine> withholdings,
             List<Payment> payments) {
+
     }
 
     public record SupportingDocTax(
             String taxCode, String rateCode,
             BigDecimal taxableBase, BigDecimal rate,
             BigDecimal amount) {
+
     }
 
     public record WithholdingLine(
             String code, String retentionCode,
             BigDecimal taxableBase, BigDecimal retentionRate,
             BigDecimal retainedAmount) {
+
     }
 
     public record Payment(String paymentMethod, BigDecimal total) {
+
     }
 }

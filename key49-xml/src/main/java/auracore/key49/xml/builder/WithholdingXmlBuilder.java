@@ -16,9 +16,10 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 /**
- * Genera XML de comprobante de retención conforme al XSD
- * ComprobanteRetencion v2.0.0.
+ * Genera XML de comprobante de retención conforme al XSD ComprobanteRetencion
+ * v2.0.0.
  */
+
 public final class WithholdingXmlBuilder {
 
     private static final String RETENTION_VERSION = "2.0.0";

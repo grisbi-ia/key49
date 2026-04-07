@@ -22,6 +22,7 @@ public record CreateWithholdingRequest(
     public record SubjectRequest(
             String idType, String id, String name,
             String subjectType, String email, String phone) {
+
     }
 
     public record SupportingDocumentRequest(
@@ -35,21 +36,25 @@ public record CreateWithholdingRequest(
             List<SupportingDocTaxRequest> taxes,
             List<WithholdingLineRequest> withholdings,
             List<PaymentRequest> payments) {
+
     }
 
     public record SupportingDocTaxRequest(
             String taxCode, String rateCode,
             BigDecimal taxableBase, BigDecimal rate,
             BigDecimal amount) {
+
     }
 
     public record WithholdingLineRequest(
             String code, String retentionCode,
             BigDecimal taxableBase, BigDecimal retentionRate,
             BigDecimal retainedAmount) {
+
     }
 
     public record PaymentRequest(
             String paymentMethod, BigDecimal total) {
+
     }
 }

@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.10.0] - 2026-04-06
+
+### Agregado
+
+- Guía de Remisión — tipo 06, XSD v1.1.0 (T-032)
+  - `WaybillData`, `WaybillXmlBuilder` — generación XML con destinatarios, ítems, datos de transportista
+  - `CreateWaybillRequest`, `WaybillResponse` — DTOs de API REST
+  - `WaybillService` — validación de transportista (tipos ID 04-08), fechas de transporte, placa, destinatarios con ítems
+  - `WaybillResource` — endpoints REST: POST/GET `/v1/waybills`, XML, RIDE, void, resend-email
+  - `WaybillDataMapper` — mapeo Document→WaybillData para firma
+  - `WaybillRideData`, `WaybillRideGenerator` — generación RIDE PDF con secciones por destinatario
+  - `SignConsumer` actualizado con caso WAYBILL
+  - 52 tests unitarios (XmlBuilder, DataMapper, RideGenerator)
+
 ## [0.9.0] - 2026-04-06
 
 ### Agregado

@@ -22,11 +22,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 /**
- * Generador del RIDE (PDF) para comprobantes de retención electrónicos. Produce
- * un PDF conforme al formato exigido por el SRI de Ecuador.
+ * Generador del RIDE (PDF) para guías de remisión electrónicas. Produce un PDF
+ * conforme al formato exigido por el SRI de Ecuador.
  */
 
-public final class WithholdingRideGenerator {
+public final class WaybillRideGenerator {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -43,16 +43,16 @@ public final class WithholdingRideGenerator {
     private static final Font FONT_SMALL = new Font(Font.HELVETICA, 7, Font.NORMAL);
     private static final Font FONT_HEADER = new Font(Font.HELVETICA, 7, Font.BOLD, Color.WHITE);
 
-    private WithholdingRideGenerator() {
+    private WaybillRideGenerator() {
     }
 
     /**
-     * Genera el RIDE (PDF) de un comprobante de retención.
+     * Genera el RIDE (PDF) de una guía de remisión.
      *
-     * @param data datos del comprobante para el RIDE
+     * @param data datos de la guía de remisión para el RIDE
      * @return bytes del PDF generado
      */
-    public static byte[] generate(WithholdingRideData data) {
+    public static byte[] generate(WaybillRideData data) {
         try {
             var outputStream = new ByteArrayOutputStream();
             var document = new Document(PageSize.A4, MARGIN, MARGIN, MARGIN, MARGIN);
@@ -60,9 +60,8 @@ public final class WithholdingRideGenerator {
             document.open();
 
             addHeader(document, data);
-            addSubjectSection(document, data);
-            addWithholdingsTable(document, data);
-            addTotalsSection(document, data);
+            addTransportSection(document, data);
+            addAddresseesSection(document, data);
             addAdditionalInfo(document, data);
 
             if (!data.authorized()) {
@@ -72,11 +71,11 @@ public final class WithholdingRideGenerator {
             document.close();
             return outputStream.toByteArray();
         } catch (DocumentException e) {
-            throw new RideGenerationException("Failed to generate withholding RIDE PDF", e);
+            throw new RideGenerationException("Failed to generate waybill RIDE PDF", e);
         }
     }
 
-    private static void addHeader(Document document, WithholdingRideData data) throws DocumentException {
+    private static void addHeader(Document document, WaybillRideData data) throws DocumentException {
         var headerTable = new PdfPTable(2);
         headerTable.setWidthPercentage(100);
         headerTable.setWidths(new float[]{55, 45});
@@ -137,7 +136,7 @@ public final class WithholdingRideGenerator {
 
         rightCell.addElement(createLabelValue("R.U.C.:", data.issuer().ruc()));
         rightCell.addElement(new Paragraph(" ", FONT_SMALL));
-        rightCell.addElement(new Paragraph("COMPROBANTE DE RETENCIÓN", FONT_SUBTITLE));
+        rightCell.addElement(new Paragraph("GUÍA DE REMISIÓN", FONT_SUBTITLE));
         rightCell.addElement(new Paragraph("No. " + data.formattedDocumentNumber(), FONT_SUBTITLE));
         rightCell.addElement(new Paragraph(" ", FONT_SMALL));
 
@@ -172,68 +171,71 @@ public final class WithholdingRideGenerator {
         document.add(headerTable);
     }
 
-    private static void addSubjectSection(Document document, WithholdingRideData data)
+    private static void addTransportSection(Document document, WaybillRideData data)
             throws DocumentException {
         var table = new PdfPTable(2);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{50, 50});
         table.setSpacingAfter(10);
 
-        addRow(table, "Razón Social / Nombres y Apellidos:", data.subject().name(),
-                "R.U.C. / C.I.:", data.subject().id());
-        addRow(table, "Fecha de Emisión:", data.issueDate().format(DATE_FMT),
-                "Tipo de Identificación:", resolveIdTypeName(data.subject().idType()));
-        addRow(table, "Ejercicio Fiscal:", data.fiscalPeriod(),
-                "Parte Relacionada:", data.relatedParty() ? "SÍ" : "NO");
+        addRow(table, "Razón Social Transportista:", data.carrierName(),
+                "R.U.C. / C.I. Transportista:", data.carrierId());
+        addRow(table, "Tipo de Identificación:", resolveIdTypeName(data.carrierIdType()),
+                "Placa:", data.licensePlate());
+        addRow(table, "Fecha Emisión:", data.issueDate().format(DATE_FMT),
+                "Punto de Partida:", data.departureAddress());
+        addRow(table, "Fecha Inicio Transporte:", data.transportStartDate().format(DATE_FMT),
+                "Fecha Fin Transporte:", data.transportEndDate().format(DATE_FMT));
 
         document.add(table);
     }
 
-    private static void addWithholdingsTable(Document document, WithholdingRideData data)
+    private static void addAddresseesSection(Document document, WaybillRideData data)
             throws DocumentException {
-        var table = new PdfPTable(7);
-        table.setWidthPercentage(100);
-        table.setWidths(new float[]{12, 12, 15, 20, 15, 13, 13});
-        table.setSpacingAfter(10);
+        for (int i = 0; i < data.addressees().size(); i++) {
+            var addr = data.addressees().get(i);
 
-        addTableHeader(table, "Impuesto");
-        addTableHeader(table, "Cod. Ret.");
-        addTableHeader(table, "Doc. Sustento");
-        addTableHeader(table, "Nro. Doc. Sustento");
-        addTableHeader(table, "Base Imponible");
-        addTableHeader(table, "% Retención");
-        addTableHeader(table, "Valor Retenido");
+            document.add(new Paragraph("Destinatario " + (i + 1), FONT_SUBTITLE));
+            document.add(new Paragraph(" ", FONT_SMALL));
 
-        for (var sd : data.supportingDocuments()) {
-            for (var wh : sd.withholdings()) {
-                addTableCell(table, resolveRetentionTaxName(wh.code()), Element.ALIGN_LEFT);
-                addTableCell(table, wh.retentionCode(), Element.ALIGN_CENTER);
-                addTableCell(table, resolveDocumentTypeName(sd.documentCode()),
-                        Element.ALIGN_LEFT);
-                addTableCell(table, sd.documentNumber(), Element.ALIGN_CENTER);
-                addTableCell(table, formatMoney(wh.taxableBase()), Element.ALIGN_RIGHT);
-                addTableCell(table, formatMoney(wh.retentionRate()), Element.ALIGN_RIGHT);
-                addTableCell(table, formatMoney(wh.retainedAmount()), Element.ALIGN_RIGHT);
+            var infoTable = new PdfPTable(2);
+            infoTable.setWidthPercentage(100);
+            infoTable.setWidths(new float[]{50, 50});
+            infoTable.setSpacingAfter(5);
+
+            addRow(infoTable, "Identificación:", addr.id(),
+                    "Razón Social:", addr.name());
+            addRow(infoTable, "Dirección:", addr.address(),
+                    "Motivo Traslado:", addr.transferReason());
+
+            if (addr.supportDocumentNumber() != null && !addr.supportDocumentNumber().isBlank()) {
+                addRow(infoTable, "Doc. Sustento:", addr.supportDocumentNumber(), "", "");
             }
+
+            document.add(infoTable);
+
+            // Items table for this addressee
+            var itemsTable = new PdfPTable(3);
+            itemsTable.setWidthPercentage(100);
+            itemsTable.setWidths(new float[]{20, 55, 25});
+            itemsTable.setSpacingAfter(10);
+
+            addTableHeader(itemsTable, "Código");
+            addTableHeader(itemsTable, "Descripción");
+            addTableHeader(itemsTable, "Cantidad");
+
+            for (var item : addr.items()) {
+                addTableCell(itemsTable, item.mainCode() != null ? item.mainCode() : "",
+                        Element.ALIGN_CENTER);
+                addTableCell(itemsTable, item.description(), Element.ALIGN_LEFT);
+                addTableCell(itemsTable, formatQuantity(item.quantity()), Element.ALIGN_RIGHT);
+            }
+
+            document.add(itemsTable);
         }
-
-        document.add(table);
     }
 
-    private static void addTotalsSection(Document document, WithholdingRideData data)
-            throws DocumentException {
-        var table = new PdfPTable(2);
-        table.setWidthPercentage(40);
-        table.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        table.setSpacingAfter(10);
-        table.setWidths(new float[]{60, 40});
-
-        addTotalRowBold(table, "TOTAL RETENIDO", data.totalRetained());
-
-        document.add(table);
-    }
-
-    private static void addAdditionalInfo(Document document, WithholdingRideData data)
+    private static void addAdditionalInfo(Document document, WaybillRideData data)
             throws DocumentException {
         if (data.additionalInfo() == null || data.additionalInfo().isEmpty()) {
             return;
@@ -315,45 +317,9 @@ public final class WithholdingRideGenerator {
         table.addCell(cell);
     }
 
-    private static void addTotalRowBold(PdfPTable table, String label, BigDecimal value) {
-        var labelCell = new PdfPCell(new Phrase(label, FONT_BOLD));
-        labelCell.setPadding(3);
-        labelCell.setBorderColor(BORDER_COLOR);
-        labelCell.setBackgroundColor(HEADER_BG);
-        table.addCell(labelCell);
-
-        var valueCell = new PdfPCell(new Phrase(formatMoney(value), FONT_BOLD));
-        valueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        valueCell.setPadding(3);
-        valueCell.setBorderColor(BORDER_COLOR);
-        valueCell.setBackgroundColor(HEADER_BG);
-        table.addCell(valueCell);
-    }
-
-    private static String formatMoney(BigDecimal value) {
-        if (value == null) return "0.00";
-        return String.format("%.2f", value);
-    }
-
-    private static String resolveRetentionTaxName(String code) {
-        return switch (code) {
-            case "1" -> "RENTA";
-            case "2" -> "IVA";
-            case "6" -> "ISD";
-            default -> "IMP " + code;
-        };
-    }
-
-    private static String resolveDocumentTypeName(String code) {
-        return switch (code) {
-            case "01" -> "FACTURA";
-            case "03" -> "LIQ. COMPRA";
-            case "04" -> "NOTA CRÉDITO";
-            case "05" -> "NOTA DÉBITO";
-            case "06" -> "GUÍA REMISIÓN";
-            case "07" -> "COMP. RETENCIÓN";
-            default -> "DOC " + code;
-        };
+    private static String formatQuantity(BigDecimal value) {
+        if (value == null) return "0";
+        return value.stripTrailingZeros().toPlainString();
     }
 
     private static String resolveEnvironment(String code) {
