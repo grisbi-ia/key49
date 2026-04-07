@@ -115,6 +115,7 @@ public class PortalResource {
     @Produces(MediaType.TEXT_HTML)
     public Uni<TemplateInstance> dashboardPage(
             @QueryParam("status") String status,
+            @QueryParam("doc_type") String docType,
             @QueryParam("date_from") String dateFromStr,
             @QueryParam("date_to") String dateToStr,
             @QueryParam("q") String searchQuery,
@@ -128,7 +129,7 @@ public class PortalResource {
             var countHql = new StringBuilder("SELECT count(d) FROM Document d WHERE 1=1");
 
             // Build filter conditions
-            var conditions = buildFilterConditions(status, dateFromStr, dateToStr, searchQuery);
+            var conditions = buildFilterConditions(status, docType, dateFromStr, dateToStr, searchQuery);
             hql.append(conditions);
             countHql.append(conditions);
             hql.append(" ORDER BY d.issueDate DESC, d.createdAt DESC");
@@ -139,13 +140,13 @@ public class PortalResource {
 
             var countQuery = s.createQuery(countHql.toString(), Long.class);
 
-            applyFilterParameters(query, status, dateFromStr, dateToStr, searchQuery);
-            applyFilterParameters(countQuery, status, dateFromStr, dateToStr, searchQuery);
+            applyFilterParameters(query, status, docType, dateFromStr, dateToStr, searchQuery);
+            applyFilterParameters(countQuery, status, docType, dateFromStr, dateToStr, searchQuery);
 
             return countQuery.getSingleResult()
                     .chain(total -> query.getResultList()
                     .map(docs -> buildDashboard(session, docs, total, page, perPage,
-                    status, dateFromStr, dateToStr, searchQuery)));
+                    status, docType, dateFromStr, dateToStr, searchQuery)));
         });
     }
 
@@ -201,10 +202,13 @@ public class PortalResource {
         return (PortalSessionService.PortalSession) requestContext.getProperty(PortalAuthFilter.PORTAL_SESSION_ATTR);
     }
 
-    private String buildFilterConditions(String status, String dateFrom, String dateTo, String q) {
+    private String buildFilterConditions(String status, String docType, String dateFrom, String dateTo, String q) {
         var sb = new StringBuilder();
         if (status != null && !status.isBlank()) {
             sb.append(" AND d.status = :status");
+        }
+        if (docType != null && !docType.isBlank()) {
+            sb.append(" AND d.documentType = :docType");
         }
         if (dateFrom != null && !dateFrom.isBlank()) {
             sb.append(" AND d.issueDate >= :dateFrom");
@@ -219,10 +223,13 @@ public class PortalResource {
     }
 
     @SuppressWarnings("unchecked")
-    private void applyFilterParameters(Object query, String status, String dateFrom, String dateTo, String q) {
+    private void applyFilterParameters(Object query, String status, String docType, String dateFrom, String dateTo, String q) {
         var mq = (org.hibernate.reactive.mutiny.Mutiny.SelectionQuery<?>) query;
         if (status != null && !status.isBlank()) {
             mq.setParameter("status", DocumentStatus.valueOf(status));
+        }
+        if (docType != null && !docType.isBlank()) {
+            mq.setParameter("docType", docType);
         }
         if (dateFrom != null && !dateFrom.isBlank()) {
             mq.setParameter("dateFrom", LocalDate.parse(dateFrom));
@@ -239,7 +246,7 @@ public class PortalResource {
     private TemplateInstance buildDashboard(
             PortalSessionService.PortalSession session,
             List<Document> docs, long total, int page, int perPage,
-            String status, String dateFrom, String dateTo, String q) {
+            String status, String docType, String dateFrom, String dateTo, String q) {
 
         int totalPages = (int) Math.ceil((double) total / perPage);
 
@@ -250,10 +257,12 @@ public class PortalResource {
                 .data("perPage", perPage)
                 .data("totalPages", totalPages)
                 .data("filterStatus", status)
+                .data("filterDocType", docType)
                 .data("filterDateFrom", dateFrom)
                 .data("filterDateTo", dateTo)
                 .data("filterQ", q)
                 .data("statuses", DocumentStatus.values())
+                .data("documentTypes", DocumentType.values())
                 .data("formatDate", DISPLAY_DATE)
                 .data("ecZone", Key49Constants.EC_ZONE);
     }

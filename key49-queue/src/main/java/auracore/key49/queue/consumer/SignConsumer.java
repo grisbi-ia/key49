@@ -18,18 +18,23 @@ import auracore.key49.core.model.enums.SriEnvironment;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.mapper.CreditNoteDataMapper;
+import auracore.key49.queue.mapper.DebitNoteDataMapper;
 import auracore.key49.queue.mapper.InvoiceDataMapper;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.XAdESBESSigner;
 import auracore.key49.xml.accesskey.AccessKeyGenerator;
+import auracore.key49.xml.builder.CreditNoteXmlBuilder;
+import auracore.key49.xml.builder.DebitNoteXmlBuilder;
 import auracore.key49.xml.builder.InvoiceXmlBuilder;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Consumidor que firma documentos: genera XML, clave de acceso y firma XAdES-BES.
- * Transición: CREATED → SIGNED (éxito) o CREATED → FAILED (error irrecuperable).
+ * Consumidor que firma documentos: genera XML, clave de acceso y firma
+ * XAdES-BES. Transición: CREATED → SIGNED (éxito) o CREATED → FAILED (error
+ * irrecuperable).
  */
 @ApplicationScoped
 public class SignConsumer {
@@ -44,7 +49,13 @@ public class SignConsumer {
     TenantConnectionManager connectionManager;
 
     @Inject
-    InvoiceDataMapper mapper;
+    InvoiceDataMapper invoiceMapper;
+
+    @Inject
+    CreditNoteDataMapper creditNoteMapper;
+
+    @Inject
+    DebitNoteDataMapper debitNoteMapper;
 
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
@@ -60,8 +71,8 @@ public class SignConsumer {
                         log.errorf("SignConsumer: tenant not found: %s", event.tenantSchemaName());
                         return Uni.createFrom().voidItem();
                     }
-                    return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                            session.find(Document.class, event.documentId())
+                    return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                            -> session.find(Document.class, event.documentId())
                                     .chain(doc -> {
                                         if (doc == null) {
                                             log.warnf("SignConsumer: document not found: %s", event.documentId());
@@ -71,8 +82,8 @@ public class SignConsumer {
                                     })
                     );
                 })
-                .onFailure().invoke(ex ->
-                        log.errorf(ex, "SignConsumer: unexpected error for documentId=%s", event.documentId()))
+                .onFailure().invoke(ex
+                        -> log.errorf(ex, "SignConsumer: unexpected error for documentId=%s", event.documentId()))
                 .onFailure().recoverWithNull()
                 .replaceWithVoid();
     }
@@ -91,12 +102,11 @@ public class SignConsumer {
                     doc.issueDate, docType, tenant.ruc, sriEnv,
                     doc.establishment, doc.issuePoint, doc.sequenceNumber);
 
-            var invoiceData = mapper.build(doc, tenant, accessKey);
-            var unsignedXml = InvoiceXmlBuilder.build(invoiceData);
+            var unsignedXml = buildXml(docType, doc, tenant, accessKey);
 
             var masterKey = CertificateEncryptor.decodeMasterKey(
-                    masterKeyBase64.orElseThrow(() ->
-                            new IllegalStateException("KEY49_MASTER_KEY not configured")));
+                    masterKeyBase64.orElseThrow(()
+                            -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
             var password = CertificateEncryptor.decryptPassword(
                     tenant.certificatePasswordEnc, masterKey);
             var signedXml = XAdESBESSigner.sign(unsignedXml, tenant.certificateP12, password);
@@ -131,5 +141,25 @@ public class SignConsumer {
 
     static SriEnvironment resolveEnvironment(String tenantEnv) {
         return "production".equals(tenantEnv) ? SriEnvironment.PRODUCTION : SriEnvironment.TEST;
+    }
+
+    private String buildXml(DocumentType docType, Document doc, Tenant tenant, String accessKey) {
+        return switch (docType) {
+            case INVOICE -> {
+                var data = invoiceMapper.build(doc, tenant, accessKey);
+                yield InvoiceXmlBuilder.build(data);
+            }
+            case CREDIT_NOTE -> {
+                var data = creditNoteMapper.build(doc, tenant, accessKey);
+                yield CreditNoteXmlBuilder.build(data);
+            }
+            case DEBIT_NOTE -> {
+                var data = debitNoteMapper.build(doc, tenant, accessKey);
+                yield DebitNoteXmlBuilder.build(data);
+            }
+            default ->
+                throw new UnsupportedOperationException(
+                        "Document type not supported for signing: " + docType);
+        };
     }
 }

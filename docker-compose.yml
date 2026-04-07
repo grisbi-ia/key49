@@ -1,0 +1,74 @@
+# Key49 — Infraestructura de desarrollo local
+# Uso: docker compose up -d
+
+services:
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: key49-postgres
+  #   environment:
+  #     POSTGRES_DB: key49
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: 1234abcd
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - key49-pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres -d key49"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: key49-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - key49-rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: key49-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - key49-redis:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: key49-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - key49-minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  # key49-pgdata:
+  key49-rabbitmq:
+  # key49-redis:
+  key49-minio:

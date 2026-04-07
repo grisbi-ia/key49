@@ -5,7 +5,46 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
-## [No publicado]
+## [0.8.0] - 2026-04-06
+
+### Agregado
+
+- Nota de Débito — tipo 05, XSD v1.0.0 (T-030)
+  - `DebitNoteData`: record con estructura de datos para generación XML de nota de débito
+  - `DebitNoteXmlBuilder`: genera `<notaDebito>` conforme a XSD SRI v1.0.0
+  - `CreateDebitNoteRequest` / `DebitNoteResponse`: DTOs de API REST
+  - `DebitNoteService`: lógica de negocio (crear, anular, listar, reenviar email)
+  - `DebitNoteResource`: endpoints REST en `/v1/debit-notes` (CRUD + xml + ride + void + resend)
+  - `DebitNoteDataMapper`: mapeo Document + Tenant → DebitNoteData para firma en cola
+  - `SignConsumer`: soporte de nota de débito en despachador XML por tipo de documento
+  - `DebitNoteRideData` / `DebitNoteRideGenerator`: generación RIDE (PDF) de notas de débito
+  - Sección `<motivos>` con razón y valor (sin tabla de detalles por ítem)
+  - Impuestos a nivel de documento con campo `tarifa` requerido
+  - Pagos opcionales en `<infoNotaDebito>`
+  - Tests: DebitNoteXmlBuilderTest, DebitNoteServiceTest, DebitNoteRideGeneratorTest, DebitNoteDataMapperTest
+- Nota de Crédito — tipo 04, XSD v1.1.0 (T-029)
+  - `CreditNoteData`: record con estructura de datos para generación XML de nota de crédito
+  - `CreditNoteXmlBuilder`: genera `<notaCredito>` conforme a XSD SRI v1.1.0
+  - `CreateCreditNoteRequest` / `CreditNoteResponse`: DTOs de API REST
+  - `CreditNoteService`: lógica de negocio (crear, anular, listar, reenviar email)
+  - `CreditNoteResource`: endpoints REST en `/v1/credit-notes` (CRUD + xml + ride + void + resend)
+  - `CreditNoteDataMapper`: mapeo Document + Tenant → CreditNoteData para firma en cola
+  - `SignConsumer`: despachador XML por tipo de documento (factura / nota de crédito)
+  - `CreditNoteRideData` / `CreditNoteRideGenerator`: generación RIDE (PDF) de notas de crédito
+  - Campos modificados: modifiedDocumentCode, modifiedDocumentNumber, modifiedDocumentDate, reason
+  - Tests: CreditNoteXmlBuilderTest, CreditNoteServiceTest, CreditNoteRideGeneratorTest, CreditNoteDataMapperTest
+- Configuración de producción (T-028)
+  - `SecurityHeadersFilter`: headers de seguridad OWASP en todas las respuestas JAX-RS
+    - X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy, Permissions-Policy, CSP
+  - CORS por perfil: dev/test permisivo (`/.*/`), producción restringido (orígenes, métodos, headers)
+  - HSTS para producción: `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+  - Graceful shutdown: `quarkus.shutdown.timeout=30s`
+  - Dockerfile multi-stage (JVM): build con Maven + runtime con Eclipse Temurin 25 JRE Alpine
+  - Usuario no-root (`key49`) en contenedor
+  - Eliminación de `quarkus.http.cors=true` deprecado (Quarkus 3.x auto-detecta por `cors.origins`)
+  - 6 tests nuevos (896 total proyecto, 0 failures)
+
+## [0.7.0] - 2026-04-06
 
 ### Agregado
 
@@ -20,131 +59,6 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Endpoint parcial GET /portal/documents/{id}/status para actualizaciones HTMX
   - Portal solo lectura — no permite crear ni modificar documentos
   - 10 tests E2E
-- Generador de clave de acceso de 49 dígitos (T-006)
-  - Algoritmo módulo 11 para dígito verificador
-  - Validación de `issue_date` == fecha actual (zona Ecuador)
-  - Validación de formatos: establishment (3 díg), issue_point (3 díg), sequence_number (9 díg)
-  - 62 tests unitarios
-- XML Builder de Factura conforme a XSD v2.1.0 (T-007)
-  - Mapeo DTO API → estructura XML SRI (infoTributaria, infoFactura, detalles, pagos)
-  - XSDs del SRI incluidos en resources
-  - 38 tests unitarios
-- Validador XSD dinámico por tipo de documento (T-008)
-  - Carga dinámica de XSD por `DocumentType`
-  - Captura y mapeo de errores a mensajes legibles
-  - Cache concurrente de schemas compilados
-  - 27 tests unitarios
-- Firma digital XAdES-BES para comprobantes electrónicos (T-009)
-  - Firma enveloped XML-DSig con Apache Santuario 4.0.4
-  - RSA-SHA1, C14N inclusive, esquema XAdES-BES 1.3.2
-  - Carga de certificado .p12 con BouncyCastle 1.80
-  - Certificado de pruebas auto-generado
-  - 25 tests unitarios
-- Cifrado/descifrado AES-256-GCM de certificados (T-010)
-  - `CertificateEncryptor`: encrypt/decrypt de bytes y passwords
-  - IV aleatorio de 12 bytes por operación, tag de autenticación 128 bits
-  - Utilidades: `generateMasterKey`, `decodeMasterKey` (Base64 desde env var)
-  - Test integración round-trip: cifrar → descifrar → firmar
-  - 28 tests unitarios
-- Cliente SOAP de Recepción del SRI (T-011)
-  - `SriReceptionClient`: envío de XML firmado (Base64) a `validarComprobante`
-  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
-  - `SriReceptionResponseParser`: parser SOAP (RECIBIDA/DEVUELTA)
-  - Modelos: `ReceptionStatus`, `SriMessage`, `SriReceptionResponse`
-  - `SriEndpoints`: URLs por ambiente (TEST/PRODUCTION)
-  - HttpClient nativo con connect timeout 3s, read timeout 5s
-  - 40 tests unitarios
-- Cliente SOAP de Autorización del SRI (T-012)
-  - `SriAuthorizationClient`: consulta por clave de acceso (49 dígitos) a `autorizacionComprobante`
-  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
-  - `SriAuthorizationResponseParser`: parser SOAP (AUTORIZADO/NO AUTORIZADO)
-  - Extracción de XML autorizado, número y fecha de autorización
-  - Modelos: `AuthorizationStatus`, `SriAuthorizationResponse`
-  - Validación de longitud de clave de acceso en frontera
-  - 40 tests unitarios (total 80 tests SRI)
-- Pipeline de procesamiento en colas (T-013)
-  - `SignConsumer`: genera XML + clave de acceso + firma XAdES-BES (CREATED → SIGNED)
-  - `SendConsumer`: envío SOAP Recepción SRI (SIGNED → SENT → RECEIVED | REJECTED | RETRY)
-  - `AuthorizeConsumer`: consulta SOAP Autorización SRI (RECEIVED → AUTHORIZED | REJECTED | RETRY)
-  - `NotifyConsumer`: stub transición (AUTHORIZED → NOTIFIED), pendiente T-015/T-016/T-017
-  - `DlqConsumer`: handler terminal Dead Letter Queue (→ FAILED)
-  - Outbox pattern: `OutboxEvent` entity, `OutboxRepository`, `OutboxPoller` (500ms), `OutboxCleanup` (cron 02:00 ECT), `OutboxEventRouter`
-  - `InvoiceDataMapper`: mapeo Document + Tenant + requestPayload JSON → InvoiceData
-  - `DocumentEvent.fromOutbox()` factory method
-  - `TenantRepository.findAllActive()` para iteración multi-tenant del outbox poller
-  - Máquina de estados enforced con `canTransitionTo()` en cada consumer
-  - 38 tests nuevos en key49-queue (508 total proyecto, 0 failures)
-- Lógica de reintentos con backoff exponencial (T-014)
-  - `RetryDelayCalculator`: delays ×3 (5s, 15s, 45s, 135s, 405s)
-  - `RetryPoller`: job @Scheduled(5s) que re-encola docs RETRY con `nextRetryAt` vencido
-  - Determinación de tipo de reintento por `sriSubmissionDate` (doc.send o doc.authorize)
-  - `SendConsumer`/`AuthorizeConsumer`: verificación de agotamiento de reintentos → FAILED
-  - Cálculo de `nextRetryAt` con backoff exponencial en cada consumer
-  - Transición RETRY → AUTHORIZED agregada al state machine
-  - Configuración `key49.retry.poll-interval` en application.properties
-  - 22 tests nuevos (531 total proyecto, 0 failures)
-- Generador de RIDE (PDF) para factura electrónica (T-015)
-  - `InvoiceRideGenerator`: generación programática con OpenPDF 2.0.3
-  - Secciones: encabezado emisor, datos receptor, tabla de ítems, impuestos, totales, pagos, info adicional
-  - `QrCodeGenerator`: código QR con clave de acceso (ZXing 3.5.3)
-  - Logo del emisor opcional (PNG/JPEG)
-  - Marca de agua "SIN AUTORIZACIÓN" para documentos no autorizados
-  - `RideData`: record con datos de presentación para el RIDE
-  - `RideGenerationException`: excepción específica del módulo
-  - 31 tests nuevos (562 total proyecto, 0 failures)
-- Almacenamiento de artefactos en MinIO/S3 (T-016)
-  - `ObjectStorageService`: almacenamiento y descarga con MinIO Java SDK 8.5.17
-  - `StoragePath`: construcción de rutas `{tenant}/{year}/{month}/{docType}/{accessKey}/{filename}`
-  - `DocumentArtifact`: enum con 4 tipos (unsigned.xml, signed.xml, authorized.xml, ride.pdf)
-  - `StorageException`: excepción específica del módulo
-  - Configuración: endpoint, access-key, secret-key, bucket, region con env vars
-  - 31 tests nuevos (593 total proyecto, 0 failures)
-- Servicio de email para entrega de comprobantes (T-017)
-  - `EmailService`: envío reactivo con Quarkus Mailer + Qute template
-  - `EmailData`: record con datos de emisor, receptor, adjuntos y parseEmails()
-  - Template HTML responsive para email de entrega (document-delivery.html)
-  - Soporte múltiples destinatarios separados por `;` (primer email TO, resto CC)
-  - Adjuntos opcionales: RIDE (PDF) y XML autorizado
-  - Configuración SMTP con env vars, flag `key49.email.enabled` para desactivar
-  - 23 tests nuevos (616 total proyecto, 0 failures)
-- Endpoints REST de Factura (T-018)
-  - POST /v1/invoices — crear factura con validación completa y cola de procesamiento
-  - GET /v1/invoices/:id — consultar factura con detalle completo
-  - GET /v1/invoices — listar con filtros (status, fechas, recipient_id, access_key, document_type), paginación y ordenamiento
-  - GET /v1/invoices/:id/xml — descargar XML desde MinIO
-  - GET /v1/invoices/:id/ride — descargar RIDE (PDF) desde MinIO
-  - POST /v1/invoices/:id/resend-email — reenviar email vía outbox
-  - POST /v1/invoices/:id/void — anulación local (valida estado, plazo día 7, consumidor final)
-  - DTOs: CreateInvoiceRequest, InvoiceResponse (summary/detail), ApiResponse, PagedResponse, VoidRequest
-  - BusinessException con detalle de campos y BusinessExceptionMapper
-  - InvoiceService: validación de frontera, cálculo de totales, idempotencia, unicidad
-  - Jackson configurado: SNAKE_CASE, sin timestamps para fechas, CORS habilitado
-  - Jandex indexing para key49-storage (descubrimiento de beans CDI)
-  - 44 tests nuevos (660 total proyecto, 0 failures)
-- Webhooks con firma HMAC-SHA256 (T-019)
-  - `WebhookDispatcher`: envío HTTP POST con firma HMAC-SHA256 en header `X-Key49-Signature`
-  - `WebhookPayload`: record con 12 campos del evento (documentId, accessKey, status, etc.)
-  - `WebhookDelivery`: entidad JPA para registro de entregas en `webhook_deliveries`
-  - `WebhookDeliveryRepository`: consultas de reintentos pendientes y por documento
-  - Reintentos con backoff: 10s, 60s, 300s (3 intentos máximo)
-  - Headers: `X-Key49-Signature` (sha256=hex), `X-Key49-Event`, `X-Key49-Delivery`
-  - `NotifyConsumer` integrado: despacha webhook al tenant tras autorización
-  - Dependencia `quarkus-jackson` en key49-notify para serialización JSON
-  - Jandex indexing para key49-notify (descubrimiento de beans CDI)
-  - Configuración: connect-timeout-ms, read-timeout-ms, enabled (flag on/off)
-  - 33 tests nuevos (693 total proyecto, 0 failures)
-- Test end-to-end de factura electrónica (T-020)
-  - `InvoiceEndToEndTest`: 25 tests ordenados ejercitando el flujo completo vía REST API
-  - Creación de factura (202), idempotencia, consulta por ID, listado con filtros
-  - Filtros: status, rango de fechas, recipient_id
-  - Documento duplicado (409), validaciones de request (400): establishment, recipient, items, fecha, pago
-  - XML y RIDE no disponibles para documento recién creado (404)
-  - Anulación: rechazo en CREATED (409), éxito en AUTHORIZED (200), sin razón (400)
-  - Autenticación requerida (401), paginación, rechazo resend-email en CREATED (409)
-  - Verificación de eventos outbox (`doc.sign`) y cálculo correcto de totales
-  - Fix: `InvoiceResource.downloadXml/downloadRide` convertidos a `Uni<Response>` (corrige error Vert.x EventLoop)
-  - Fix: `InvoiceResource.create` cambiado de `io.vertx.mutiny.core.http.HttpServerRequest` a `io.vertx.core.http.HttpServerRequest`
-  - 25 tests nuevos (718 total proyecto, 0 failures)
 - Gestión de tenants para administración (T-021)
   - `CertificateMetadataExtractor`: extracción de metadata (subject, serial, expiración, issuer) de certificados .p12
   - `TenantAdminService`: CRUD de tenants en esquema público con validación de RUC y unicidad de schema_name
@@ -222,6 +136,146 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
   - Producción: exportar a Grafana Tempo vía OTLP (`KEY49_OTEL_TRACES_EXPORTER=otlp`)
   - Jandex indexing para key49-admin (descubrimiento de beans CDI)
   - 15 tests nuevos (176 total proyecto, 0 failures)
+
+## [0.6.0] - 2026-04-05
+
+### Agregado
+
+- Generador de RIDE (PDF) para factura electrónica (T-015)
+  - `InvoiceRideGenerator`: generación programática con OpenPDF 2.0.3
+  - Secciones: encabezado emisor, datos receptor, tabla de ítems, impuestos, totales, pagos, info adicional
+  - `QrCodeGenerator`: código QR con clave de acceso (ZXing 3.5.3)
+  - Logo del emisor opcional (PNG/JPEG)
+  - Marca de agua "SIN AUTORIZACIÓN" para documentos no autorizados
+  - `RideData`: record con datos de presentación para el RIDE
+  - `RideGenerationException`: excepción específica del módulo
+  - 31 tests nuevos (562 total proyecto, 0 failures)
+- Almacenamiento de artefactos en MinIO/S3 (T-016)
+  - `ObjectStorageService`: almacenamiento y descarga con MinIO Java SDK 8.5.17
+  - `StoragePath`: construcción de rutas `{tenant}/{year}/{month}/{docType}/{accessKey}/{filename}`
+  - `DocumentArtifact`: enum con 4 tipos (unsigned.xml, signed.xml, authorized.xml, ride.pdf)
+  - `StorageException`: excepción específica del módulo
+  - Configuración: endpoint, access-key, secret-key, bucket, region con env vars
+  - 31 tests nuevos (593 total proyecto, 0 failures)
+- Servicio de email para entrega de comprobantes (T-017)
+  - `EmailService`: envío reactivo con Quarkus Mailer + Qute template
+  - `EmailData`: record con datos de emisor, receptor, adjuntos y parseEmails()
+  - Template HTML responsive para email de entrega (document-delivery.html)
+  - Soporte múltiples destinatarios separados por `;` (primer email TO, resto CC)
+  - Adjuntos opcionales: RIDE (PDF) y XML autorizado
+  - Configuración SMTP con env vars, flag `key49.email.enabled` para desactivar
+  - 23 tests nuevos (616 total proyecto, 0 failures)
+- Endpoints REST de Factura (T-018)
+  - POST /v1/invoices — crear factura con validación completa y cola de procesamiento
+  - GET /v1/invoices/:id — consultar factura con detalle completo
+  - GET /v1/invoices — listar con filtros (status, fechas, recipient_id, access_key, document_type), paginación y ordenamiento
+  - GET /v1/invoices/:id/xml — descargar XML desde MinIO
+  - GET /v1/invoices/:id/ride — descargar RIDE (PDF) desde MinIO
+  - POST /v1/invoices/:id/resend-email — reenviar email vía outbox
+  - POST /v1/invoices/:id/void — anulación local (valida estado, plazo día 7, consumidor final)
+  - DTOs: CreateInvoiceRequest, InvoiceResponse (summary/detail), ApiResponse, PagedResponse, VoidRequest
+  - BusinessException con detalle de campos y BusinessExceptionMapper
+  - InvoiceService: validación de frontera, cálculo de totales, idempotencia, unicidad
+  - Jackson configurado: SNAKE_CASE, sin timestamps para fechas, CORS habilitado
+  - Jandex indexing para key49-storage (descubrimiento de beans CDI)
+  - 44 tests nuevos (660 total proyecto, 0 failures)
+- Webhooks con firma HMAC-SHA256 (T-019)
+  - `WebhookDispatcher`: envío HTTP POST con firma HMAC-SHA256 en header `X-Key49-Signature`
+  - `WebhookPayload`: record con 12 campos del evento (documentId, accessKey, status, etc.)
+  - `WebhookDelivery`: entidad JPA para registro de entregas en `webhook_deliveries`
+  - `WebhookDeliveryRepository`: consultas de reintentos pendientes y por documento
+  - Reintentos con backoff: 10s, 60s, 300s (3 intentos máximo)
+  - Headers: `X-Key49-Signature` (sha256=hex), `X-Key49-Event`, `X-Key49-Delivery`
+  - `NotifyConsumer` integrado: despacha webhook al tenant tras autorización
+  - Dependencia `quarkus-jackson` en key49-notify para serialización JSON
+  - Jandex indexing para key49-notify (descubrimiento de beans CDI)
+  - Configuración: connect-timeout-ms, read-timeout-ms, enabled (flag on/off)
+  - 33 tests nuevos (693 total proyecto, 0 failures)
+- Test end-to-end de factura electrónica (T-020)
+  - `InvoiceEndToEndTest`: 25 tests ordenados ejercitando el flujo completo vía REST API
+  - Creación de factura (202), idempotencia, consulta por ID, listado con filtros
+  - Filtros: status, rango de fechas, recipient_id
+  - Documento duplicado (409), validaciones de request (400): establishment, recipient, items, fecha, pago
+  - XML y RIDE no disponibles para documento recién creado (404)
+  - Anulación: rechazo en CREATED (409), éxito en AUTHORIZED (200), sin razón (400)
+  - Autenticación requerida (401), paginación, rechazo resend-email en CREATED (409)
+  - Verificación de eventos outbox (`doc.sign`) y cálculo correcto de totales
+  - Fix: `InvoiceResource.downloadXml/downloadRide` convertidos a `Uni<Response>` (corrige error Vert.x EventLoop)
+  - Fix: `InvoiceResource.create` cambiado de `io.vertx.mutiny.core.http.HttpServerRequest` a `io.vertx.core.http.HttpServerRequest`
+  - 25 tests nuevos (718 total proyecto, 0 failures)
+
+## [0.5.0] - 2026-04-05
+
+### Agregado
+
+- Cliente SOAP de Recepción del SRI (T-011)
+  - `SriReceptionClient`: envío de XML firmado (Base64) a `validarComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriReceptionResponseParser`: parser SOAP (RECIBIDA/DEVUELTA)
+  - Modelos: `ReceptionStatus`, `SriMessage`, `SriReceptionResponse`
+  - `SriEndpoints`: URLs por ambiente (TEST/PRODUCTION)
+  - HttpClient nativo con connect timeout 3s, read timeout 5s
+  - 40 tests unitarios
+- Cliente SOAP de Autorización del SRI (T-012)
+  - `SriAuthorizationClient`: consulta por clave de acceso (49 dígitos) a `autorizacionComprobante`
+  - Circuit breaker (5 fallos, 30s delay) y timeout (8s) con MicroProfile FT
+  - `SriAuthorizationResponseParser`: parser SOAP (AUTORIZADO/NO AUTORIZADO)
+  - Extracción de XML autorizado, número y fecha de autorización
+  - Modelos: `AuthorizationStatus`, `SriAuthorizationResponse`
+  - Validación de longitud de clave de acceso en frontera
+  - 40 tests unitarios (total 80 tests SRI)
+- Pipeline de procesamiento en colas (T-013)
+  - `SignConsumer`: genera XML + clave de acceso + firma XAdES-BES (CREATED → SIGNED)
+  - `SendConsumer`: envío SOAP Recepción SRI (SIGNED → SENT → RECEIVED | REJECTED | RETRY)
+  - `AuthorizeConsumer`: consulta SOAP Autorización SRI (RECEIVED → AUTHORIZED | REJECTED | RETRY)
+  - `NotifyConsumer`: stub transición (AUTHORIZED → NOTIFIED), pendiente T-015/T-016/T-017
+  - `DlqConsumer`: handler terminal Dead Letter Queue (→ FAILED)
+  - Outbox pattern: `OutboxEvent` entity, `OutboxRepository`, `OutboxPoller` (500ms), `OutboxCleanup` (cron 02:00 ECT), `OutboxEventRouter`
+  - `InvoiceDataMapper`: mapeo Document + Tenant + requestPayload JSON → InvoiceData
+  - `DocumentEvent.fromOutbox()` factory method
+  - `TenantRepository.findAllActive()` para iteración multi-tenant del outbox poller
+  - Máquina de estados enforced con `canTransitionTo()` en cada consumer
+  - 38 tests nuevos en key49-queue (508 total proyecto, 0 failures)
+- Lógica de reintentos con backoff exponencial (T-014)
+  - `RetryDelayCalculator`: delays ×3 (5s, 15s, 45s, 135s, 405s)
+  - `RetryPoller`: job @Scheduled(5s) que re-encola docs RETRY con `nextRetryAt` vencido
+  - Determinación de tipo de reintento por `sriSubmissionDate` (doc.send o doc.authorize)
+  - `SendConsumer`/`AuthorizeConsumer`: verificación de agotamiento de reintentos → FAILED
+  - Cálculo de `nextRetryAt` con backoff exponencial en cada consumer
+  - Transición RETRY → AUTHORIZED agregada al state machine
+  - Configuración `key49.retry.poll-interval` en application.properties
+  - 22 tests nuevos (531 total proyecto, 0 failures)
+
+## [0.4.0] - 2026-04-05
+
+### Agregado
+
+- Generador de clave de acceso de 49 dígitos (T-006)
+  - Algoritmo módulo 11 para dígito verificador
+  - Validación de `issue_date` == fecha actual (zona Ecuador)
+  - Validación de formatos: establishment (3 díg), issue_point (3 díg), sequence_number (9 díg)
+  - 62 tests unitarios
+- XML Builder de Factura conforme a XSD v2.1.0 (T-007)
+  - Mapeo DTO API → estructura XML SRI (infoTributaria, infoFactura, detalles, pagos)
+  - XSDs del SRI incluidos en resources
+  - 38 tests unitarios
+- Validador XSD dinámico por tipo de documento (T-008)
+  - Carga dinámica de XSD por `DocumentType`
+  - Captura y mapeo de errores a mensajes legibles
+  - Cache concurrente de schemas compilados
+  - 27 tests unitarios
+- Firma digital XAdES-BES para comprobantes electrónicos (T-009)
+  - Firma enveloped XML-DSig con Apache Santuario 4.0.4
+  - RSA-SHA1, C14N inclusive, esquema XAdES-BES 1.3.2
+  - Carga de certificado .p12 con BouncyCastle 1.80
+  - Certificado de pruebas auto-generado
+  - 25 tests unitarios
+- Cifrado/descifrado AES-256-GCM de certificados (T-010)
+  - `CertificateEncryptor`: encrypt/decrypt de bytes y passwords
+  - IV aleatorio de 12 bytes por operación, tag de autenticación 128 bits
+  - Utilidades: `generateMasterKey`, `decodeMasterKey` (Base64 desde env var)
+  - Test integración round-trip: cifrar → descifrar → firmar
+  - 28 tests unitarios
 
 ## [0.3.0] - 2026-04-05
 

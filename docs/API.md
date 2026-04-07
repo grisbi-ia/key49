@@ -3,13 +3,14 @@
 ## Base URL
 
 ```
+Desarrollo: http://localhost:8080/v1
 Producción: https://api.key49.ec/v1
 Pruebas:    https://sandbox.key49.ec/v1
 ```
 
 ## Autenticación
 
-Todas las peticiones requieren un API Key en el header `Authorization`:
+Todas las peticiones a `/v1/*` requieren un API Key en el header `Authorization`:
 
 ```
 Authorization: Bearer fec_live_xxxxxxxxxxxxxxxxxxxx
@@ -17,11 +18,20 @@ Authorization: Bearer fec_live_xxxxxxxxxxxxxxxxxxxx
 
 Los API keys tienen prefijo `fec_live_` (producción) o `fec_test_` (pruebas).
 
+**Ejemplo curl:**
+
+```bash
+curl -s http://localhost:8080/v1/tenant/profile \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+**Paths públicos** (no requieren autenticación): `/q/*`, `/portal/login`, `/openapi`, `/swagger-ui`.
+
 ## Rate Limiting
 
-- Default: 100 requests/minuto por API key
+- Default: 100 requests/minuto por API key (configurable por tenant)
 - Headers de respuesta: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
-- Al exceder: HTTP 429 con header `Retry-After`
+- Al exceder: HTTP 429 con header `Retry-After` y error code `RATE_LIMIT_EXCEEDED`
 
 ## Idempotencia
 
@@ -31,7 +41,7 @@ Todas las operaciones de creación soportan idempotencia via header:
 X-Idempotency-Key: unique-string-from-client
 ```
 
-Si se envía el mismo key, se retorna el resultado original sin reprocesar.
+Si se envía el mismo key, se retorna el resultado original sin reprocesar. Si se envía el mismo key con un body distinto, se retorna HTTP 409 `IDEMPOTENCY_CONFLICT`.
 
 ## Headers de Respuesta Comunes
 
@@ -40,6 +50,9 @@ Todas las respuestas incluyen los siguientes headers:
 ```
 X-Request-Id: req_abc123              # ID único de Key49 para trazabilidad
 X-Trace-Id: 4bf92f3577b347a8...       # OpenTelemetry trace ID (si habilitado)
+X-RateLimit-Limit: 100               # Límite de requests por minuto
+X-RateLimit-Remaining: 95            # Requests restantes en la ventana
+X-RateLimit-Reset: 1712234567        # Timestamp UNIX cuando se renueva la ventana
 Content-Type: application/json
 ```
 
@@ -102,13 +115,66 @@ El `X-Request-Id` se incluye también en el body dentro de `meta.request_id`.
 
 ### 1. Facturas (Invoices)
 
-#### POST /invoices
+#### POST /v1/invoices
 
 Crear y enviar una factura electrónica al SRI.
 
 > **Nota**: Los campos `establishment`, `issue_point` y `sequence_number` son responsabilidad del cliente. Key49 no gestiona secuenciales. La `issue_date` debe ser la fecha del día actual (emisión en tiempo real).
 >
 > **Almacenamiento**: Key49 persiste los datos resumen del documento (receptor, totales, estado) en la tabla `documents`. Los ítems y formas de pago NO se almacenan en tablas separadas — se preservan en el `request_payload` original y en los XML almacenados en MinIO.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/invoices \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: inv-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000042",
+    "issue_date": "'$(date +%Y-%m-%d)'",
+    "recipient": {
+      "id_type": "04",
+      "id": "1790012345001",
+      "name": "Empresa Cliente S.A.",
+      "address": "Av. Principal 123, Quito",
+      "email": "contabilidad@cliente.com",
+      "phone": "0991234567"
+    },
+    "items": [
+      {
+        "main_code": "PROD-001",
+        "auxiliary_code": "7861234567890",
+        "description": "Servicio de hosting mensual",
+        "unit_of_measure": "UNIDAD",
+        "quantity": 1,
+        "unit_price": 50.0,
+        "discount": 0.0,
+        "taxes": [
+          {
+            "code": "2",
+            "rate_code": "4",
+            "rate": 15.0
+          }
+        ]
+      }
+    ],
+    "payments": [
+      {
+        "payment_method": "20",
+        "total": 57.5,
+        "term": 0,
+        "time_unit": "days"
+      }
+    ],
+    "additional_info": {
+      "Dirección": "Av. Principal 123",
+      "Email": "contabilidad@cliente.com"
+    }
+  }' | jq .
+```
 
 **Request:**
 
@@ -192,9 +258,16 @@ Crear y enviar una factura electrónica al SRI.
 
 ---
 
-#### GET /invoices/:id
+#### GET /v1/invoices/:id
 
 Consultar el estado y datos de una factura.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851 \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
 
 **Response (200 OK):**
 
@@ -234,43 +307,87 @@ Consultar el estado y datos de una factura.
 
 ---
 
-#### GET /invoices
+#### GET /v1/invoices
 
 Listar facturas con filtros y paginación.
 
 **Query params:**
 
-- `status` — filtrar por estado (AUTHORIZED, REJECTED, VOIDED, etc.)
+- `status` — filtrar por estado (CREATED, SIGNED, SENT, RECEIVED, AUTHORIZED, NOTIFIED, REJECTED, FAILED, RETRY, VOIDED)
 - `date_from` — fecha de emisión desde (YYYY-MM-DD)
 - `date_to` — fecha de emisión hasta
 - `recipient_id` — filtrar por RUC/cédula del receptor
 - `access_key` — buscar por clave de acceso (exacto, 49 dígitos)
 - `document_type` — filtrar por tipo de documento (01, 04, 05, etc.)
+- `q` — búsqueda libre por nombre o identificación del receptor
 - `page` — página (default: 1)
 - `per_page` — registros por página (default: 20, max: 100)
 - `sort` — campo de ordenamiento (default: `-issue_date`)
 
+**curl (listar con filtros):**
+
+```bash
+# Listar facturas autorizadas
+curl -s "http://localhost:8080/v1/invoices?status=AUTHORIZED&page=1&per_page=10" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+
+# Filtrar por rango de fechas
+curl -s "http://localhost:8080/v1/invoices?date_from=2026-04-01&date_to=2026-04-30" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+
+# Buscar por receptor
+curl -s "http://localhost:8080/v1/invoices?recipient_id=1790012345001" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+
+# Búsqueda libre por nombre
+curl -s "http://localhost:8080/v1/invoices?q=Empresa%20Cliente" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
 ---
 
-#### GET /invoices/:id/xml
+#### GET /v1/invoices/:id/xml
 
 Descargar el XML autorizado del comprobante.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/xml \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -o factura.xml
+```
 
 **Response:** `Content-Type: application/xml`
 
 ---
 
-#### GET /invoices/:id/ride
+#### GET /v1/invoices/:id/ride
 
 Descargar el RIDE (PDF) del comprobante.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/ride \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -o factura.pdf
+```
 
 **Response:** `Content-Type: application/pdf`
 
 ---
 
-#### POST /invoices/:id/resend-email
+#### POST /v1/invoices/:id/resend-email
 
-Reenviar el email con RIDE + XML al receptor.
+Reenviar el email con RIDE + XML al receptor. Solo disponible para documentos en estado `AUTHORIZED` o `NOTIFIED`.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/resend-email \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
 
 **Response (200 OK):**
 
@@ -353,9 +470,20 @@ Para integradores que ya generan su propio XML conforme a la ficha técnica del 
 
 Ver ADR-006 en ARCHITECTURE.md para la decisión de diseño.
 
-#### POST /documents/raw
+#### POST /v1/documents/raw
 
 Enviar un comprobante electrónico como XML pre-armado.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/documents/raw \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/xml" \
+  -H "X-Document-Type: 01" \
+  -H "X-Idempotency-Key: raw-$(date +%s)" \
+  -d @factura.xml | jq .
+```
 
 **Request:**
 
@@ -422,31 +550,86 @@ X-Document-Type: 01
 | 400         | `MISSING_DOCUMENT_TYPE`   | Header `X-Document-Type` no proporcionado            |
 | 422         | `UNSUPPORTED_XSD_VERSION` | Versión de XSD no soportada por Key49                |
 
-#### GET /documents/raw/:id
+#### GET /v1/documents/raw/:id
 
-Consultar el estado de un documento enviado por XML raw. Misma estructura de respuesta que `GET /invoices/:id`.
+Consultar el estado de un documento enviado por XML raw. Misma estructura de respuesta que `GET /v1/invoices/:id`.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/documents/raw/d290f1ee-6c54-4b01-90e6-d701748f0851 \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
 
 ---
 
-### 9. Gestión de Tenant (Fase 2)
+### 9. Gestión de Tenant (Perfil)
 
-#### GET /tenant/profile
+#### GET /v1/tenant/profile
 
 Obtener datos del tenant autenticado.
 
-#### PUT /tenant/profile
+**curl:**
 
-Actualizar datos del tenant (razón social, dirección, webhook, etc.).
+```bash
+curl -s http://localhost:8080/v1/tenant/profile \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
 
-#### POST /tenant/certificate
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "tenant_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "ruc": "1790016919001",
+    "legal_name": "Empresa Demo S.A.",
+    "trade_name": "Demo Corp",
+    "main_address": "Av. Amazonas N24-345, Quito",
+    "environment": "test",
+    "webhook_url": null,
+    "email_sender_name": null,
+    "reply_email": null,
+    "certificate": null,
+    "schema_name": "tenant_demo",
+    "status": "active",
+    "created_at": "2026-04-04T00:00:00Z"
+  }
+}
+```
+
+#### PUT /v1/tenant/profile
+
+Actualizar datos del tenant (razón social, dirección, webhook, email). No permite modificar campos administrativos como `status` o `rate_limit_rpm`.
+
+**curl:**
+
+```bash
+curl -s -X PUT http://localhost:8080/v1/tenant/profile \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "legal_name": "Empresa Demo S.A.",
+    "trade_name": "Demo Corp Actualizado",
+    "main_address": "Av. República, Quito",
+    "webhook_url": "https://mi-app.com/webhooks/key49",
+    "webhook_secret": "mi_secreto_webhook_123",
+    "email_sender_name": "Facturación Demo",
+    "reply_email": "facturacion@demo.com"
+  }' | jq .
+```
+
+#### POST /v1/tenant/certificate
 
 Subir o actualizar el certificado .p12.
 
-```
-Content-Type: multipart/form-data
+**curl:**
 
-certificate: (archivo .p12)
-password: (contraseña del certificado)
+```bash
+curl -s -X POST http://localhost:8080/v1/tenant/certificate \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -F "certificate=@/ruta/al/certificado.p12" \
+  -F "password=contraseña_del_certificado" | jq .
 ```
 
 **Response (200 OK):**
@@ -462,19 +645,219 @@ password: (contraseña del certificado)
 }
 ```
 
-#### GET /tenant/certificate/status
+#### GET /v1/tenant/certificate/status
 
 Verificar el estado del certificado (vigencia, expiración).
 
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/tenant/certificate/status \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "subject": "CN=EMPRESA S.A., O=Security Data",
+    "serial": "1234567890ABCDEF",
+    "expires_at": "2027-04-04T00:00:00Z",
+    "issuer": "CN=Autoridad de Certificación, O=Security Data",
+    "days_remaining": 365,
+    "valid": true
+  }
+}
+```
+
 ---
 
-### 10. Anulación Local de Documentos
+### 10. Gestión de API Keys
 
-#### POST /invoices/:id/void
+#### POST /v1/tenant/api-keys
+
+Crear una nueva API key para el tenant autenticado. El `raw_key` solo se devuelve una vez en esta respuesta — no es recuperable después.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/tenant/api-keys \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Integración ERP",
+    "environment": "test",
+    "permissions": "*",
+    "expires_at": "2027-12-31T23:59:59Z"
+  }' | jq .
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "data": {
+    "api_key_id": "c1d2e3f4-a5b6-7890-cdef-123456789012",
+    "key_prefix": "fec_test",
+    "name": "Integración ERP",
+    "environment": "test",
+    "permissions": "*",
+    "expires_at": "2027-12-31T23:59:59Z",
+    "status": "active",
+    "raw_key": "fec_test_a1B2c3D4e5F6g7H8i9J0kLmN",
+    "created_at": "2026-04-06T10:30:00Z"
+  }
+}
+```
+
+> **Importante**: Guardar el `raw_key` de forma segura. No se puede recuperar después de esta respuesta.
+
+#### GET /v1/tenant/api-keys
+
+Listar todas las API keys del tenant autenticado (sin incluir `raw_key`).
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/tenant/api-keys \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "api_key_id": "b1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "key_prefix": "fec_test",
+      "name": "Dev Local Key",
+      "environment": "test",
+      "last_used_at": "2026-04-06T10:25:00Z",
+      "expires_at": null,
+      "status": "active",
+      "created_at": "2026-04-04T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### GET /v1/tenant/api-keys/:id
+
+Consultar una API key específica.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/tenant/api-keys/b1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+#### DELETE /v1/tenant/api-keys/:id
+
+Revocar una API key. Una vez revocada, no puede reactivarse.
+
+**curl:**
+
+```bash
+curl -s -X DELETE http://localhost:8080/v1/tenant/api-keys/c1d2e3f4-a5b6-7890-cdef-123456789012 \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "api_key_id": "c1d2e3f4-a5b6-7890-cdef-123456789012",
+    "key_prefix": "fec_test",
+    "name": "Integración ERP",
+    "status": "revoked"
+  }
+}
+```
+
+**Errores:** 404 si la key no pertenece al tenant, 409 si ya está revocada.
+
+---
+
+### 11. Administración de Tenants (Admin)
+
+> Estos endpoints requieren autenticación de administrador.
+
+#### POST /v1/admin/tenants
+
+Registrar un nuevo tenant en el sistema.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/admin/tenants \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ruc": "0991234567001",
+    "legal_name": "Nueva Empresa S.A.",
+    "trade_name": "NuevaCorp",
+    "main_address": "Guayaquil, Av. 9 de Octubre",
+    "environment": "test",
+    "schema_name": "tenant_nuevacorp"
+  }' | jq .
+```
+
+> **Nota**: Esto solo registra el tenant. La creación del esquema PostgreSQL y sus tablas es manual (ver [DB-ADMIN.md](DB-ADMIN.md)).
+
+#### GET /v1/admin/tenants
+
+Listar tenants con filtros.
+
+**curl:**
+
+```bash
+# Listar todos
+curl -s "http://localhost:8080/v1/admin/tenants" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+
+# Filtrar por estado
+curl -s "http://localhost:8080/v1/admin/tenants?status=active&page=1&per_page=10" \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
+
+#### GET /v1/admin/tenants/:id
+
+Consultar detalle de un tenant.
+
+#### PUT /v1/admin/tenants/:id
+
+Actualizar datos de un tenant (incluye campos admin como `status`, `rate_limit_rpm`).
+
+#### POST /v1/admin/tenants/:id/certificate
+
+Subir certificado .p12 de un tenant (admin).
+
+#### GET /v1/admin/tenants/:id/certificate/status
+
+Consultar estado del certificado de un tenant (admin).
+
+---
+
+### 12. Anulación Local de Documentos
+
+#### POST /v1/invoices/:id/void
 
 Marcar un documento autorizado como anulado localmente. Key49 NO anula en el SRI — eso lo hace el contribuyente en el portal del SRI. Key49 solo registra la anulación local para trazabilidad interna.
 
 > **Requisitos**: el documento debe estar en estado `AUTHORIZED` o `NOTIFIED`. Solo se puede anular hasta el día 7 del mes siguiente a la emisión. Facturas a consumidor final (`recipient_id_type = "07"`) no pueden anularse.
+
+**curl:**
+
+```bash
+curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/void \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Error en datos del receptor"}' | jq .
+```
 
 **Request:**
 
@@ -508,11 +891,18 @@ Marcar un documento autorizado como anulado localmente. Key49 NO anula en el SRI
 
 ---
 
-### 11. Dashboard / Métricas
+### 13. Métricas
 
-#### GET /metrics/summary
+#### GET /v1/metrics/summary
 
-Resumen de actividad del tenant.
+Resumen de actividad del tenant: documentos hoy, este mes, certificado y última factura.
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/v1/metrics/summary \
+  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+```
 
 ```json
 {
@@ -533,6 +923,81 @@ Resumen de actividad del tenant.
     "last_invoice_at": "2026-04-04T10:30:00Z"
   }
 }
+```
+
+---
+
+## Health Checks y Observabilidad
+
+### GET /q/health
+
+Health check general (readiness + liveness combinados).
+
+**curl:**
+
+```bash
+curl -s http://localhost:8080/q/health | jq .
+```
+
+### GET /q/health/ready
+
+Solo readiness: verifica que PostgreSQL, Redis, RabbitMQ y MinIO estén accesibles. Incluye alerta si un certificado vence en menos de 30 días.
+
+```bash
+curl -s http://localhost:8080/q/health/ready | jq .
+```
+
+### GET /q/health/live
+
+Solo liveness: verifica que los endpoints WSDL del SRI estén accesibles (Recepción y Autorización).
+
+```bash
+curl -s http://localhost:8080/q/health/live | jq .
+```
+
+---
+
+## Portal Web
+
+El portal web es una interfaz de solo lectura para consultar documentos. Usa server-side rendering con Qute + HTMX + Pico CSS.
+
+### Rutas del Portal
+
+| Ruta                           | Método | Descripción                                                        |
+| ------------------------------ | ------ | ------------------------------------------------------------------ |
+| `/portal/login`                | GET    | Formulario de login (API key)                                      |
+| `/portal/login`                | POST   | Procesar login, crear sesión Redis                                 |
+| `/portal/logout`               | GET    | Cerrar sesión, eliminar cookie                                     |
+| `/portal/`                     | GET    | Dashboard: lista de documentos con filtros y paginación            |
+| `/portal/documents/:id`        | GET    | Detalle del documento: estado, timeline, totales, enlaces descarga |
+| `/portal/documents/:id/status` | GET    | Fragmento HTML del badge de estado (para polling HTMX)             |
+
+### Flujo de autenticación del Portal
+
+1. El usuario accede a `/portal/login`
+2. Ingresa su API key (ej: `fec_test_DemoKey49DevLocalTest00`)
+3. El sistema valida la API key, crea una sesión en Redis (TTL 30 min)
+4. Establece cookie `KEY49_SESSION` (HttpOnly, SameSite=Lax)
+5. Redirige al dashboard (`/portal/`)
+6. Cada request renueva el TTL de la sesión
+7. Logout elimina la sesión de Redis y la cookie
+
+### Stack del Portal
+
+- **Pico CSS v2**: estilos semánticos sin clases
+- **HTMX v2.0.4**: interactividad sin JavaScript manual
+- **Polling**: `hx-trigger="every 5s"` para actualizar estado de documentos en proceso
+
+---
+
+## OpenAPI / Swagger
+
+### GET /q/openapi
+
+Especificación OpenAPI 3.x en formato YAML/JSON.
+
+```bash
+curl -s http://localhost:8080/q/openapi | head -50
 ```
 
 ---

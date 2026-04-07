@@ -221,7 +221,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Desarrollo: logs a consola con trace/span IDs
   - Producción: exportar a Grafana Tempo via OTLP
 
-- [ ] **T-028** Configuración de producción
+- [x] **T-028** Configuración de producción
   - Switch de endpoints SRI (pruebas → producción)
   - Configuración de DokPloy + Traefik
   - TLS, CORS, security headers
@@ -260,8 +260,8 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ## Fase 3: Documentos Adicionales (4 semanas)
 
-- [ ] **T-029** Nota de Crédito (tipo 04, XSD v1.1.0)
-- [ ] **T-030** Nota de Débito (tipo 05, XSD v1.0.0)
+- [x] **T-029** Nota de Crédito (tipo 04, XSD v1.1.0)
+- [x] **T-030** Nota de Débito (tipo 05, XSD v1.0.0)
 - [ ] **T-031** Comprobante de Retención ATS (tipo 07, XSD v2.0.0)
 - [ ] **T-032** Guía de Remisión (tipo 06, XSD v1.1.0)
 - [ ] **T-033** Liquidación de Compra (tipo 03, XSD v1.1.0)

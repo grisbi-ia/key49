@@ -258,6 +258,20 @@ class PortalEndToEndTest {
                 .body(not(containsString("Beta Inc.")));
     }
 
+    // ── 6b. Dashboard with document type filter ──
+    @Test
+    @Order(6)
+    void shouldFilterByDocumentType() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .queryParam("doc_type", "01")
+                .when()
+                .get("/portal/")
+                .then()
+                .statusCode(200)
+                .body(containsString("Factura"));
+    }
+
     // ── 7. Document detail page ──
     @Test
     @Order(7)
