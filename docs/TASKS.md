@@ -272,12 +272,11 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ## Fase 4: Escala y Monitoreo (3 semanas)
 
-- [ ] **T-036** Grafana dashboards
-  - Documentos por estado (gauge)
-  - Throughput (rate)
-  - Latencia SRI P50/P95/P99 (histogram)
-  - Errores por tipo (counter)
-  - Cola depths (gauge)
+- [x] **T-036** Documentación para desarrolladores
+  - Landing page con quickstart
+  - Guía de integración paso a paso
+  - Ejemplos en curl, Python, Node.js, Java
+  - Catálogo de errores con soluciones
 
 - [ ] **T-037** Alertas
   - SRI no responde > 5 min
@@ -286,11 +285,12 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Error rate > 5%
   - Cola depth > 1000
 
-- [ ] **T-038** Documentación para desarrolladores
-  - Landing page con quickstart
-  - Guía de integración paso a paso
-  - Ejemplos en curl, Python, Node.js, Java
-  - Catálogo de errores con soluciones
+- [ ] **T-038** Grafana dashboards
+  - Documentos por estado (gauge)
+  - Throughput (rate)
+  - Latencia SRI P50/P95/P99 (histogram)
+  - Errores por tipo (counter)
+  - Cola depths (gauge)
 
 - [ ] **T-039** SDK básico (opcional)
   - Cliente Java (para integradores Quarkus/Spring)

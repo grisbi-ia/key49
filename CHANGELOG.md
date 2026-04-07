@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.14.0] - 2026-04-07
+
+### Agregado
+
+- Guía para desarrolladores (T-036)
+  - `docs/DEVELOPER-GUIDE.md` — documentación completa para integración de clientes
+  - Quickstart en 4 pasos con verificación de conexión y primera factura
+  - Referencia de campos para los 6 tipos de documento: Factura, Nota de Crédito, Nota de Débito, Guía de Remisión, Comprobante de Retención, Liquidación de Compra
+  - Ejemplos curl para cada tipo de documento
+  - Ejemplos de integración en Python, Node.js y Java
+  - Catálogo de errores con códigos, descripciones y acciones
+  - Secciones de idempotencia, rate limiting, webhooks, anulación, descarga XML/RIDE
+
 ## [0.13.0] - 2026-04-07
 
 ### Agregado
