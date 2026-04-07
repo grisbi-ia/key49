@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.11.0] - 2026-04-07
+
+### Agregado
+
+- Liquidación de Compra — tipo 03, XSD v1.1.0 (T-033)
+  - `PurchaseClearanceData`, `PurchaseClearanceXmlBuilder` — generación XML con datos de proveedor, ítems, impuestos, pagos
+  - `CreatePurchaseClearanceRequest`, `PurchaseClearanceResponse` — DTOs de API REST
+  - `PurchaseClearanceService` — validación de proveedor (tipos ID 04-08), ítems con impuestos, pagos, emisión mismo día
+  - `PurchaseClearanceResource` — endpoints REST: POST/GET `/v1/purchase-clearances`, XML, RIDE, void, resend-email
+  - `PurchaseClearanceDataMapper` — mapeo Document→PurchaseClearanceData para firma
+  - `SignConsumer` actualizado con caso PURCHASE_CLEARANCE
+  - 62 tests unitarios (XmlBuilder, Service, DataMapper)
+
 ## [0.10.0] - 2026-04-06
 
 ### Agregado
