@@ -137,13 +137,18 @@ public class WithholdingService {
 
         computeAndSetTotals(doc, request);
 
-        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        doc.createdAt = Instant.now();
+        doc.updatedAt = Instant.now();
 
         log.infof("Creating withholding %s-%s-%s for subject %s",
                 doc.establishment, doc.issuePoint, doc.sequenceNumber, doc.recipientId);
 
         return session.persist(doc)
-                .chain(() -> session.persist(outbox))
+                .chain(() -> {
+                    var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+                    return session.persist(outbox);
+                })
+                .chain(session::flush)
                 .replaceWith(doc);
     }
 

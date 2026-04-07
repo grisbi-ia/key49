@@ -1,12 +1,10 @@
 package auracore.key49.api.resource;
 
-import auracore.key49.core.service.ApiKeyService;
-import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import io.vertx.mutiny.pgclient.PgPool;
-import io.vertx.mutiny.sqlclient.Tuple;
-import jakarta.inject.Inject;
+import java.util.UUID;
+
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -14,12 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
 
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
+import auracore.key49.core.service.ApiKeyService;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Tuple;
+import jakarta.inject.Inject;
 
 /**
  * Test de integración para endpoints de perfil de tenant (/v1/tenant).
@@ -53,7 +52,7 @@ class TenantProfileEndToEndTest {
                         INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, created_at, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, true, false, 'test', 1, 100, 'active', now(), now())""")
+                        VALUES ($1, $2, $3, $4, $5, $6, true, false, 'test', 1, 10000, 'active', now(), now())""")
                 .execute(Tuple.of(tenantId, TENANT_RUC, "Profile Test S.A.", "Profile Test", "Guayaquil", TENANT_SCHEMA))
                 .await().indefinitely();
 
@@ -181,7 +180,7 @@ class TenantProfileEndToEndTest {
                 .then()
                 .statusCode(200)
                 .body("data.status", equalTo("active"))
-                .body("data.rate_limit_rpm", equalTo(100));
+                .body("data.rate_limit_rpm", equalTo(10000));
     }
 
     @Test

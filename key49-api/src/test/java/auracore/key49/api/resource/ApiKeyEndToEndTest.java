@@ -1,12 +1,13 @@
 package auracore.key49.api.resource;
 
-import auracore.key49.core.service.ApiKeyService;
-import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
-import io.vertx.mutiny.pgclient.PgPool;
-import io.vertx.mutiny.sqlclient.Tuple;
-import jakarta.inject.Inject;
+import java.util.UUID;
+
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -14,15 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
 
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
-import static org.hamcrest.Matchers.startsWith;
+import auracore.key49.core.service.ApiKeyService;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.vertx.mutiny.pgclient.PgPool;
+import io.vertx.mutiny.sqlclient.Tuple;
+import jakarta.inject.Inject;
 
 /**
  * Test de integración para endpoints de gestión de API keys
@@ -58,7 +57,7 @@ class ApiKeyEndToEndTest {
                         INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, created_at, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 100, 'active', now(), now())""")
+                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 10000, 'active', now(), now())""")
                 .execute(Tuple.of(tenantId, TENANT_RUC, "ApiKey Test S.A.", "ApiKey Test", "Quito", TENANT_SCHEMA))
                 .await().indefinitely();
 

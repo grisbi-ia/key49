@@ -36,7 +36,7 @@ class ApiKeyAuthFilterTest {
                         INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, created_at, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, false, false, 'test', 1, 100, $6, now(), now())""")
+                        VALUES ($1, $2, $3, $4, $5, false, false, 'test', 1, 10000, $6, now(), now())""")
                 .execute(Tuple.of(tenantId, "0190155722001", "Auth Test S.A.", "Quito", "tenant_auth_test", "active"))
                 .await().indefinitely();
 

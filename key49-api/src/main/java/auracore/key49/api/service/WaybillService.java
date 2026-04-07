@@ -144,13 +144,18 @@ public class WaybillService {
         doc.iceAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         doc.totalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
-        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        doc.createdAt = Instant.now();
+        doc.updatedAt = Instant.now();
 
         log.infof("Creating waybill %s-%s-%s for carrier %s",
                 doc.establishment, doc.issuePoint, doc.sequenceNumber, doc.recipientId);
 
         return session.persist(doc)
-                .chain(() -> session.persist(outbox))
+                .chain(() -> {
+                    var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+                    return session.persist(outbox);
+                })
+                .chain(session::flush)
                 .replaceWith(doc);
     }
 

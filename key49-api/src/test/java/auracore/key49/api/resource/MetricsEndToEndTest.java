@@ -61,7 +61,7 @@ class MetricsEndToEndTest {
                         INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, certificate_expiration, created_at, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 100, 'active', $7, now(), now())""")
+                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 10000, 'active', $7, now(), now())""")
                 .execute(Tuple.tuple().addUUID(tenantId).addString(TENANT_RUC)
                         .addString("Metrics Test S.A.").addString("Metrics")
                         .addString("Quito").addString(TENANT_SCHEMA)
@@ -278,7 +278,7 @@ class MetricsEndToEndTest {
                         INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, created_at, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 100, 'active', now(), now())""")
+                        VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 10000, 'active', now(), now())""")
                 .execute(Tuple.of(tenantId2, "1790016919001", "NoCert S.A.", "NoCert", "Guayaquil", schema2))
                 .await().indefinitely();
 

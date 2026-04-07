@@ -266,7 +266,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 - [x] **T-032** Guía de Remisión (tipo 06, XSD v1.1.0)
 - [x] **T-033** Liquidación de Compra (tipo 03, XSD v1.1.0)
 - [x] **T-034** RIDE templates para cada tipo de documento
-- [ ] **T-035** Tests end-to-end para cada tipo
+- [x] **T-035** Tests end-to-end para cada tipo
 
 ---
 

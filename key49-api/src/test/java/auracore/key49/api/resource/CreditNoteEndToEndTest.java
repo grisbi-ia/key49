@@ -23,24 +23,21 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.*;
 
 /**
- * Test end-to-end del flujo completo de factura electrónica vía REST API.
+ * Test end-to-end del flujo completo de nota de crédito electrónica vía REST
+ * API.
  *
  * <p>
  * Crea un tenant con esquema en PostgreSQL, genera API key, y ejercita todos
- * los endpoints de /v1/invoices: creación, consulta, listado, idempotencia,
+ * los endpoints de /v1/credit-notes: creación, consulta, listado, idempotencia,
  * validaciones y anulación.</p>
- *
- * <p>
- * El pipeline de procesamiento (sign, send, authorize) se ejecuta
- * asíncronamente en colas, por lo que este test verifica las respuestas HTTP
- * inmediatas del API (sin esperar procesamiento SRI).</p>
  */
+
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class InvoiceEndToEndTest {
+class CreditNoteEndToEndTest {
 
-    private static final String TENANT_SCHEMA = "tenant_e2e_test";
+    private static final String TENANT_SCHEMA = "tenant_e2e_cn";
     private static final String TENANT_RUC = "1790016919001";
 
     @Inject
@@ -56,23 +53,20 @@ class InvoiceEndToEndTest {
         var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
         rawApiKey = generated.rawKey();
 
-        // 1. Insert tenant in public schema
         pgPool.preparedQuery("""
                         INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
                             emission_type, rate_limit_rpm, status, created_at, updated_at)
                         VALUES ($1, $2, $3, $4, $5, $6, false, false, 'test', 1, 10000, 'active', now(), now())""")
-                .execute(Tuple.of(tenantId, TENANT_RUC, "E2E Test Corp S.A.", "E2E Test", "Quito", TENANT_SCHEMA))
+                .execute(Tuple.of(tenantId, TENANT_RUC, "E2E CreditNote Corp S.A.", "E2E CN", "Quito", TENANT_SCHEMA))
                 .await().indefinitely();
 
-        // 2. Insert API key
         pgPool.preparedQuery("""
                         INSERT INTO api_keys (api_key_id, tenant_id, key_prefix, key_hash, name, permissions, status, created_at)
                         VALUES ($1, $2, $3, $4, $5, '*', 'active', now())""")
-                .execute(Tuple.of(UUID.randomUUID(), tenantId, generated.keyPrefix(), generated.hash(), "e2e-key"))
+                .execute(Tuple.of(UUID.randomUUID(), tenantId, generated.keyPrefix(), generated.hash(), "e2e-cn-key"))
                 .await().indefinitely();
 
-        // 3. Create tenant schema with documents + outbox tables
         pgPool.query("CREATE SCHEMA IF NOT EXISTS " + TENANT_SCHEMA).execute()
                 .chain(() -> pgPool.query("""
                         CREATE TABLE IF NOT EXISTS %s.documents (
@@ -128,9 +122,9 @@ class InvoiceEndToEndTest {
                             version INT NOT NULL DEFAULT 1,
                             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                             updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                            CONSTRAINT uq_e2e_documents_number UNIQUE (document_type, establishment, issue_point, sequence_number),
-                            CONSTRAINT uq_e2e_documents_access_key UNIQUE (access_key),
-                            CONSTRAINT uq_e2e_documents_idempotency UNIQUE (idempotency_key)
+                            CONSTRAINT uq_cn_documents_number UNIQUE (document_type, establishment, issue_point, sequence_number),
+                            CONSTRAINT uq_cn_documents_access_key UNIQUE (access_key),
+                            CONSTRAINT uq_cn_documents_idempotency UNIQUE (idempotency_key)
                         )
                         """.formatted(TENANT_SCHEMA)).execute())
                 .chain(() -> pgPool.query("""
@@ -156,19 +150,19 @@ class InvoiceEndToEndTest {
         return LocalDate.now(Key49Constants.EC_ZONE);
     }
 
-    // ── 1. Crear factura exitosamente ──
+    // ── 1. Crear nota de crédito exitosamente ──
     @Test
     @Order(1)
-    void shouldCreateInvoice_returns202() {
-        var body = buildValidInvoiceRequest("000000001");
+    void shouldCreateCreditNote_returns202() {
+        var body = buildValidRequest("000000001");
 
         createdDocumentId = RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-001")
+                .header("X-Idempotency-Key", "idem-cn-001")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(202)
                 .header("X-Request-Id", startsWith("req_"))
@@ -177,7 +171,7 @@ class InvoiceEndToEndTest {
                 .body("data.establishment", equalTo("001"))
                 .body("data.issue_point", equalTo("001"))
                 .body("data.sequence_number", equalTo("000000001"))
-                .body("data.document_type", equalTo("01"))
+                .body("data.document_type", equalTo("04"))
                 .body("data.recipient.id", equalTo("1790016919001"))
                 .body("data.recipient.name", equalTo("Empresa S.A."))
                 .body("data.total_amount", notNullValue())
@@ -191,32 +185,31 @@ class InvoiceEndToEndTest {
     @Test
     @Order(2)
     void shouldReturnSameDocument_whenIdempotencyKeyRepeated() {
-        var body = buildValidInvoiceRequest("000000099"); // different seq but same idem key
+        var body = buildValidRequest("000000099");
 
         var returnedId = RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-001")
+                .header("X-Idempotency-Key", "idem-cn-001")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(202)
                 .extract()
                 .path("data.id");
 
-        // Same idempotency key → same document returned
         org.junit.jupiter.api.Assertions.assertEquals(createdDocumentId, returnedId);
     }
 
-    // ── 3. Consultar factura por ID ──
+    // ── 3. Consultar por ID ──
     @Test
     @Order(3)
-    void shouldGetInvoiceById() {
+    void shouldGetCreditNoteById() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices/" + createdDocumentId)
+                .get("/v1/credit-notes/" + createdDocumentId)
                 .then()
                 .statusCode(200)
                 .body("data.id", equalTo(createdDocumentId))
@@ -228,14 +221,14 @@ class InvoiceEndToEndTest {
                 .body("data.issue_date", equalTo(today().toString()));
     }
 
-    // ── 4. Listar facturas ──
+    // ── 4. Listar notas de crédito ──
     @Test
     @Order(4)
-    void shouldListInvoices() {
+    void shouldListCreditNotes() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(greaterThanOrEqualTo(1)))
@@ -246,12 +239,12 @@ class InvoiceEndToEndTest {
 
     @Test
     @Order(5)
-    void shouldListInvoices_withStatusFilter() {
+    void shouldListCreditNotes_withStatusFilter() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .queryParam("status", "CREATED")
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(greaterThanOrEqualTo(1)))
@@ -260,13 +253,13 @@ class InvoiceEndToEndTest {
 
     @Test
     @Order(6)
-    void shouldListInvoices_withDateFilter() {
+    void shouldListCreditNotes_withDateFilter() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .queryParam("date_from", today().toString())
                 .queryParam("date_to", today().toString())
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(greaterThanOrEqualTo(1)));
@@ -274,12 +267,12 @@ class InvoiceEndToEndTest {
 
     @Test
     @Order(7)
-    void shouldListInvoices_withRecipientIdFilter() {
+    void shouldListCreditNotes_withRecipientIdFilter() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .queryParam("recipient_id", "1790016919001")
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(greaterThanOrEqualTo(1)));
@@ -289,15 +282,15 @@ class InvoiceEndToEndTest {
     @Test
     @Order(8)
     void shouldRejectDuplicateDocument() {
-        var body = buildValidInvoiceRequest("000000001"); // same seq as Order(1)
+        var body = buildValidRequest("000000001");
 
         RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-002-different")
+                .header("X-Idempotency-Key", "idem-cn-002-different")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(409)
                 .body("error.code", equalTo("DUPLICATE_DOCUMENT"));
@@ -307,15 +300,15 @@ class InvoiceEndToEndTest {
     @Test
     @Order(9)
     void shouldRejectInvalidEstablishment() {
-        var body = buildValidInvoiceRequest("000000010");
-        body.put("establishment", "1"); // invalid: not 3 digits
+        var body = buildValidRequest("000000010");
+        body.put("establishment", "1");
 
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"))
@@ -325,7 +318,7 @@ class InvoiceEndToEndTest {
     @Test
     @Order(10)
     void shouldRejectMissingRecipient() {
-        var body = buildValidInvoiceRequest("000000011");
+        var body = buildValidRequest("000000011");
         body.remove("recipient");
 
         RestAssured.given()
@@ -333,7 +326,7 @@ class InvoiceEndToEndTest {
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"));
@@ -342,7 +335,7 @@ class InvoiceEndToEndTest {
     @Test
     @Order(11)
     void shouldRejectMissingItems() {
-        var body = buildValidInvoiceRequest("000000012");
+        var body = buildValidRequest("000000012");
         body.put("items", List.of());
 
         RestAssured.given()
@@ -350,7 +343,7 @@ class InvoiceEndToEndTest {
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"));
@@ -359,7 +352,7 @@ class InvoiceEndToEndTest {
     @Test
     @Order(12)
     void shouldRejectWrongIssueDate() {
-        var body = buildValidInvoiceRequest("000000013");
+        var body = buildValidRequest("000000013");
         body.put("issue_date", "2020-01-01");
 
         RestAssured.given()
@@ -367,7 +360,7 @@ class InvoiceEndToEndTest {
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"));
@@ -375,46 +368,42 @@ class InvoiceEndToEndTest {
 
     @Test
     @Order(13)
-    void shouldRejectInvalidPaymentMethod() {
-        var body = buildValidInvoiceRequest("000000014");
-        body.put("payments", List.of(Map.of(
-                "payment_method", "99", // invalid
-                "total", 115.00,
-                "term", 0,
-                "time_unit", "dias")));
+    void shouldRejectMissingModifiedDocumentNumber() {
+        var body = buildValidRequest("000000014");
+        body.remove("modified_document_number");
 
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"));
     }
 
-    // ── 7. XML no disponible (documento recién creado) ──
+    // ── 7. XML no disponible ──
     @Test
     @Order(14)
     void shouldReturn404_whenXmlNotAvailable() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices/" + createdDocumentId + "/xml")
+                .get("/v1/credit-notes/" + createdDocumentId + "/xml")
                 .then()
                 .statusCode(404)
                 .body("error.code", equalTo("DOCUMENT_NOT_FOUND"));
     }
 
-    // ── 8. RIDE no disponible (documento recién creado) ──
+    // ── 8. RIDE no disponible ──
     @Test
     @Order(15)
     void shouldReturn404_whenRideNotAvailable() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices/" + createdDocumentId + "/ride")
+                .get("/v1/credit-notes/" + createdDocumentId + "/ride")
                 .then()
                 .statusCode(404)
                 .body("error.code", equalTo("DOCUMENT_NOT_FOUND"));
@@ -429,7 +418,7 @@ class InvoiceEndToEndTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of("reason", "Test void"))
                 .when()
-                .post("/v1/invoices/" + createdDocumentId + "/void")
+                .post("/v1/credit-notes/" + createdDocumentId + "/void")
                 .then()
                 .statusCode(409)
                 .body("error.code", equalTo("INVALID_STATE_TRANSITION"));
@@ -439,34 +428,31 @@ class InvoiceEndToEndTest {
     @Test
     @Order(17)
     void shouldVoidAuthorizedDocument() {
-        // Create second invoice
-        var body = buildValidInvoiceRequest("000000002");
+        var body = buildValidRequest("000000002");
         var docId = RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-void")
+                .header("X-Idempotency-Key", "idem-cn-void")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(202)
                 .extract()
                 .path("data.id");
 
-        // Manually transition to AUTHORIZED via direct SQL
         pgPool.preparedQuery(
                 "UPDATE %s.documents SET status = 'AUTHORIZED', access_key = $1 WHERE document_id = $2::uuid"
                         .formatted(TENANT_SCHEMA))
-                .execute(Tuple.of("0504202601179001691900110010010000000021234567810", docId))
+                .execute(Tuple.of("0504202604179001691900110010010000000021234567816", docId))
                 .await().indefinitely();
 
-        // Now void it
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .contentType(ContentType.JSON)
                 .body(Map.of("reason", "Error en datos del receptor"))
                 .when()
-                .post("/v1/invoices/" + docId + "/void")
+                .post("/v1/credit-notes/" + docId + "/void")
                 .then()
                 .statusCode(200)
                 .body("data.status", equalTo("VOIDED"))
@@ -478,14 +464,14 @@ class InvoiceEndToEndTest {
     @Test
     @Order(18)
     void shouldRejectVoid_withoutReason() {
-        var body = buildValidInvoiceRequest("000000003");
+        var body = buildValidRequest("000000003");
         var docId = RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-void-no-reason")
+                .header("X-Idempotency-Key", "idem-cn-void-no-reason")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(202)
                 .extract()
@@ -494,7 +480,7 @@ class InvoiceEndToEndTest {
         pgPool.preparedQuery(
                 "UPDATE %s.documents SET status = 'AUTHORIZED', access_key = $1 WHERE document_id = $2::uuid"
                         .formatted(TENANT_SCHEMA))
-                .execute(Tuple.of("0504202601179001691900110010010000000031234567813", docId))
+                .execute(Tuple.of("0504202604179001691900110010010000000031234567819", docId))
                 .await().indefinitely();
 
         RestAssured.given()
@@ -502,33 +488,32 @@ class InvoiceEndToEndTest {
                 .contentType(ContentType.JSON)
                 .body(Map.of())
                 .when()
-                .post("/v1/invoices/" + docId + "/void")
+                .post("/v1/credit-notes/" + docId + "/void")
                 .then()
                 .statusCode(400)
                 .body("error.code", equalTo("VALIDATION_ERROR"));
     }
 
-    // ── 12. Crear segunda factura y verificar listado ──
+    // ── 12. Crear segundo documento y verificar listado ──
     @Test
     @Order(19)
-    void shouldCreateSecondInvoice_andListMultiple() {
-        var body = buildValidInvoiceRequest("000000004");
+    void shouldCreateSecondCreditNote_andListMultiple() {
+        var body = buildValidRequest("000000004");
 
         RestAssured.given()
                 .header("Authorization", authHeader())
-                .header("X-Idempotency-Key", "idem-e2e-004")
+                .header("X-Idempotency-Key", "idem-cn-004")
                 .contentType(ContentType.JSON)
                 .body(body)
                 .when()
-                .post("/v1/invoices")
+                .post("/v1/credit-notes")
                 .then()
                 .statusCode(202);
 
-        // List and verify count
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(greaterThanOrEqualTo(2)))
@@ -542,7 +527,7 @@ class InvoiceEndToEndTest {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices/" + UUID.randomUUID())
+                .get("/v1/credit-notes/" + UUID.randomUUID())
                 .then()
                 .statusCode(404)
                 .body("error.code", equalTo("DOCUMENT_NOT_FOUND"));
@@ -554,7 +539,7 @@ class InvoiceEndToEndTest {
     void shouldRequireAuthentication() {
         RestAssured.given()
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(401);
     }
@@ -568,7 +553,7 @@ class InvoiceEndToEndTest {
                 .queryParam("page", 1)
                 .queryParam("per_page", 1)
                 .when()
-                .get("/v1/invoices")
+                .get("/v1/credit-notes")
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(1))
@@ -585,7 +570,7 @@ class InvoiceEndToEndTest {
                 .header("Authorization", authHeader())
                 .contentType(ContentType.JSON)
                 .when()
-                .post("/v1/invoices/" + createdDocumentId + "/resend-email")
+                .post("/v1/credit-notes/" + createdDocumentId + "/resend-email")
                 .then()
                 .statusCode(409);
     }
@@ -611,14 +596,14 @@ class InvoiceEndToEndTest {
         org.junit.jupiter.api.Assertions.assertTrue(hasSignEvent, "Should have doc.sign event");
     }
 
-    // ── 18. Calculos correctos de totales ──
+    // ── 18. Cálculos correctos de totales ──
     @Test
     @Order(25)
     void shouldCalculateTotalsCorrectly() {
         RestAssured.given()
                 .header("Authorization", authHeader())
                 .when()
-                .get("/v1/invoices/" + createdDocumentId)
+                .get("/v1/credit-notes/" + createdDocumentId)
                 .then()
                 .statusCode(200)
                 .body("data.subtotal_before_tax", notNullValue())
@@ -627,13 +612,12 @@ class InvoiceEndToEndTest {
     }
 
     // ── Helpers ──
-    private Map<String, Object> buildValidInvoiceRequest(String sequenceNumber) {
+    private Map<String, Object> buildValidRequest(String sequenceNumber) {
         var recipient = Map.of(
                 "id_type", "04",
                 "id", "1790016919001",
                 "name", "Empresa S.A.",
-                "address", "Quito, Ecuador",
-                "email", "factura@empresa.com",
+                "email", "nota@empresa.com",
                 "phone", "0991234567");
 
         var tax = Map.of(
@@ -642,30 +626,25 @@ class InvoiceEndToEndTest {
                 "rate", 12);
 
         var item = Map.of(
-                "main_code", "PROD001",
-                "auxiliary_code", "AUX001",
+                "internal_code", "PROD001",
+                "additional_code", "AUX001",
                 "description", "Servicio de consultoría",
-                "unit_of_measure", "unidad",
                 "quantity", 1,
                 "unit_price", 100.00,
                 "discount", 0.00,
                 "taxes", List.of(tax));
 
-        var payment = Map.of(
-                "payment_method", "01",
-                "total", 112.00,
-                "term", 0,
-                "time_unit", "dias");
-
-        // Use mutable map so tests can modify fields
         var map = new java.util.LinkedHashMap<String, Object>();
         map.put("establishment", "001");
         map.put("issue_point", "001");
         map.put("sequence_number", sequenceNumber);
         map.put("issue_date", today().toString());
         map.put("recipient", recipient);
+        map.put("modified_document_code", "01");
+        map.put("modified_document_number", "001-001-000000001");
+        map.put("modified_document_date", today().toString());
+        map.put("reason", "Devolución de mercadería");
         map.put("items", List.of(item));
-        map.put("payments", List.of(payment));
         map.put("additional_info", Map.of("Referencia", "Contrato 2026-001"));
         return map;
     }

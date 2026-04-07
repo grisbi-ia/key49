@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.13.0] - 2026-04-07
+
+### Agregado
+
+- Tests end-to-end para todos los tipos de documento (T-035)
+  - `CreditNoteEndToEndTest` — 25 tests E2E para notas de crédito
+  - `DebitNoteEndToEndTest` — 25 tests E2E para notas de débito
+  - `WaybillEndToEndTest` — 24 tests E2E para guías de remisión
+  - `WithholdingEndToEndTest` — 24 tests E2E para comprobantes de retención
+  - `PurchaseClearanceEndToEndTest` — 25 tests E2E para liquidaciones de compra
+  - Cada test cubre: creación, idempotencia, consulta por ID, listado con filtros, duplicados, validaciones, XML/RIDE no disponible, anulación, paginación, resend-email y outbox
+
+### Corregido
+
+- `WaybillService` y `WithholdingService` no asignaban `createdAt`/`updatedAt` al persistir documentos
+- `WaybillService` y `WithholdingService` creaban `OutboxEvent` antes de `session.persist(doc)`, causando `aggregate_id` nulo
+- Rate limit en tests: aumentado `rate_limit_rpm` a 10000 en todos los tests E2E para evitar 429 por bucket compartido
+
 ## [0.12.0] - 2026-04-07
 
 ### Agregado
