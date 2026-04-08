@@ -388,7 +388,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     `fechaFinTransporte`, `placa`
   - Tests parametrizados: campos obligatorios de `destinatario` → falla XSD
 
-- [ ] **T-049** Tests de campos obligatorios faltantes en Liquidación de Compra (XSD v1.1.0)
+- [x] **T-049** Tests de campos obligatorios faltantes en Liquidación de Compra (XSD v1.1.0)
   - Crear clase `PurchaseClearanceXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
   - Tests parametrizados: remover cada campo obligatorio de `infoLiquidacionCompra` → falla XSD:
