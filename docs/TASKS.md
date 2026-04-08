@@ -308,6 +308,128 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 ---
 
+## Fase 5: Cobertura de Tests XML/XSD (2 semanas)
+
+El objetivo es garantizar que los XML generados por cada builder cumplen al 100% con los XSD del SRI, y que los campos obligatorios son detectados correctamente por el validador cuando faltan o tienen formato inválido.
+
+### Sprint 8: Validación XSD en Builders (Semana 1)
+
+- [ ] **T-040** Agregar validación XSD a CreditNoteXmlBuilderTest
+  - Agregar nested class `XsdValidation` al test existente
+  - Test: nota de crédito simple pasa validación XSD (`NotaCredito_V1.1.0.xsd`)
+  - Test: nota de crédito multi-ítem pasa validación XSD
+  - Test: nota de crédito mínima (sin campos opcionales) pasa validación XSD
+  - Usar `XsdValidator.validate(xml, DocumentType.CREDIT_NOTE)` + `assertTrue(result.valid())`
+
+- [ ] **T-041** Agregar validación XSD a DebitNoteXmlBuilderTest
+  - Agregar nested class `XsdValidation` al test existente
+  - Test: nota de débito simple pasa validación XSD (`NotaDebito_V1.0.0.xsd`)
+  - Test: nota de débito con múltiples motivos pasa validación XSD
+  - Test: nota de débito mínima pasa validación XSD
+
+- [ ] **T-042** Agregar validación XSD a WithholdingXmlBuilderTest
+  - Agregar nested class `XsdValidation` al test existente
+  - Test: retención simple pasa validación XSD (`ComprobanteRetencion_V2.0.0.xsd`)
+  - Test: retención con múltiples docs sustento y retenciones pasa XSD
+  - Test: retención mínima pasa validación XSD
+
+- [ ] **T-043** Agregar validación XSD a WaybillXmlBuilderTest
+  - Agregar nested class `XsdValidation` al test existente
+  - Test: guía de remisión simple pasa validación XSD (`GuiaRemision_V1.1.0.xsd`)
+  - Test: guía de remisión con múltiples destinatarios pasa XSD
+  - Test: guía de remisión mínima pasa validación XSD
+
+### Sprint 9: Tests Negativos — Campos Obligatorios Faltantes (Semana 1-2)
+
+- [ ] **T-044** Tests de campos obligatorios faltantes en Factura (XSD v2.1.0)
+  - Crear clase `InvoiceXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` y verificar que XSD falla:
+    `ambiente`, `tipoEmision`, `razonSocial`, `ruc`, `claveAcceso`, `codDoc`, `estab`, `ptoEmi`, `secuencial`, `dirMatriz`
+  - Tests parametrizados: remover cada campo obligatorio de `infoFactura` y verificar que XSD falla:
+    `fechaEmision`, `obligadoContabilidad`, `tipoIdentificacionComprador`, `razonSocialComprador`,
+    `identificacionComprador`, `totalSinImpuestos`, `totalDescuento`, `totalConImpuestos`,
+    `propina`, `importeTotal`, `moneda`, `pagos`
+  - Test: factura sin nodo `detalles` falla XSD
+  - Test: detalle sin campos obligatorios (`descripcion`, `cantidad`, `precioUnitario`, `descuento`, `precioTotalSinImpuesto`, `impuestos`) falla XSD
+  - Usar helper que genere XML válido y luego remueva un nodo específico con DOM API
+
+- [ ] **T-045** Tests de campos obligatorios faltantes en Nota de Crédito (XSD v1.1.0)
+  - Crear clase `CreditNoteXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
+  - Tests parametrizados: remover cada campo obligatorio de `infoNotaCredito` → falla XSD:
+    `fechaEmision`, `tipoIdentificacionComprador`, `razonSocialComprador`,
+    `identificacionComprador`, `obligadoContabilidad`, `codDocModificado`,
+    `numDocModificado`, `fechaEmisionDocSustento`, `totalSinImpuestos`, `valorModificacion`, `moneda`
+  - Test: sin nodo `detalles` falla XSD
+
+- [ ] **T-046** Tests de campos obligatorios faltantes en Nota de Débito (XSD v1.0.0)
+  - Crear clase `DebitNoteXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
+  - Tests parametrizados: remover cada campo obligatorio de `infoNotaDebito` → falla XSD:
+    `fechaEmision`, `tipoIdentificacionComprador`, `razonSocialComprador`,
+    `identificacionComprador`, `obligadoContabilidad`, `codDocModificado`,
+    `numDocModificado`, `fechaEmisionDocSustento`, `totalSinImpuestos`, `valorTotal`
+  - Test: sin nodo `motivos` falla XSD
+
+- [ ] **T-047** Tests de campos obligatorios faltantes en Retención (XSD v2.0.0)
+  - Crear clase `WithholdingXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
+  - Tests parametrizados: remover cada campo obligatorio de `infoCompRetencion` → falla XSD:
+    `fechaEmision`, `obligadoContabilidad`, `tipoIdentificacionSujetoRetenido`,
+    `razonSocialSujetoRetenido`, `identificacionSujetoRetenido`, `periodoFiscal`
+  - Tests parametrizados: campos obligatorios de `docSustento` y `retencion` → falla XSD
+
+- [ ] **T-048** Tests de campos obligatorios faltantes en Guía de Remisión (XSD v1.1.0)
+  - Crear clase `WaybillXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
+  - Tests parametrizados: remover cada campo obligatorio de `infoGuiaRemision` → falla XSD:
+    `dirPartida`, `razonSocialTransportista`, `tipoIdentificacionTransportista`,
+    `rucTransportista`, `obligadoContabilidad`, `fechaIniTransporte`,
+    `fechaFinTransporte`, `placa`
+  - Tests parametrizados: campos obligatorios de `destinatario` → falla XSD
+
+- [ ] **T-049** Tests de campos obligatorios faltantes en Liquidación de Compra (XSD v1.1.0)
+  - Crear clase `PurchaseClearanceXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
+  - Tests parametrizados: remover cada campo obligatorio de `infoLiquidacionCompra` → falla XSD:
+    `fechaEmision`, `obligadoContabilidad`, `tipoIdentificacionProveedor`,
+    `razonSocialProveedor`, `identificacionProveedor`, `totalSinImpuestos`,
+    `totalDescuento`, `totalConImpuestos`, `importeTotal`, `moneda`, `pagos`
+  - Test: sin nodo `detalles` falla XSD
+
+### Sprint 10: Tests de Patterns y Formatos XSD (Semana 2)
+
+- [ ] **T-050** Tests de validación de patterns XSD (restricciones regex del SRI)
+  - Crear clase `XsdPatternValidationTest` en `auracore.key49.xml.validation`
+  - Tests parametrizados por tipo de comprobante:
+    - RUC inválido (no 13 dígitos, letras, formato incorrecto) → falla XSD
+    - Establecimiento inválido (no 3 dígitos, letras) → falla XSD
+    - Punto de emisión inválido (no 3 dígitos) → falla XSD
+    - Secuencial inválido (no 9 dígitos) → falla XSD
+    - Clave de acceso inválida (no 49 dígitos) → falla XSD
+    - Código de documento inválido → falla XSD
+    - Ambiente inválido (no 1 ni 2) → falla XSD
+    - Tipo de emisión inválido → falla XSD
+  - Usar helper que genere XML válido y reemplace un solo campo con valor inválido
+
+- [ ] **T-051** Tests negativos de XsdValidator para todos los tipos de documento
+  - Ampliar `XsdValidatorTest` con nested class `InvalidXmlAllTypes`
+  - Para cada `DocumentType` (CREDIT_NOTE, DEBIT_NOTE, WITHHOLDING, WAYBILL, PURCHASE_CLEARANCE):
+    - Test: XML malformado → falla
+    - Test: XML vacío → falla
+    - Test: elemento raíz incorrecto → falla
+    - Test: nodo principal ausente → falla con mensaje descriptivo
+  - Actualmente estos tests solo existen para `INVOICE`
+
+- [ ] **T-052** Helper reutilizable para manipulación de XML en tests
+  - Crear clase `XmlTestHelper` en `auracore.key49.xml.validation` (package test)
+  - Método `removeElement(String xml, String parentTag, String childTag)` → remueve un nodo hijo del XML usando DOM API
+  - Método `replaceElementValue(String xml, String tagName, String newValue)` → reemplaza el texto de un nodo
+  - Método `buildValidXml(DocumentType type)` → genera un XML válido para cada tipo usando los builders existentes
+  - Reutilizable por T-044 a T-051
+
+---
+
 ## Criterios de Aceptación Generales
 
 1. Cada task debe tener tests unitarios (>80% coverage del módulo)
