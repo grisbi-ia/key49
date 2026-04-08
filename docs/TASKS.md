@@ -371,7 +371,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     `numDocModificado`, `fechaEmisionDocSustento`, `totalSinImpuestos`, `valorTotal`
   - Test: sin nodo `motivos` falla XSD
 
-- [ ] **T-047** Tests de campos obligatorios faltantes en Retención (XSD v2.0.0)
+- [x] **T-047** Tests de campos obligatorios faltantes en Retención (XSD v2.0.0)
   - Crear clase `WithholdingXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
   - Tests parametrizados: remover cada campo obligatorio de `infoCompRetencion` → falla XSD:
