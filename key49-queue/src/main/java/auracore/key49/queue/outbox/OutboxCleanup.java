@@ -9,6 +9,7 @@ import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.OutboxRepository;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -38,6 +39,7 @@ public class OutboxCleanup {
     @Inject
     OutboxRepository outboxRepository;
 
+    @WithSession
     @Scheduled(cron = "0 0 2 * * ?", timeZone = "America/Guayaquil",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     Uni<Void> cleanup() {

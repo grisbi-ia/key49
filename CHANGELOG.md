@@ -5,6 +5,25 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.15.1] - 2026-04-08
+
+### Corregido
+
+- Jandex plugin faltante en key49-queue y key49-sri — CDI no descubría beans de estos módulos
+- `@WithSession` faltante en `OutboxPoller`, `OutboxCleanup`, `RetryPoller` — Panache requiere sesión fuera de JAX-RS
+- `quarkus.index-dependency` para key49-queue y key49-notify — SmallRye Messaging no detectaba `@Incoming`/`@Outgoing`
+- `Document.lastErrorMessage` — `columnDefinition = "text"` para coincidir con schema SQL (era varchar 255)
+- `DocumentRepository.findRetryReady()` — reemplazar `now()` HQL por parámetro `Instant.now()` (incompatibilidad de tipos)
+- Consumers RabbitMQ: aceptar `JsonObject` en lugar de `DocumentEvent` — SmallRye RabbitMQ no auto-deserializa POJOs
+- `DocumentEvent.fromJson()` — usar snake_case (`document_id`, `tenant_schema_name`) por config global `SNAKE_CASE` de Jackson
+- `@WithSession` en los 5 consumers de RabbitMQ (Sign, Send, Authorize, Notify, DLQ)
+- `InvoiceXmlBuilder.appendDecimalElement()` — null-safe para `BigDecimal` opcionales (discount)
+
+### Agregado
+
+- `ConsumerErrorHandler` — servicio que persiste errores inesperados de consumers en BD (`last_error_message`, transición a FAILED)
+- Los 5 consumers ahora registran errores en BD en lugar de solo loguearlos
+
 ## [0.15.0] - 2026-04-07
 
 ### Agregado

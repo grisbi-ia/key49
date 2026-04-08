@@ -1,5 +1,6 @@
 package auracore.key49.xml.builder;
 
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -15,23 +16,28 @@ import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import java.io.StringWriter;
-
 /**
  * Genera el XML de factura electrónica conforme al XSD factura v2.1.0 del SRI.
  *
- * <p>Los nombres de elementos XML respetan el XSD del SRI (en español):
+ * <p>
+ * Los nombres de elementos XML respetan el XSD del SRI (en español):
  * infoTributaria, infoFactura, detalles, pagos, infoAdicional.
  */
 public final class InvoiceXmlBuilder {
 
-    /** Versión del XSD de factura del SRI. */
+    /**
+     * Versión del XSD de factura del SRI.
+     */
     public static final String FACTURA_VERSION = "2.1.0";
 
-    /** Formato de fecha del SRI: dd/MM/yyyy. */
+    /**
+     * Formato de fecha del SRI: dd/MM/yyyy.
+     */
     private static final DateTimeFormatter SRI_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    /** Código de documento para factura. */
+    /**
+     * Código de documento para factura.
+     */
     private static final String COD_DOC_FACTURA = "01";
 
     private InvoiceXmlBuilder() {
@@ -216,7 +222,6 @@ public final class InvoiceXmlBuilder {
     }
 
     // ── Helpers ──
-
     private static void appendElement(Document doc, Element parent, String name, String value) {
         var element = doc.createElement(name);
         element.setTextContent(value);
@@ -230,7 +235,7 @@ public final class InvoiceXmlBuilder {
     }
 
     private static void appendDecimalElement(Document doc, Element parent, String name, BigDecimal value) {
-        appendSriDecimalElement(doc, parent, name, value, 2);
+        appendSriDecimalElement(doc, parent, name, value != null ? value : BigDecimal.ZERO, 2);
     }
 
     private static void appendOptionalDecimalElement(Document doc, Element parent, String name, BigDecimal value) {
@@ -244,7 +249,7 @@ public final class InvoiceXmlBuilder {
      * Montos usan 2 decimales, cantidades y precios unitarios usan 6.
      */
     private static void appendSriDecimalElement(Document doc, Element parent, String name,
-                                                 BigDecimal value, int scale) {
+            BigDecimal value, int scale) {
         var element = doc.createElement(name);
         element.setTextContent(value.setScale(scale, java.math.RoundingMode.HALF_UP).toPlainString());
         parent.appendChild(element);

@@ -22,20 +22,26 @@ import auracore.key49.sri.SriException;
 import auracore.key49.sri.client.SriAuthorizationClient;
 import auracore.key49.sri.model.SriAuthorizationResponse;
 import auracore.key49.sri.model.SriMessage;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
  * Consumidor que consulta la autorización del SRI vía SOAP Autorización.
- * Transición: RECEIVED → AUTHORIZED (éxito), RECEIVED → REJECTED (negocio), RECEIVED → RETRY (infra).
+ * Transición: RECEIVED → AUTHORIZED (éxito), RECEIVED → REJECTED (negocio),
+ * RECEIVED → RETRY (infra).
  */
 @ApplicationScoped
 public class AuthorizeConsumer {
 
     @Inject
     Logger log;
+
+    @Inject
+    ConsumerErrorHandler errorHandler;
 
     @Inject
     TenantRepository tenantRepository;
@@ -50,7 +56,9 @@ public class AuthorizeConsumer {
     ObjectMapper objectMapper;
 
     @Incoming("doc-authorize-in")
-    public Uni<Void> process(DocumentEvent event) {
+    @WithSession
+    public Uni<Void> process(JsonObject json) {
+        var event = DocumentEvent.fromJson(json);
         log.infof("AuthorizeConsumer: processing documentId=%s, tenant=%s",
                 event.documentId(), event.tenantSchemaName());
 
@@ -62,11 +70,11 @@ public class AuthorizeConsumer {
                     }
                     var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
-                    return connectionManager.withTenantSession(event.tenantSchemaName(), session ->
-                            session.find(Document.class, event.documentId())
+                    return connectionManager.withTenantSession(event.tenantSchemaName(), session
+                            -> session.find(Document.class, event.documentId())
                                     .map(doc -> doc != null
-                                            ? new AuthInput(doc.id, doc.accessKey, doc.status)
-                                            : null)
+                                    ? new AuthInput(doc.id, doc.accessKey, doc.status)
+                                    : null)
                     ).chain(input -> {
                         if (input == null) {
                             log.warnf("AuthorizeConsumer: document not found: %s", event.documentId());
@@ -90,16 +98,15 @@ public class AuthorizeConsumer {
                                 .recoverWithUni(ex -> handleInfraError(event, ex));
                     });
                 })
-                .onFailure().invoke(ex ->
-                        log.errorf(ex, "AuthorizeConsumer: unexpected error for documentId=%s",
-                                event.documentId()))
-                .onFailure().recoverWithNull()
+                .onFailure().recoverWithUni(ex
+                        -> errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "AuthorizeConsumer", ex))
                 .replaceWithVoid();
     }
 
     private Uni<Void> handleResponse(DocumentEvent event, SriAuthorizationResponse response) {
-        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                session.find(Document.class, event.documentId())
+        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                -> session.find(Document.class, event.documentId())
                         .chain(doc -> {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
@@ -142,8 +149,8 @@ public class AuthorizeConsumer {
     private Uni<Void> handleInfraError(DocumentEvent event, Throwable ex) {
         log.warnf(ex, "AuthorizeConsumer: SRI infrastructure error for document %s", event.documentId());
 
-        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                session.find(Document.class, event.documentId())
+        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                -> session.find(Document.class, event.documentId())
                         .chain(doc -> {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
@@ -191,5 +198,7 @@ public class AuthorizeConsumer {
         }
     }
 
-    record AuthInput(UUID id, String accessKey, DocumentStatus status) {}
+    record AuthInput(UUID id, String accessKey, DocumentStatus status) {
+
+    }
 }

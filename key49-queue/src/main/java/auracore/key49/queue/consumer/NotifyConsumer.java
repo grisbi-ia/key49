@@ -11,20 +11,25 @@ import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.webhook.WebhookDispatcher;
 import auracore.key49.queue.event.DocumentEvent;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Consumidor que genera RIDE (PDF), envía email y dispara webhooks.
- * Transición: AUTHORIZED → NOTIFIED.
+ * Consumidor que genera RIDE (PDF), envía email y dispara webhooks. Transición:
+ * AUTHORIZED → NOTIFIED.
  */
 @ApplicationScoped
 public class NotifyConsumer {
 
     @Inject
     Logger log;
+
+    @Inject
+    ConsumerErrorHandler errorHandler;
 
     @Inject
     TenantConnectionManager connectionManager;
@@ -36,7 +41,9 @@ public class NotifyConsumer {
     WebhookDispatcher webhookDispatcher;
 
     @Incoming("doc-notify-in")
-    public Uni<Void> process(DocumentEvent event) {
+    @WithSession
+    public Uni<Void> process(JsonObject json) {
+        var event = DocumentEvent.fromJson(json);
         log.infof("NotifyConsumer: processing documentId=%s, tenant=%s",
                 event.documentId(), event.tenantSchemaName());
 
@@ -47,8 +54,8 @@ public class NotifyConsumer {
                         return Uni.createFrom().voidItem();
                     }
 
-                    return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                            session.find(Document.class, event.documentId())
+                    return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                            -> session.find(Document.class, event.documentId())
                                     .chain(doc -> {
                                         if (doc == null) {
                                             log.warnf("NotifyConsumer: document not found: %s", event.documentId());
@@ -63,7 +70,6 @@ public class NotifyConsumer {
                                         // TODO: T-015 — Generate RIDE (PDF)
                                         // TODO: T-016 — Store authorized XML and RIDE in MinIO
                                         // TODO: T-017 — Send email to recipient
-
                                         return dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, doc, session)
                                                 .chain(() -> {
                                                     doc.transitionTo(DocumentStatus.NOTIFIED);
@@ -74,18 +80,18 @@ public class NotifyConsumer {
                                     })
                     );
                 })
-                .onFailure().invoke(ex ->
-                        log.errorf(ex, "NotifyConsumer: error processing documentId=%s", event.documentId()))
-                .onFailure().recoverWithNull()
+                .onFailure().recoverWithUni(ex
+                        -> errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "NotifyConsumer", ex))
                 .replaceWithVoid();
     }
 
     /**
-     * Despacha el webhook al tenant (operación bloqueante ejecutada en worker pool).
-     * Si el tenant no tiene webhook configurado, se omite sin error.
+     * Despacha el webhook al tenant (operación bloqueante ejecutada en worker
+     * pool). Si el tenant no tiene webhook configurado, se omite sin error.
      */
     private Uni<Void> dispatchWebhook(String webhookUrl, String webhookSecret,
-                                       Document doc, org.hibernate.reactive.mutiny.Mutiny.Session session) {
+            Document doc, org.hibernate.reactive.mutiny.Mutiny.Session session) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             log.debugf("NotifyConsumer: no webhook configured for document %s", doc.id);
             return Uni.createFrom().voidItem();
@@ -101,17 +107,20 @@ public class NotifyConsumer {
                     }
                     return Uni.createFrom().voidItem();
                 })
-                .onFailure().invoke(ex ->
-                        log.warnf(ex, "NotifyConsumer: webhook dispatch failed for document %s (non-blocking)", doc.id))
+                .onFailure().invoke(ex
+                        -> log.warnf(ex, "NotifyConsumer: webhook dispatch failed for document %s (non-blocking)", doc.id))
                 .onFailure().recoverWithNull()
                 .replaceWithVoid();
     }
 
     private String resolveEventType(Document doc) {
         return switch (doc.status) {
-            case AUTHORIZED -> "document.authorized";
-            case REJECTED -> "document.rejected";
-            default -> "document." + doc.status.name().toLowerCase();
+            case AUTHORIZED ->
+                "document.authorized";
+            case REJECTED ->
+                "document.rejected";
+            default ->
+                "document." + doc.status.name().toLowerCase();
         };
     }
 }

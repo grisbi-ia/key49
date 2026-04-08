@@ -22,20 +22,26 @@ import auracore.key49.sri.SriException;
 import auracore.key49.sri.client.SriReceptionClient;
 import auracore.key49.sri.model.SriMessage;
 import auracore.key49.sri.model.SriReceptionResponse;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
  * Consumidor que envía documentos firmados al SRI vía SOAP Recepción.
- * Transición: SIGNED → SENT → RECEIVED (éxito), SIGNED → RETRY (infra), SIGNED → REJECTED (negocio).
+ * Transición: SIGNED → SENT → RECEIVED (éxito), SIGNED → RETRY (infra), SIGNED
+ * → REJECTED (negocio).
  */
 @ApplicationScoped
 public class SendConsumer {
 
     @Inject
     Logger log;
+
+    @Inject
+    ConsumerErrorHandler errorHandler;
 
     @Inject
     TenantRepository tenantRepository;
@@ -50,7 +56,9 @@ public class SendConsumer {
     ObjectMapper objectMapper;
 
     @Incoming("doc-send-in")
-    public Uni<Void> process(DocumentEvent event) {
+    @WithSession
+    public Uni<Void> process(JsonObject json) {
+        var event = DocumentEvent.fromJson(json);
         log.infof("SendConsumer: processing documentId=%s, tenant=%s",
                 event.documentId(), event.tenantSchemaName());
 
@@ -62,11 +70,11 @@ public class SendConsumer {
                     }
                     var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
-                    return connectionManager.withTenantSession(event.tenantSchemaName(), session ->
-                            session.find(Document.class, event.documentId())
+                    return connectionManager.withTenantSession(event.tenantSchemaName(), session
+                            -> session.find(Document.class, event.documentId())
                                     .map(doc -> doc != null
-                                            ? new SendInput(doc.id, doc.originalXml, doc.status)
-                                            : null)
+                                    ? new SendInput(doc.id, doc.originalXml, doc.status)
+                                    : null)
                     ).chain(input -> {
                         if (input == null) {
                             log.warnf("SendConsumer: document not found: %s", event.documentId());
@@ -90,15 +98,15 @@ public class SendConsumer {
                                 .recoverWithUni(ex -> handleInfraError(event, ex));
                     });
                 })
-                .onFailure().invoke(ex ->
-                        log.errorf(ex, "SendConsumer: unexpected error for documentId=%s", event.documentId()))
-                .onFailure().recoverWithNull()
+                .onFailure().recoverWithUni(ex
+                        -> errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "SendConsumer", ex))
                 .replaceWithVoid();
     }
 
     private Uni<Void> handleResponse(DocumentEvent event, SriReceptionResponse response) {
-        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                session.find(Document.class, event.documentId())
+        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                -> session.find(Document.class, event.documentId())
                         .chain(doc -> {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
@@ -137,8 +145,8 @@ public class SendConsumer {
     private Uni<Void> handleInfraError(DocumentEvent event, Throwable ex) {
         log.warnf(ex, "SendConsumer: SRI infrastructure error for document %s", event.documentId());
 
-        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                session.find(Document.class, event.documentId())
+        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                -> session.find(Document.class, event.documentId())
                         .chain(doc -> {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
@@ -181,8 +189,8 @@ public class SendConsumer {
     }
 
     private Uni<Void> markFailed(DocumentEvent event, String reason) {
-        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session ->
-                session.find(Document.class, event.documentId())
+        return connectionManager.withTenantTransaction(event.tenantSchemaName(), session
+                -> session.find(Document.class, event.documentId())
                         .chain(doc -> {
                             if (doc == null) {
                                 return Uni.createFrom().voidItem();
@@ -223,5 +231,7 @@ public class SendConsumer {
                 .orElse("Unknown error");
     }
 
-    record SendInput(UUID id, String signedXml, DocumentStatus status) {}
+    record SendInput(UUID id, String signedXml, DocumentStatus status) {
+
+    }
 }

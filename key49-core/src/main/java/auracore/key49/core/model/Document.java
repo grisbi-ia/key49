@@ -1,5 +1,10 @@
 package auracore.key49.core.model;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
 import auracore.key49.core.model.enums.DocumentStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
@@ -11,11 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.UUID;
 
 @Entity
 @Table(name = "documents")
@@ -140,7 +140,7 @@ public class Document extends PanacheEntityBase {
     @Column(name = "last_error_code", length = 10)
     public String lastErrorCode;
 
-    @Column(name = "last_error_message")
+    @Column(name = "last_error_message", columnDefinition = "text")
     public String lastErrorMessage;
 
     @Column(name = "sri_messages", columnDefinition = "jsonb")

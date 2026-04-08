@@ -11,6 +11,7 @@ import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.producer.DocumentEventProducer;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -45,6 +46,7 @@ public class OutboxPoller {
     @Inject
     OutboxEventRouter router;
 
+    @WithSession
     @Scheduled(every = "${key49.outbox.poll-interval:500ms}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     Uni<Void> poll() {
         return tenantRepository.findAllActive()

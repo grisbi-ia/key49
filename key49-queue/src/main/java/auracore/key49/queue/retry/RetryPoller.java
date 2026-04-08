@@ -10,6 +10,7 @@ import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.DocumentRepository;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -38,6 +39,7 @@ public class RetryPoller {
     @Inject
     DocumentRepository documentRepository;
 
+    @WithSession
     @Scheduled(every = "${key49.retry.poll-interval:5s}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     Uni<Void> pollRetries() {
         return tenantRepository.findAllActive()

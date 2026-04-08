@@ -33,7 +33,9 @@ import auracore.key49.xml.builder.InvoiceXmlBuilder;
 import auracore.key49.xml.builder.PurchaseClearanceXmlBuilder;
 import auracore.key49.xml.builder.WaybillXmlBuilder;
 import auracore.key49.xml.builder.WithholdingXmlBuilder;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -47,6 +49,9 @@ public class SignConsumer {
 
     @Inject
     Logger log;
+
+    @Inject
+    ConsumerErrorHandler errorHandler;
 
     @Inject
     TenantRepository tenantRepository;
@@ -76,7 +81,9 @@ public class SignConsumer {
     Optional<String> masterKeyBase64;
 
     @Incoming("doc-sign-in")
-    public Uni<Void> process(DocumentEvent event) {
+    @WithSession
+    public Uni<Void> process(JsonObject json) {
+        var event = DocumentEvent.fromJson(json);
         log.infof("SignConsumer: processing documentId=%s, tenant=%s",
                 event.documentId(), event.tenantSchemaName());
 
@@ -97,9 +104,9 @@ public class SignConsumer {
                                     })
                     );
                 })
-                .onFailure().invoke(ex
-                        -> log.errorf(ex, "SignConsumer: unexpected error for documentId=%s", event.documentId()))
-                .onFailure().recoverWithNull()
+                .onFailure().recoverWithUni(ex
+                        -> errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "SignConsumer", ex))
                 .replaceWithVoid();
     }
 

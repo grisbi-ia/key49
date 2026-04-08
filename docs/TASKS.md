@@ -285,6 +285,16 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Error rate > 5%
   - Cola depth > 1000
 
+- [x] **T-037a** Correcciones de integración (pruebas live)
+  - Jandex plugin en key49-queue y key49-sri
+  - @WithSession en schedulers y consumers RabbitMQ
+  - index-dependency para key49-queue y key49-notify
+  - Document.lastErrorMessage columnDefinition text
+  - DocumentRepository.findRetryReady() parámetro Instant
+  - Consumers: JsonObject + fromJson (snake_case)
+  - InvoiceXmlBuilder null-safe BigDecimal
+  - ConsumerErrorHandler: persistencia de errores en BD
+
 - [ ] **T-038** Grafana dashboards
   - Documentos por estado (gauge)
   - Throughput (rate)

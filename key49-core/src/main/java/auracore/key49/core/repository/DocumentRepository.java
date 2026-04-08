@@ -1,5 +1,6 @@
 package auracore.key49.core.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +26,6 @@ public class DocumentRepository implements PanacheRepositoryBase<Document, UUID>
     }
 
     public Uni<List<Document>> findRetryReady() {
-        return find("status = ?1 AND nextRetryAt <= now()", DocumentStatus.RETRY).list();
+        return find("status = ?1 AND nextRetryAt <= ?2", DocumentStatus.RETRY, Instant.now()).list();
     }
 }
