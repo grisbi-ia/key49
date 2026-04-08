@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.2] - 2026-04-08
+
+### Agregado
+
+- Tests de validación XSD para `DebitNoteXmlBuilder` (T-041): nota de débito simple, múltiples motivos y mínima contra `NotaDebito_V1.0.0.xsd`
+
 ## [0.16.1] - 2026-04-08
 
 ### Agregado

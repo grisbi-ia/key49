@@ -6,7 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -320,6 +325,43 @@ class DebitNoteXmlBuilderTest {
 
             var campos = infoAdicional.getElementsByTagName("campoAdicional");
             assertEquals(2, campos.getLength());
+        }
+    }
+
+    // ── Tests de validación XSD ──
+
+    @Nested
+    @DisplayName("Validación contra XSD nota de débito v1.0.0")
+    class XsdValidation {
+
+        @Test
+        @DisplayName("nota de débito simple pasa validación XSD")
+        void simpleDebitNoteXsdValid() throws Exception {
+            var xml = DebitNoteXmlBuilder.build(DebitNoteDataFixtures.simpleDebitNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("nota de débito con múltiples motivos pasa validación XSD")
+        void multiReasonDebitNoteXsdValid() throws Exception {
+            var xml = DebitNoteXmlBuilder.build(DebitNoteDataFixtures.multiReasonDebitNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("nota de débito mínima pasa validación XSD")
+        void minimalDebitNoteXsdValid() throws Exception {
+            var xml = DebitNoteXmlBuilder.build(DebitNoteDataFixtures.minimalDebitNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        private void validateAgainstXsd(String xml) throws SAXException, IOException {
+            var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            var xsdUrl = getClass().getResource("/xsd/sri/NotaDebito_V1.0.0.xsd");
+            assertNotNull(xsdUrl, "XSD file must be on classpath");
+            var schema = schemaFactory.newSchema(xsdUrl);
+            var validator = schema.newValidator();
+            validator.validate(new StreamSource(new StringReader(xml)));
         }
     }
 }
