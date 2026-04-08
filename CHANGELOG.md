@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.9] - 2026-04-08
+
+### Agregado
+
+- Tests negativos de campos obligatorios faltantes en guía de remisión XSD v1.1.0 (T-048): clase `WaybillXsdMandatoryFieldsTest` con 26 tests parametrizados para `infoTributaria`, `infoGuiaRemision`, `destinatario` y `detalle`
+
 ## [0.16.8] - 2026-04-08
 
 ### Agregado

@@ -31,52 +31,53 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import auracore.key49.xml.builder.WithholdingData;
-import auracore.key49.xml.builder.WithholdingXmlBuilder;
+import auracore.key49.xml.builder.WaybillData;
+import auracore.key49.xml.builder.WaybillXmlBuilder;
 
 /**
- * Tests negativos que verifican que el XSD comprobante de retención v2.0.0 del
- * SRI rechaza el XML cuando falta un campo obligatorio.
+ * Tests negativos que verifican que el XSD guía de remisión v1.1.0 del SRI
+ * rechaza el XML cuando falta un campo obligatorio.
  */
-class WithholdingXsdMandatoryFieldsTest {
+class WaybillXsdMandatoryFieldsTest {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-    private String buildValidWithholdingXml() {
-        var taxpayer = new WithholdingData.TaxpayerInfo(
+    private String buildValidWaybillXml() {
+        var taxpayer = new WaybillData.TaxpayerInfo(
                 "1", "1",
                 "EMPRESA DE PRUEBAS S.A.", "PRUEBAS COMERCIAL",
                 "1792146739001",
                 "Quito, Av. Amazonas N24-345",
                 "Quito, Sucursal Norte", true,
                 "12345", "1", "CONTRIBUYENTE RÉGIMEN RIMPE");
-        var subject = new WithholdingData.Subject(
+        var carrier = new WaybillData.Carrier(
                 "04", "1790016919001",
-                "PROVEEDOR NACIONAL CIA. LTDA.", "01");
-        var tax = new WithholdingData.SupportingDocTax(
-                "2", "4", new BigDecimal("1000.00"),
-                new BigDecimal("15.00"), new BigDecimal("150.00"));
-        var retention = new WithholdingData.WithholdingLine(
-                "1", "303", new BigDecimal("1000.00"),
-                new BigDecimal("10.00"), new BigDecimal("100.00"));
-        var payment = new WithholdingData.Payment(
-                "20", new BigDecimal("1150.00"));
-        var supportDoc = new WithholdingData.SupportingDocument(
-                "01", "01", "001001000000234",
-                LocalDate.of(2025, 3, 15), null,
+                "TRANSPORTES DEL NORTE CIA. LTDA.", null);
+        var item = new WaybillData.Item(
+                "PROD001", "AUX001", "Producto de prueba A",
+                new BigDecimal("100.000000"),
+                List.of(new WaybillData.ItemDetail("Lote", "L-2025-001")));
+        var addressee = new WaybillData.Addressee(
+                "1790016919001", "CLIENTE NACIONAL CIA. LTDA.",
+                "Guayaquil, Av. 9 de Octubre 100",
+                "Venta de mercadería",
+                null, "002", "Quito-Guayaquil",
+                "01", "001-001-000000234",
                 "1503202501179214673900110010010000002340000002341",
-                "01", null, null, null, null, null,
-                new BigDecimal("1000.00"), new BigDecimal("1150.00"),
-                List.of(tax), List.of(retention), List.of(payment));
+                LocalDate.of(2025, 3, 15),
+                List.of(item));
 
-        return WithholdingXmlBuilder.build(new WithholdingData(
+        return WaybillXmlBuilder.build(new WaybillData(
                 taxpayer,
-                "1504202507179214673900110010010000001230000001231",
+                "1504202506179214673900110010010000001230000001231",
                 "001", "001", "000000123",
                 LocalDate.of(2025, 4, 15),
-                subject,
-                "03/2025", false,
-                List.of(supportDoc),
-                Map.of("Email", "proveedor@test.com")));
+                "Quito, Bodega Central Km 10",
+                carrier,
+                LocalDate.of(2025, 4, 15),
+                LocalDate.of(2025, 4, 16),
+                "PBB-1234",
+                List.of(addressee),
+                Map.of("Email", "transportes@test.com")));
     }
 
     private Document parseXml(String xml) throws Exception {
@@ -116,7 +117,7 @@ class WithholdingXsdMandatoryFieldsTest {
 
     private void validateAgainstXsd(String xml) throws SAXException, IOException {
         var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        var xsdUrl = getClass().getResource("/xsd/sri/ComprobanteRetencion_V2.0.0.xsd");
+        var xsdUrl = getClass().getResource("/xsd/sri/GuiaRemision_V1.1.0.xsd");
         assertNotNull(xsdUrl, "XSD file must be on classpath");
         var schema = schemaFactory.newSchema(xsdUrl);
         var validator = schema.newValidator();
@@ -127,7 +128,7 @@ class WithholdingXsdMandatoryFieldsTest {
     @Test
     @DisplayName("XML base generado por builder pasa validación XSD")
     void baseXmlIsValid() {
-        assertDoesNotThrow(() -> validateAgainstXsd(buildValidWithholdingXml()));
+        assertDoesNotThrow(() -> validateAgainstXsd(buildValidWaybillXml()));
     }
 
     // ── infoTributaria ──────────────────────────────────────────────────────
@@ -142,68 +143,72 @@ class WithholdingXsdMandatoryFieldsTest {
         })
         @DisplayName("remover campo obligatorio de infoTributaria causa fallo XSD")
         void missingMandatoryField(String field) throws Exception {
-            var xml = removeElement(buildValidWithholdingXml(), "infoTributaria", field);
+            var xml = removeElement(buildValidWaybillXml(), "infoTributaria", field);
             assertXsdFails(xml);
         }
     }
 
-    // ── infoCompRetencion ───────────────────────────────────────────────────
+    // ── infoGuiaRemision ────────────────────────────────────────────────────
     @Nested
-    @DisplayName("Campos obligatorios faltantes en infoCompRetencion")
-    class InfoCompRetencion {
+    @DisplayName("Campos obligatorios faltantes en infoGuiaRemision")
+    class InfoGuiaRemision {
 
         @ParameterizedTest(name = "sin <{0}> falla XSD")
         @ValueSource(strings = {
-            "fechaEmision", "tipoIdentificacionSujetoRetenido",
-            "parteRel", "razonSocialSujetoRetenido",
-            "identificacionSujetoRetenido", "periodoFiscal"
+            "dirPartida", "razonSocialTransportista",
+            "tipoIdentificacionTransportista", "rucTransportista",
+            "fechaIniTransporte", "fechaFinTransporte", "placa"
         })
-        @DisplayName("remover campo obligatorio de infoCompRetencion causa fallo XSD")
+        @DisplayName("remover campo obligatorio de infoGuiaRemision causa fallo XSD")
         void missingMandatoryField(String field) throws Exception {
-            var xml = removeElement(buildValidWithholdingXml(), "infoCompRetencion", field);
+            var xml = removeElement(buildValidWaybillXml(), "infoGuiaRemision", field);
             assertXsdFails(xml);
         }
     }
 
-    // ── docsSustento ────────────────────────────────────────────────────────
+    // ── destinatario ────────────────────────────────────────────────────────
     @Nested
-    @DisplayName("Campos obligatorios faltantes en docsSustento")
-    class DocsSustento {
+    @DisplayName("Campos obligatorios faltantes en destinatario")
+    class Destinatario {
 
         @Test
-        @DisplayName("retención sin nodo <docsSustento> falla XSD")
-        void missingDocsSustentoNode() throws Exception {
-            var xml = removeElement(buildValidWithholdingXml(), "comprobanteRetencion", "docsSustento");
+        @DisplayName("guía de remisión sin nodo <destinatarios> falla XSD")
+        void missingDestinatariosNode() throws Exception {
+            var xml = removeElement(buildValidWaybillXml(), "guiaRemision", "destinatarios");
             assertXsdFails(xml);
         }
 
-        @ParameterizedTest(name = "sin <{0}> en docSustento falla XSD")
+        @ParameterizedTest(name = "sin <{0}> en destinatario falla XSD")
         @ValueSource(strings = {
-            "codSustento", "codDocSustento", "numDocSustento",
-            "fechaEmisionDocSustento", "pagoLocExt",
-            "totalSinImpuestos", "importeTotal",
-            "impuestosDocSustento", "retenciones", "pagos"
+            "identificacionDestinatario", "razonSocialDestinatario",
+            "dirDestinatario", "motivoTraslado"
         })
-        @DisplayName("remover campo obligatorio de docSustento causa fallo XSD")
-        void missingMandatoryFieldInDocSustento(String field) throws Exception {
-            var xml = removeElement(buildValidWithholdingXml(), "docSustento", field);
+        @DisplayName("remover campo obligatorio de destinatario causa fallo XSD")
+        void missingMandatoryFieldInDestinatario(String field) throws Exception {
+            var xml = removeElement(buildValidWaybillXml(), "destinatario", field);
+            assertXsdFails(xml);
+        }
+
+        @Test
+        @DisplayName("destinatario sin nodo <detalles> falla XSD")
+        void missingDetallesNode() throws Exception {
+            var xml = removeElement(buildValidWaybillXml(), "destinatario", "detalles");
             assertXsdFails(xml);
         }
     }
 
-    // ── retencion ───────────────────────────────────────────────────────────
+    // ── detalle ─────────────────────────────────────────────────────────────
     @Nested
-    @DisplayName("Campos obligatorios faltantes en retencion")
-    class Retencion {
+    @DisplayName("Campos obligatorios faltantes en detalle")
+    class Detalle {
 
-        @ParameterizedTest(name = "sin <{0}> en retencion falla XSD")
+        @ParameterizedTest(name = "sin <{0}> en detalle falla XSD")
         @ValueSource(strings = {
-            "codigo", "codigoRetencion", "baseImponible",
-            "porcentajeRetener", "valorRetenido"
+            "descripcion", "cantidad"
         })
-        @DisplayName("remover campo obligatorio de retencion causa fallo XSD")
-        void missingMandatoryFieldInRetencion(String field) throws Exception {
-            var xml = removeElement(buildValidWithholdingXml(), "retencion", field);
+        @DisplayName("remover campo obligatorio de detalle causa fallo XSD")
+        void missingMandatoryFieldInDetalle(String field) throws Exception {
+            var xml = removeElement(buildValidWaybillXml(), "detalle", field);
             assertXsdFails(xml);
         }
     }

@@ -379,7 +379,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     `razonSocialSujetoRetenido`, `identificacionSujetoRetenido`, `periodoFiscal`
   - Tests parametrizados: campos obligatorios de `docSustento` y `retencion` → falla XSD
 
-- [ ] **T-048** Tests de campos obligatorios faltantes en Guía de Remisión (XSD v1.1.0)
+- [x] **T-048** Tests de campos obligatorios faltantes en Guía de Remisión (XSD v1.1.0)
   - Crear clase `WaybillXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
   - Tests parametrizados: remover cada campo obligatorio de `infoGuiaRemision` → falla XSD:
