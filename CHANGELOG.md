@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.11] - 2026-04-08
+
+### Agregado
+
+- Tests de validación de patterns XSD para restricciones regex del SRI (T-050): clase `XsdPatternValidationTest` con 132 tests parametrizados por tipo de comprobante (6 tipos × 8 campos de `infoTributaria`: RUC, establecimiento, punto de emisión, secuencial, clave de acceso, código de documento, ambiente, tipo de emisión)
+
 ## [0.16.10] - 2026-04-08
 
 ### Agregado

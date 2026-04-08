@@ -399,7 +399,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
 
 ### Sprint 10: Tests de Patterns y Formatos XSD (Semana 2)
 
-- [ ] **T-050** Tests de validación de patterns XSD (restricciones regex del SRI)
+- [x] **T-050** Tests de validación de patterns XSD (restricciones regex del SRI)
   - Crear clase `XsdPatternValidationTest` en `auracore.key49.xml.validation`
   - Tests parametrizados por tipo de comprobante:
     - RUC inválido (no 13 dígitos, letras, formato incorrecto) → falla XSD

@@ -82,10 +82,12 @@ class PurchaseClearanceXsdMandatoryFieldsTest {
                 BigDecimal.ZERO,
                 new BigDecimal("57.50"),
                 "DOLAR",
-                new LinkedHashMap<>() {{
-                    put("Dirección", "Vía a Santo Domingo km 5");
-                    put("Email", "proveedor@demo.com");
-                }}));
+                new LinkedHashMap<>() {
+            {
+                put("Dirección", "Vía a Santo Domingo km 5");
+                put("Email", "proveedor@demo.com");
+            }
+        }));
     }
 
     private Document parseXml(String xml) throws Exception {
