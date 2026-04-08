@@ -1,21 +1,24 @@
 ---
 applyTo: ["**/pom.xml", "**/application.properties", "**/application.yaml"]
 ---
+
 # Configuración — Key49
 
 ## Maven
-- Multi-módulo con parent POM
+
+- Módulo único (packaging `jar`)
 - NO agregar Lombok
 - Preferir extensiones Quarkus sobre librerías genéricas
 - Fijar versiones de dependencias (dependency pinning)
 
-## Módulos
+## Paquetes Java
+
 ```
-key49-api, key49-core, key49-xml, key49-signer, key49-sri,
-key49-queue, key49-ride, key49-notify, key49-storage, key49-admin
+auracore.key49.{api, core, xml, signer, sri, queue, ride, notify, storage, admin}
 ```
 
 ## Properties clave
+
 - `KEY49_TIMEZONE=America/Guayaquil`
 - `KEY49_SRI_ENVIRONMENT=test` (test | production)
 - `KEY49_OUTBOX_POLL_INTERVAL=500ms`
@@ -23,5 +26,6 @@ key49-queue, key49-ride, key49-notify, key49-storage, key49-admin
 - Secretos en variables de entorno, NUNCA hardcoded
 
 ## Profiles
+
 - dev, test, prod
 - DevServices activos solo en dev/test

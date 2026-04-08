@@ -8,7 +8,7 @@ applyTo: "**/*.java"
 
 - Java 25: usar records, sealed interfaces, pattern matching, text blocks
 - NO Lombok — usar records para DTOs
-- Paquete base: `auracore.key49.{module}.{layer}`
+- Paquete base: `auracore.key49.{paquete}.{capa}`
 - Logs: `@Inject Logger log` o `Log.info()` (JBoss Logging)
 - `var` para variables locales donde el tipo es obvio
 - `Optional` para retornos, NUNCA para parámetros
@@ -36,7 +36,7 @@ applyTo: "**/*.java"
 
 ## Catálogos SRI
 
-- Enums en key49-core: DocumentType, DocumentStatus, TaxType, VatRate, PaymentMethod, IdentificationType
+- Enums en el paquete `core`: DocumentType, DocumentStatus, TaxType, VatRate, PaymentMethod, IdentificationType
 - Cada enum tiene `sriCode()` y `fromSriCode(String)`
 
 ## XML para SRI (excepción de idioma)

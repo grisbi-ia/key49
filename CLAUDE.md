@@ -46,7 +46,7 @@ Lee SIEMPRE estos archivos antes de generar código:
 4. **Reintentos**: Solo errores de infraestructura se reintentan. Errores de negocio del SRI van directo a FAILED.
 5. **Firma XAdES-BES**: Apache Santuario + BouncyCastle. Esquema XAdES 1.3.2. Enveloped. Nodo padre "comprobante".
 6. **Clave de acceso**: 49 dígitos con módulo 11 como dígito verificador. Estructura en SPEC.md.
-7. **Tests**: Usar `@QuarkusTest` con DevServices. Cobertura mínima 80% por módulo.
+7. **Tests**: Usar `@QuarkusTest` con DevServices. Cobertura mínima 80%.
 8. **Idempotencia**: Toda operación POST soporta `X-Idempotency-Key` header.
 9. **Versionado Git**: Semantic Versioning `vMAJOR.MINOR.PATCH`. Tag en Git al finalizar cada tarea funcional. Ver sección Git Workflow.
 10. **Roadmap**: Seguir el plan de `TASKS.md`. Al completar cada tarea: tests → commit → tag.
@@ -56,27 +56,28 @@ Lee SIEMPRE estos archivos antes de generar código:
 14. **Sin tablas de detalle**: Los ítems y pagos NO se almacenan en tablas separadas. Se preservan en `request_payload` (JSON) o `original_xml` (XML raw) y en los XML almacenados en MinIO.
 15. **Emisión mismo día**: La `issue_date` debe ser la fecha del día actual. Key49 valida esto antes de procesar.
 16. **Zona horaria Ecuador**: Toda lógica de "fecha actual" usa `America/Guayaquil` (UTC-5). Configurar `ZoneId.of("America/Guayaquil")` como constante. NUNCA usar `LocalDate.now()` sin zona — siempre `LocalDate.now(EC_ZONE)`. Variable de entorno `KEY49_TIMEZONE=America/Guayaquil`.
-17. **Catálogos SRI como enums Java**: Los catálogos del SRI (tipos de impuesto, formas de pago, tipos de identificación) se modelan como **enums Java** en `key49-core`, NO como tablas en BD. Son datos estables que cambian solo con actualizaciones de ficha técnica del SRI (requieren redeploy de todas formas).
+17. **Catálogos SRI como enums Java**: Los catálogos del SRI (tipos de impuesto, formas de pago, tipos de identificación) se modelan como **enums Java** en el paquete `core`, NO como tablas en BD. Son datos estables que cambian solo con actualizaciones de ficha técnica del SRI (requieren redeploy de todas formas).
 18. **Unicidad de documento**: Constraint UNIQUE sobre `(document_type, establishment, issue_point, sequence_number)` en la tabla `documents`. Evita duplicación ante el SRI.
 19. **Estado VOIDED**: Los documentos autorizados pueden marcarse como VOIDED localmente (`POST /invoices/:id/void`). Key49 NO anula en el SRI — eso lo hace el contribuyente en el portal del SRI. Key49 solo registra la anulación local.
 20. **Máquina de estados**: Las transiciones de estado de un documento son finitas y validadas. Ver state machine en ARCHITECTURE.md. No se permite transición arbitraria.
 
-### Estructura de Módulos
+### Estructura del Proyecto
+
+**Módulo único Maven** (packaging `jar`). La separación lógica se logra por paquetes Java:
 
 ```
-key49-api       → REST endpoints, filtros, DTOs, portal web (Qute + HTMX + Pico CSS)
-key49-core      → Entidades, servicios, repositorios
-key49-xml       → Generación XML, validación XSD, clave acceso
-key49-signer    → Firma XAdES-BES, gestión certificados .p12
-key49-sri       → Cliente SOAP (Recepción + Autorización)
-key49-queue     → Consumers/Producers RabbitMQ, reintentos
-key49-ride      → Generación PDF (RIDE)
-key49-notify    → Email, webhooks
-key49-storage   → MinIO/S3
-key49-admin     → Métricas, health checks
+auracore.key49
+├── api        → REST endpoints, filtros, DTOs, portal web (Qute + HTMX + Pico CSS)
+├── core       → Entidades, servicios, repositorios, enums SRI
+├── xml        → Generación XML, validación XSD, clave de acceso
+├── signer     → Firma XAdES-BES, gestión certificados .p12
+├── sri        → Cliente SOAP (Recepción + Autorización)
+├── queue      → Consumers/Producers RabbitMQ, reintentos
+├── ride       → Generación PDF (RIDE)
+├── notify     → Email, webhooks
+├── storage    → MinIO/S3
+└── admin      → Métricas, health checks
 ```
-
-### Paquete base: `auracore.key49`
 
 ### Flujo de un comprobante en las colas
 

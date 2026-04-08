@@ -81,7 +81,7 @@ updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),  -- if app
 
 - **Java 25 LTS** — usar records, sealed interfaces, pattern matching, text blocks donde aplique
 - **Quarkus 3.x** — preferir extensiones Quarkus sobre librerías genéricas
-- **Maven** — multi-module project
+- **Maven** — single-module project (packaging `jar`)
 - **PostgreSQL 16** — via Hibernate Reactive + Panache
 - **RabbitMQ** — via SmallRye Reactive Messaging
 - **Redis** — via Quarkus Redis
@@ -266,7 +266,7 @@ public class SendConsumer {
 Toda lógica de "fecha actual" usa `America/Guayaquil` (UTC-5). NUNCA usar `LocalDate.now()` sin zona.
 
 ```java
-// CONSTANTE global en key49-core
+// CONSTANTE global en el paquete core
 public final class Key49Constants {
     public static final ZoneId EC_ZONE = ZoneId.of("America/Guayaquil");
 
@@ -288,7 +288,7 @@ La zona se configura via variable de entorno `KEY49_TIMEZONE=America/Guayaquil`.
 
 ## Catálogos SRI como Enums Java
 
-Los catálogos del SRI se modelan como **enums Java** en `key49-core`, NO como tablas en base de datos. Son datos estables que cambian solo con actualizaciones de ficha técnica del SRI (que requieren redeploy de todas formas).
+Los catálogos del SRI se modelan como **enums Java** en el paquete `core`, NO como tablas en base de datos. Son datos estables que cambian solo con actualizaciones de ficha técnica del SRI (que requieren redeploy de todas formas).
 
 ### Enums a implementar
 
@@ -554,7 +554,7 @@ Formato: `vMAJOR.MINOR.PATCH`
 
 ### Reglas de testing
 
-1. **Cobertura mínima**: 80% por módulo
+1. **Cobertura mínima**: 80%
 2. **DevServices**: usar PostgreSQL, RabbitMQ y Redis en containers (no mocks)
 3. **Datos de test**: cada test crea y limpia sus propios datos
 4. **Nombres descriptivos**: `shouldRejectInvoiceWithExpiredCertificate()`
@@ -567,7 +567,7 @@ Formato: `vMAJOR.MINOR.PATCH`
 Cuando trabajes con un agente de IA, incluir estos archivos como contexto:
 
 1. `docs/SPEC.md` — Siempre. Es la fuente de verdad del producto.
-2. `docs/ARCHITECTURE.md` — Para decisiones técnicas, estructura de módulos, configuración.
+2. `docs/ARCHITECTURE.md` — Para decisiones técnicas, estructura de paquetes, configuración.
 3. `docs/DATABASE.md` — Cuando trabajes con entidades, repositorios, o migraciones.
 4. `docs/API.md` — Cuando trabajes con endpoints REST, DTOs, o webhooks.
 5. `docs/TASKS.md` — Para entender el alcance y prioridad de cada tarea.

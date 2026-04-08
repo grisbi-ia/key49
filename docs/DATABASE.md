@@ -304,7 +304,7 @@ db/migrations/
 └── README.md                   # Instrucciones de ejecución para el DBA
 ```
 
-> **Nota**: Los catálogos SRI (tipos de impuesto, formas de pago, tipos de identificación) NO se almacenan en tablas. Se modelan como enums Java en `key49-core` (ver CONVENTIONS.md). Son datos estables que solo cambian con actualizaciones de ficha técnica del SRI.
+> **Nota**: Los catálogos SRI (tipos de impuesto, formas de pago, tipos de identificación) NO se almacenan en tablas. Se modelan como enums Java en el paquete `core` (ver CONVENTIONS.md). Son datos estables que solo cambian con actualizaciones de ficha técnica del SRI.
 
 ### Provisionar un nuevo tenant (manual)
 

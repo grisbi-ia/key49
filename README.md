@@ -16,17 +16,20 @@ Key49 expone APIs REST para que desarrolladores integren la emisión, firma (XAd
 
 ## Estructura del Proyecto
 
+**Módulo único Maven** (packaging `jar`). La separación lógica se logra por paquetes Java:
+
 ```
-key49-api       → REST endpoints + portal web (Qute + HTMX + Pico CSS)
-key49-core      → Entidades, servicios, repositorios, enums SRI
-key49-xml       → Generación XML, validación XSD, clave de acceso
-key49-signer    → Firma XAdES-BES, gestión de certificados .p12
-key49-sri       → Cliente SOAP (Recepción + Autorización)
-key49-queue     → Consumers/Producers RabbitMQ, reintentos
-key49-ride      → Generación RIDE (PDF)
-key49-notify    → Email, webhooks
-key49-storage   → MinIO/S3
-key49-admin     → Métricas, health checks
+auracore.key49
+├── api        → REST endpoints + portal web (Qute + HTMX + Pico CSS)
+├── core       → Entidades, servicios, repositorios, enums SRI
+├── xml        → Generación XML, validación XSD, clave de acceso
+├── signer     → Firma XAdES-BES, gestión de certificados .p12
+├── sri        → Cliente SOAP (Recepción + Autorización)
+├── queue      → Consumers/Producers RabbitMQ, reintentos
+├── ride       → Generación RIDE (PDF)
+├── notify     → Email, webhooks
+├── storage    → MinIO/S3
+└── admin      → Métricas, health checks
 ```
 
 ## Requisitos
@@ -45,7 +48,7 @@ mvn clean compile
 mvn verify
 
 # Modo desarrollo (hot reload)
-mvn quarkus:dev -pl key49-api
+mvn quarkus:dev
 ```
 
 ## Documentación
@@ -55,7 +58,7 @@ La documentación técnica completa se encuentra en [`docs/`](docs/):
 | Documento                               | Descripción                                |
 | --------------------------------------- | ------------------------------------------ |
 | [SPEC.md](docs/SPEC.md)                 | Especificación del producto, normativa SRI |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisiones técnicas, módulos, patrones     |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Decisiones técnicas, paquetes, patrones    |
 | [DATABASE.md](docs/DATABASE.md)         | Schema PostgreSQL completo                 |
 | [API.md](docs/API.md)                   | Contrato REST API, errores, webhooks       |
 | [CONVENTIONS.md](docs/CONVENTIONS.md)   | Convenciones de código y testing           |

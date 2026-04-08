@@ -9,7 +9,7 @@ Plataforma SaaS multi-tenant de facturación electrónica para Ecuador (SRI). AP
 Antes de generar código, leer los archivos relevantes:
 
 - `docs/SPEC.md` — Normativa SRI, flujo de comprobantes, clave de acceso
-- `docs/ARCHITECTURE.md` — ADRs, módulos, colas RabbitMQ, state machine, outbox, Redis, tracing
+- `docs/ARCHITECTURE.md` — ADRs, paquetes, colas RabbitMQ, state machine, outbox, Redis, tracing
 - `docs/DATABASE.md` — Schema PostgreSQL completo (public + tenant)
 - `docs/API.md` — Contrato REST API, catálogo de errores, webhooks
 - `docs/CONVENTIONS.md` — Reglas de código, enums SRI, validaciones, timezone
@@ -21,7 +21,7 @@ Antes de generar código, leer los archivos relevantes:
 - **Código fuente** (Java, SQL, config, logs): INGLÉS
 - **Documentación** (.md, JavaDoc): ESPAÑOL
 - **Conversaciones**: ESPAÑOL
-- **Commits**: español, formato convencional `tipo(módulo): descripción`
+- **Commits**: español, formato convencional `tipo(paquete): descripción`
 - **Excepción**: XML builders del SRI usan español según XSD (`infoTributaria`, `fechaEmision`)
 
 ## Stack
@@ -34,7 +34,7 @@ Java 25 + Quarkus 3.34 | PostgreSQL 16 | RabbitMQ | MinIO | Redis
 2. **Reactive** — retornos `Uni<T>` (Mutiny), SOAP con `@Blocking`
 3. **Multi-tenancy** — schema-per-tenant, `SET search_path` por request, NO columna `tenant_id` en tablas tenant
 4. **Zona horaria** — siempre `LocalDate.now(Key49Constants.EC_ZONE)`, nunca `LocalDate.now()` sin zona
-5. **Catálogos SRI** — enums Java en key49-core, NO tablas BD
+5. **Catálogos SRI** — enums Java en el paquete `core`, NO tablas BD
 6. **State machine** — usar `DocumentStatus.canTransitionTo()`, nunca asignar estado directamente
 7. **Sin tablas de detalle** — ítems/pagos en `request_payload` (JSON) o `original_xml` + MinIO
 8. **Sin secuenciales** — `sequence_number` viene del cliente
@@ -52,19 +52,22 @@ Ejemplo: auracore.key49.api.resource.InvoiceResource
          auracore.key49.xml.builder.InvoiceXmlBuilder
 ```
 
-## Módulos Maven
+## Paquetes Java
+
+**Módulo único Maven** (packaging `jar`). La separación lógica se logra por paquetes:
 
 ```
-key49-api     → REST + portal web (Qute + HTMX + Pico CSS)
-key49-core    → Entidades, servicios, repositorios, enums SRI
-key49-xml     → XML builders, XSD, clave de acceso
-key49-signer  → Firma XAdES-BES, certificados .p12
-key49-sri     → Cliente SOAP (Recepción + Autorización)
-key49-queue   → Consumers/Producers RabbitMQ, reintentos, outbox poller
-key49-ride    → RIDE (PDF)
-key49-notify  → Email, webhooks
-key49-storage → MinIO/S3
-key49-admin   → Métricas, health checks
+auracore.key49
+├── api        → REST + portal web (Qute + HTMX + Pico CSS)
+├── core       → Entidades, servicios, repositorios, enums SRI
+├── xml        → XML builders, XSD, clave de acceso
+├── signer     → Firma XAdES-BES, certificados .p12
+├── sri        → Cliente SOAP (Recepción + Autorización)
+├── queue      → Consumers/Producers RabbitMQ, reintentos, outbox poller
+├── ride       → RIDE (PDF)
+├── notify     → Email, webhooks
+├── storage    → MinIO/S3
+└── admin      → Métricas, health checks
 ```
 
 ## Pipeline de Documentos

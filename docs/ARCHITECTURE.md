@@ -183,11 +183,11 @@ POST /v1/documents/raw     → XML pre-armado por cliente  — 5% avanzados
 
 ---
 
-### ADR-007: Portal web dentro de key49-api (Qute + HTMX + Pico CSS)
+### ADR-007: Portal web dentro del paquete `api` (Qute + HTMX + Pico CSS)
 
 **Contexto**: Los clientes necesitan una forma visual de consultar el estado de sus documentos electrónicos sin depender exclusivamente de la API REST o webhooks.
 
-**Decisión**: Portal web de solo lectura integrado en el módulo `key49-api` bajo el path `/portal/`. Server-side rendering con Qute, Pico CSS para estilos y HTMX para interactividad mínima.
+**Decisión**: Portal web de solo lectura integrado en el paquete `api` bajo el path `/portal/`. Server-side rendering con Qute, Pico CSS para estilos y HTMX para interactividad mínima.
 
 **Razones**:
 
@@ -195,7 +195,7 @@ POST /v1/documents/raw     → XML pre-armado por cliente  — 5% avanzados
 - **Qute ya está en el proyecto**: se usa para templates de RIDE y email. Reutilizar la misma herramienta.
 - **Pico CSS**: un solo archivo CSS (~10KB) que estiliza HTML semántico sin clases. Solo escribir `<table>`, `<form>`, `<button>`.
 - **HTMX**: un solo archivo JS (~14KB) para polling de estado y actualización parcial sin escribir JavaScript.
-- **Dentro de key49-api**: son ~3 pantallas de lectura. No justifica un módulo Maven separado.
+- **Dentro del paquete `api`**: son ~3 pantallas de lectura. No justifica un proyecto separado.
 - **Solo lectura**: el portal no crea ni modifica documentos. Solo visualiza estado, datos resumen, y ofrece descargas de XML/RIDE.
 
 **Pantallas**:
@@ -215,112 +215,101 @@ POST /v1/documents/raw     → XML pre-armado por cliente  — 5% avanzados
 
 ---
 
-## Estructura de Módulos Quarkus
+## Estructura del Proyecto
+
+**Módulo único Maven** (packaging `jar`). La separación lógica se logra por paquetes Java dentro de `src/main/java/auracore/key49/`:
 
 ```
 key49/
-├── key49-api/                    # Módulo API REST (entry point) + Portal web
-│   ├── src/main/java/.../api/
-│   │   ├── resource/             # JAX-RS endpoints (API REST)
-│   │   ├── portal/               # Portal web (server-side rendering)
-│   │   │   ├── PortalResource.java    # Endpoints Qute que renderizan HTML
-│   │   │   ├── PortalAuthFilter.java  # Autenticación por sesión/cookie
-│   │   │   └── dto/              # ViewModels para templates
-│   │   ├── dto/                  # Request/Response DTOs
-│   │   ├── mapper/               # MapStruct mappers
-│   │   ├── filter/               # Tenant context filter, auth filter
-│   │   └── exception/            # Exception mappers
-│   └── src/main/resources/
-│       ├── application.properties
-│       ├── META-INF/openapi.yaml
-│       ├── META-INF/resources/   # Assets estáticos del portal
-│       │   ├── css/pico.min.css  # Pico CSS (~10KB, sin clases)
-│       │   └── js/htmx.min.js   # HTMX (~14KB, interactividad mínima)
-│       └── templates/portal/     # Templates Qute del portal
-│           ├── layout.html       # Layout base (header, nav, footer)
-│           ├── login.html        # Login con API key
-│           ├── dashboard.html    # Lista documentos + filtros + paginación
-│           └── document-detail.html # Detalle + timeline + descargas
-│
-├── key49-core/                   # Módulo de dominio y lógica de negocio
-│   ├── src/main/java/.../core/
-│   │   ├── model/                # Entidades JPA (Document, Tenant, etc.)
-│   │   ├── service/              # Servicios de negocio
-│   │   ├── repository/           # Repositorios Panache
-│   │   └── event/                # Eventos de dominio
-│   └── src/main/resources/
-│       └── db/migrations/        # Scripts SQL de referencia (ejecución manual por DBA)
-│
-├── key49-xml/                    # Módulo de generación y validación XML
-│   ├── src/main/java/.../xml/
-│   │   ├── builder/              # XML builders por tipo de documento
-│   │   ├── validator/            # Validación contra XSD
-│   │   ├── accesskey/            # Generador de clave de acceso (mod 11)
-│   │   └── schema/              # Carga dinámica de XSD
-│   └── src/main/resources/
-│       └── xsd/                  # Esquemas XSD del SRI (versionados)
-│           ├── factura_v2.1.0.xsd
-│           ├── notaCredito_v1.1.0.xsd
-│           ├── notaDebito_v1.0.0.xsd
-│           ├── comprobanteRetencion_v2.0.0.xsd
-│           ├── guiaRemision_v1.1.0.xsd
-│           └── liquidacionCompra_v1.1.0.xsd
-│
-├── key49-signer/                 # Módulo de firma digital XAdES-BES
-│   ├── src/main/java/.../signer/
-│   │   ├── XAdESBESSigner.java   # Implementación de firma
-│   │   ├── CertificateManager.java # Carga y gestión de .p12
+├── src/main/java/auracore/key49/
+│   ├── api/                          # REST endpoints + Portal web
+│   │   ├── resource/                 # JAX-RS endpoints (API REST)
+│   │   ├── portal/                   # Portal web (server-side rendering)
+│   │   │   ├── PortalResource.java   # Endpoints Qute que renderizan HTML
+│   │   │   ├── PortalAuthFilter.java # Autenticación por sesión/cookie
+│   │   │   └── dto/                  # ViewModels para templates
+│   │   ├── dto/                      # Request/Response DTOs
+│   │   ├── mapper/                   # MapStruct mappers
+│   │   ├── filter/                   # Tenant context filter, auth filter
+│   │   └── exception/                # Exception mappers
+│   │
+│   ├── core/                         # Dominio y lógica de negocio
+│   │   ├── model/                    # Entidades JPA (Document, Tenant, etc.)
+│   │   ├── service/                  # Servicios de negocio
+│   │   ├── repository/               # Repositorios Panache
+│   │   └── event/                    # Eventos de dominio
+│   │
+│   ├── xml/                          # Generación y validación XML
+│   │   ├── builder/                  # XML builders por tipo de documento
+│   │   ├── validator/                # Validación contra XSD
+│   │   ├── accesskey/                # Generador de clave de acceso (mod 11)
+│   │   └── schema/                   # Carga dinámica de XSD
+│   │
+│   ├── signer/                       # Firma digital XAdES-BES
+│   │   ├── XAdESBESSigner.java       # Implementación de firma
+│   │   ├── CertificateManager.java   # Carga y gestión de .p12
 │   │   └── CertificateEncryptor.java # Cifrado/descifrado AES-256-GCM
-│   └── src/test/
-│       └── resources/
-│           └── test-cert.p12     # Certificado de pruebas
-│
-├── key49-sri/                    # Módulo de integración SOAP con SRI
-│   ├── src/main/java/.../sri/
-│   │   ├── client/               # Cliente SOAP (Recepción + Autorización)
-│   │   ├── model/                # Modelos de respuesta SRI
-│   │   ├── parser/               # Parser de respuestas SOAP
-│   │   └── config/               # Configuración de endpoints por ambiente
-│   └── src/main/resources/
-│       └── wsdl/                 # WSDL del SRI (offline copy)
-│
-├── key49-queue/                  # Módulo de mensajería y workers
-│   ├── src/main/java/.../queue/
-│   │   ├── producer/             # Productores de mensajes
-│   │   ├── consumer/             # Consumidores (sign, send, authorize, notify)
-│   │   ├── retry/                # Lógica de reintentos con backoff
-│   │   └── dlq/                  # Manejo de Dead Letter Queue
-│   └── src/main/resources/
-│       └── rabbitmq/             # Definiciones de exchanges y queues
-│
-├── key49-ride/                   # Módulo de generación de RIDE (PDF)
-│   ├── src/main/java/.../ride/
-│   │   ├── generator/            # Generador PDF por tipo de documento
-│   │   ├── template/             # Templates de RIDE
-│   │   └── qr/                   # Generador de código QR
-│   └── src/main/resources/
-│       └── templates/            # Templates Qute para RIDE
-│
-├── key49-notify/                 # Módulo de notificaciones
-│   ├── src/main/java/.../notify/
-│   │   ├── email/                # Envío de emails con RIDE + XML
-│   │   ├── webhook/              # Dispatcher de webhooks a integradores
-│   │   └── template/             # Templates de email (Qute)
-│   └── src/main/resources/
-│       └── templates/            # Email templates
-│
-├── key49-storage/                # Módulo de almacenamiento (MinIO/S3)
-│   ├── src/main/java/.../storage/
+│   │
+│   ├── sri/                          # Integración SOAP con SRI
+│   │   ├── client/                   # Cliente SOAP (Recepción + Autorización)
+│   │   ├── model/                    # Modelos de respuesta SRI
+│   │   ├── parser/                   # Parser de respuestas SOAP
+│   │   └── config/                   # Configuración de endpoints por ambiente
+│   │
+│   ├── queue/                        # Mensajería y workers
+│   │   ├── producer/                 # Productores de mensajes
+│   │   ├── consumer/                 # Consumidores (sign, send, authorize, notify)
+│   │   ├── retry/                    # Lógica de reintentos con backoff
+│   │   └── dlq/                      # Manejo de Dead Letter Queue
+│   │
+│   ├── ride/                         # Generación de RIDE (PDF)
+│   │   ├── generator/                # Generador PDF por tipo de documento
+│   │   ├── template/                 # Templates de RIDE
+│   │   └── qr/                       # Generador de código QR
+│   │
+│   ├── notify/                       # Notificaciones
+│   │   ├── email/                    # Envío de emails con RIDE + XML
+│   │   ├── webhook/                  # Dispatcher de webhooks a integradores
+│   │   └── template/                 # Templates de email (Qute)
+│   │
+│   ├── storage/                      # Almacenamiento (MinIO/S3)
 │   │   ├── ObjectStorageService.java
-│   │   └── RetentionPolicy.java  # Política de 7 años
+│   │   └── RetentionPolicy.java      # Política de 7 años
+│   │
+│   └── admin/                        # Administración y monitoreo
+│       ├── resource/                 # Endpoints admin
+│       ├── metrics/                  # Métricas custom
+│       └── health/                   # Health checks (SRI, RabbitMQ, DB)
 │
-├── key49-admin/                  # Módulo de administración y dashboard
-│   ├── src/main/java/.../admin/
-│   │   ├── resource/             # Endpoints admin
-│   │   ├── metrics/              # Métricas custom
-│   │   └── health/               # Health checks (SRI, RabbitMQ, DB)
+├── src/main/resources/
+│   ├── application.properties
+│   ├── META-INF/openapi.yaml
+│   ├── META-INF/resources/           # Assets estáticos del portal
+│   │   ├── css/pico.min.css          # Pico CSS (~10KB, sin clases)
+│   │   └── js/htmx.min.js           # HTMX (~14KB, interactividad mínima)
+│   ├── templates/                    # Templates Qute
+│   │   ├── portal/                   # Portal web templates
+│   │   │   ├── layout.html
+│   │   │   ├── login.html
+│   │   │   ├── dashboard.html
+│   │   │   └── document-detail.html
+│   │   ├── ride/                     # RIDE templates
+│   │   └── email/                    # Email templates
+│   └── xsd/                          # Esquemas XSD del SRI (versionados)
+│       ├── factura_v2.1.0.xsd
+│       ├── notaCredito_v1.1.0.xsd
+│       ├── notaDebito_v1.0.0.xsd
+│       ├── comprobanteRetencion_v2.0.0.xsd
+│       ├── guiaRemision_v1.1.0.xsd
+│       └── liquidacionCompra_v1.1.0.xsd
 │
-└── pom.xml                       # Parent POM (multi-module Maven)
+├── src/test/
+│   ├── java/auracore/key49/         # Tests organizados por paquete
+│   └── resources/
+│       └── test-cert.p12            # Certificado de pruebas
+│
+├── db/migrations/                    # Scripts SQL de referencia (ejecución manual por DBA)
+└── pom.xml                           # POM único (single-module Maven)
 ```
 
 ## Patrones de Diseño Aplicados

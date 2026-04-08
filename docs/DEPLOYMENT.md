@@ -348,7 +348,7 @@ Crea automáticamente:
 
 ```bash
 # Compilar e iniciar en dev mode
-mvn quarkus:dev -pl key49-api
+mvn quarkus:dev
 ```
 
 Quarkus Dev Mode incluye:
@@ -365,7 +365,7 @@ Quarkus Dev Mode incluye:
 mvn clean package -DskipTests
 
 # Ejecutar el uber-jar
-java -jar key49-api/target/quarkus-app/quarkus-run.jar
+java -jar target/quarkus-app/quarkus-run.jar
 ```
 
 O con compilación nativa:
@@ -375,7 +375,7 @@ O con compilación nativa:
 mvn clean package -Pnative -DskipTests
 
 # Ejecutar
-./key49-api/target/key49-api-*-runner
+./target/key49-*-runner
 ```
 
 ### Puertos y URLs
