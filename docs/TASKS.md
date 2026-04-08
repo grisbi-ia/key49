@@ -412,7 +412,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     - Tipo de emisión inválido → falla XSD
   - Usar helper que genere XML válido y reemplace un solo campo con valor inválido
 
-- [ ] **T-051** Tests negativos de XsdValidator para todos los tipos de documento
+- [x] **T-051** Tests negativos de XsdValidator para todos los tipos de documento
   - Ampliar `XsdValidatorTest` con nested class `InvalidXmlAllTypes`
   - Para cada `DocumentType` (CREDIT_NOTE, DEBIT_NOTE, WITHHOLDING, WAYBILL, PURCHASE_CLEARANCE):
     - Test: XML malformado → falla

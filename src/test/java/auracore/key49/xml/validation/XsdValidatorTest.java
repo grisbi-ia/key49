@@ -28,7 +28,6 @@ class XsdValidatorTest {
     }
 
     // ── Helpers ──
-
     /**
      * Lee un XML de ejemplo del classpath (/xsd/sri/{filename}).
      */
@@ -96,15 +95,16 @@ class XsdValidatorTest {
                 java.math.BigDecimal.ZERO,
                 new java.math.BigDecimal("57.50"),
                 "DOLAR",
-                new java.util.LinkedHashMap<>() {{
-                    put("Dirección", "Guayaquil");
-                    put("Email", "test@example.com");
-                }}
+                new java.util.LinkedHashMap<>() {
+            {
+                put("Dirección", "Guayaquil");
+                put("Email", "test@example.com");
+            }
+        }
         ));
     }
 
     // ── Tests de XML válido ──
-
     @Nested
     @DisplayName("XML válido")
     class ValidXml {
@@ -182,7 +182,6 @@ class XsdValidatorTest {
     }
 
     // ── Tests de XML inválido ──
-
     @Nested
     @DisplayName("XML inválido")
     class InvalidXml {
@@ -337,7 +336,6 @@ class XsdValidatorTest {
     }
 
     // ── Tests de XsdValidationResult ──
-
     @Nested
     @DisplayName("XsdValidationResult")
     class ResultRecord {
@@ -373,8 +371,8 @@ class XsdValidatorTest {
 
             var result = XsdValidationResult.failure(errors);
 
-            assertThrows(UnsupportedOperationException.class, () ->
-                    result.errors().add(new XsdValidationResult.ValidationError(2, 2, "Another"))
+            assertThrows(UnsupportedOperationException.class, ()
+                    -> result.errors().add(new XsdValidationResult.ValidationError(2, 2, "Another"))
             );
         }
 
@@ -396,7 +394,6 @@ class XsdValidatorTest {
     }
 
     // ── Tests de carga dinámica de esquemas ──
-
     @Nested
     @DisplayName("Carga dinámica de esquemas")
     class SchemaLoading {
@@ -415,7 +412,6 @@ class XsdValidatorTest {
     }
 
     // ── Tests de cache ──
-
     @Nested
     @DisplayName("Cache de schemas")
     class SchemaCache {
@@ -446,8 +442,107 @@ class XsdValidatorTest {
         }
     }
 
-    // ── Tests de tipo de documento cruzado ──
+    // ── Tests negativos para todos los tipos de documento ──
+    @Nested
+    @DisplayName("XML inválido — todos los tipos de documento")
+    class InvalidXmlAllTypes {
 
+        private record DocMeta(String rootElement, String version, String mainInfoNode) {
+
+        }
+
+        private static final java.util.Map<DocumentType, DocMeta> DOC_META = java.util.Map.of(
+                DocumentType.INVOICE, new DocMeta("factura", "2.1.0", "infoFactura"),
+                DocumentType.CREDIT_NOTE, new DocMeta("notaCredito", "1.1.0", "infoNotaCredito"),
+                DocumentType.DEBIT_NOTE, new DocMeta("notaDebito", "1.0.0", "infoNotaDebito"),
+                DocumentType.WITHHOLDING, new DocMeta("comprobanteRetencion", "2.0.0", "infoCompRetencion"),
+                DocumentType.WAYBILL, new DocMeta("guiaRemision", "1.1.0", "infoGuiaRemision"),
+                DocumentType.PURCHASE_CLEARANCE, new DocMeta("liquidacionCompra", "1.1.0", "infoLiquidacionCompra")
+        );
+
+        private String buildXmlWithInfoTributariaOnly(DocumentType type) {
+            var meta = DOC_META.get(type);
+            return """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <%s id="comprobante" version="%s">
+                        <infoTributaria>
+                            <ambiente>1</ambiente>
+                            <tipoEmision>1</tipoEmision>
+                            <razonSocial>EMPRESA DEMO S.A.</razonSocial>
+                            <ruc>1790012345001</ruc>
+                            <claveAcceso>0404202601179001234500110010010000000421234567817</claveAcceso>
+                            <codDoc>01</codDoc>
+                            <estab>001</estab>
+                            <ptoEmi>001</ptoEmi>
+                            <secuencial>000000042</secuencial>
+                            <dirMatriz>Quito</dirMatriz>
+                        </infoTributaria>
+                    </%s>
+                    """.formatted(meta.rootElement, meta.version, meta.rootElement);
+        }
+
+        @ParameterizedTest(name = "{0}: XML mal formado falla")
+        @EnumSource(DocumentType.class)
+        @DisplayName("XML mal formado retorna error para cada tipo")
+        void malformedXmlFails(DocumentType type) {
+            var meta = DOC_META.get(type);
+            var xml = "<%s><infoTributaria><ambiente>1</ambiente>".formatted(meta.rootElement);
+
+            var result = XsdValidator.validate(xml, type);
+
+            assertFalse(result.valid());
+            assertFalse(result.errors().isEmpty());
+        }
+
+        @ParameterizedTest(name = "{0}: XML vacío falla")
+        @EnumSource(DocumentType.class)
+        @DisplayName("XML vacío retorna error para cada tipo")
+        void emptyXmlFails(DocumentType type) {
+            var result = XsdValidator.validate("", type);
+
+            assertFalse(result.valid());
+            assertFalse(result.errors().isEmpty());
+        }
+
+        @ParameterizedTest(name = "{0}: elemento raíz incorrecto falla")
+        @EnumSource(DocumentType.class)
+        @DisplayName("Elemento raíz incorrecto retorna error para cada tipo")
+        void wrongRootElementFails(DocumentType type) {
+            var xml = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <elementoIncorrecto>
+                        <infoTributaria>
+                            <ambiente>1</ambiente>
+                        </infoTributaria>
+                    </elementoIncorrecto>
+                    """;
+
+            var result = XsdValidator.validate(xml, type);
+
+            assertFalse(result.valid());
+            assertFalse(result.errors().isEmpty());
+        }
+
+        @ParameterizedTest(name = "{0}: nodo principal ausente falla con mensaje descriptivo")
+        @EnumSource(DocumentType.class)
+        @DisplayName("Nodo principal ausente retorna error descriptivo para cada tipo")
+        void missingMainInfoNodeFails(DocumentType type) {
+            var meta = DOC_META.get(type);
+            var xml = buildXmlWithInfoTributariaOnly(type);
+
+            var result = XsdValidator.validate(xml, type);
+
+            assertFalse(result.valid(),
+                    "XML sin <%s> debería fallar para %s".formatted(meta.mainInfoNode, type));
+            assertFalse(result.errors().isEmpty(),
+                    "Debería contener al menos un error descriptivo");
+            var allErrors = String.join(" ", result.errors().stream()
+                    .map(XsdValidationResult.ValidationError::message).toList());
+            assertFalse(allErrors.isBlank(), "Error messages should not be blank");
+        }
+    }
+
+    // ── Tests de tipo de documento cruzado ──
     @Nested
     @DisplayName("Validación cruzada de tipos")
     class CrossTypeValidation {

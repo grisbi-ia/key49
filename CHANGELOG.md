@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.12] - 2026-04-08
+
+### Agregado
+
+- Tests negativos de `XsdValidator` para todos los tipos de documento (T-051): nested class `InvalidXmlAllTypes` con 24 tests parametrizados (6 tipos × 4 escenarios: XML malformado, XML vacío, elemento raíz incorrecto, nodo principal ausente)
+
 ## [0.16.11] - 2026-04-08
 
 ### Agregado

@@ -5,7 +5,6 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.w3c.dom.Document;
@@ -45,9 +43,9 @@ import auracore.key49.xml.builder.WithholdingData;
 import auracore.key49.xml.builder.WithholdingXmlBuilder;
 
 /**
- * Tests negativos que verifican que los XSD del SRI rechazan valores que
- * no cumplen los patterns (restricciones regex) definidos en infoTributaria.
- * Se prueban todos los tipos de comprobante para cada pattern.
+ * Tests negativos que verifican que los XSD del SRI rechazan valores que no
+ * cumplen los patterns (restricciones regex) definidos en infoTributaria. Se
+ * prueban todos los tipos de comprobante para cada pattern.
  */
 class XsdPatternValidationTest {
 
@@ -70,12 +68,18 @@ class XsdPatternValidationTest {
     // ── Helpers ──────────────────────────────────────────────────────────────
     private String buildValidXml(DocType type) {
         return switch (type) {
-            case INVOICE -> buildInvoiceXml();
-            case CREDIT_NOTE -> buildCreditNoteXml();
-            case DEBIT_NOTE -> buildDebitNoteXml();
-            case WITHHOLDING -> buildWithholdingXml();
-            case WAYBILL -> buildWaybillXml();
-            case PURCHASE_CLEARANCE -> buildPurchaseClearanceXml();
+            case INVOICE ->
+                buildInvoiceXml();
+            case CREDIT_NOTE ->
+                buildCreditNoteXml();
+            case DEBIT_NOTE ->
+                buildDebitNoteXml();
+            case WITHHOLDING ->
+                buildWithholdingXml();
+            case WAYBILL ->
+                buildWaybillXml();
+            case PURCHASE_CLEARANCE ->
+                buildPurchaseClearanceXml();
         };
     }
 
