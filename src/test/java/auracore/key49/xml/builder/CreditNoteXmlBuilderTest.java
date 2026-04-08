@@ -7,7 +7,12 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -319,6 +324,43 @@ class CreditNoteXmlBuilderTest {
 
             var campos = infoAdicional.getElementsByTagName("campoAdicional");
             assertEquals(2, campos.getLength());
+        }
+    }
+
+    // ── Tests de validación XSD ──
+
+    @Nested
+    @DisplayName("Validación contra XSD nota de crédito v1.1.0")
+    class XsdValidation {
+
+        @Test
+        @DisplayName("nota de crédito simple pasa validación XSD")
+        void simpleCreditNoteXsdValid() throws Exception {
+            var xml = CreditNoteXmlBuilder.build(CreditNoteDataFixtures.simpleCreditNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("nota de crédito multi-ítem pasa validación XSD")
+        void multiItemCreditNoteXsdValid() throws Exception {
+            var xml = CreditNoteXmlBuilder.build(CreditNoteDataFixtures.multiItemCreditNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("nota de crédito mínima pasa validación XSD")
+        void minimalCreditNoteXsdValid() throws Exception {
+            var xml = CreditNoteXmlBuilder.build(CreditNoteDataFixtures.minimalCreditNote());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        private void validateAgainstXsd(String xml) throws SAXException, IOException {
+            var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            var xsdUrl = getClass().getResource("/xsd/sri/NotaCredito_V1.1.0.xsd");
+            assertNotNull(xsdUrl, "XSD file must be on classpath");
+            var schema = schemaFactory.newSchema(xsdUrl);
+            var validator = schema.newValidator();
+            validator.validate(new StreamSource(new StringReader(xml)));
         }
     }
 }
