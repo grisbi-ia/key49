@@ -7,7 +7,12 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.time.format.DateTimeFormatter;
 
@@ -406,6 +411,43 @@ class WaybillXmlBuilderTest {
 
             var campos = getElements(doc, "campoAdicional");
             assertEquals(2, campos.getLength());
+        }
+    }
+
+    // ── Tests de validación XSD ──
+
+    @Nested
+    @DisplayName("Validación contra XSD guía de remisión v1.1.0")
+    class XsdValidation {
+
+        @Test
+        @DisplayName("guía de remisión simple pasa validación XSD")
+        void simpleWaybillXsdValid() throws Exception {
+            var xml = WaybillXmlBuilder.build(WaybillDataFixtures.simpleWaybill());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("guía de remisión con múltiples destinatarios pasa validación XSD")
+        void multiAddresseeWaybillXsdValid() throws Exception {
+            var xml = WaybillXmlBuilder.build(WaybillDataFixtures.multiAddresseeWaybill());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("guía de remisión mínima pasa validación XSD")
+        void minimalWaybillXsdValid() throws Exception {
+            var xml = WaybillXmlBuilder.build(WaybillDataFixtures.minimalWaybill());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        private void validateAgainstXsd(String xml) throws SAXException, IOException {
+            var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            var xsdUrl = getClass().getResource("/xsd/sri/GuiaRemision_V1.1.0.xsd");
+            assertNotNull(xsdUrl, "XSD file must be on classpath");
+            var schema = schemaFactory.newSchema(xsdUrl);
+            var validator = schema.newValidator();
+            validator.validate(new StreamSource(new StringReader(xml)));
         }
     }
 }

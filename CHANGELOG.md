@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.4] - 2026-04-08
+
+### Agregado
+
+- Tests de validación XSD para `WaybillXmlBuilder` (T-043): guía de remisión simple, múltiples destinatarios y mínima contra `GuiaRemision_V1.1.0.xsd`
+
 ## [0.16.3] - 2026-04-08
 
 ### Agregado
