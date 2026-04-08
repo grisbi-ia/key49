@@ -362,7 +362,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     `numDocModificado`, `fechaEmisionDocSustento`, `totalSinImpuestos`, `valorModificacion`, `moneda`
   - Test: sin nodo `detalles` falla XSD
 
-- [ ] **T-046** Tests de campos obligatorios faltantes en Nota de Débito (XSD v1.0.0)
+- [x] **T-046** Tests de campos obligatorios faltantes en Nota de Débito (XSD v1.0.0)
   - Crear clase `DebitNoteXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
   - Tests parametrizados: remover cada campo obligatorio de `infoNotaDebito` → falla XSD:

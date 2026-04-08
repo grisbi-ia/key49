@@ -32,69 +32,56 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import auracore.key49.core.Key49Constants;
-import auracore.key49.xml.builder.CreditNoteData;
-import auracore.key49.xml.builder.CreditNoteXmlBuilder;
+import auracore.key49.xml.builder.DebitNoteData;
+import auracore.key49.xml.builder.DebitNoteXmlBuilder;
 
 /**
- * Tests negativos que verifican que el XSD nota de crédito v1.1.0 del SRI
+ * Tests negativos que verifican que el XSD nota de débito v1.0.0 del SRI
  * rechaza el XML cuando falta un campo obligatorio.
  */
-class CreditNoteXsdMandatoryFieldsTest {
+class DebitNoteXsdMandatoryFieldsTest {
 
-    // ── Helpers ──
-    private String buildValidCreditNoteXml() {
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    private String buildValidDebitNoteXml() {
         var today = LocalDate.now(Key49Constants.EC_ZONE);
-        var taxpayer = new CreditNoteData.TaxpayerInfo(
+        var taxpayer = new DebitNoteData.TaxpayerInfo(
                 "1", "1",
                 "EMPRESA DEMO S.A.", "DEMO",
                 "1790012345001",
                 "Quito, Av. Principal 123",
                 "Sucursal Norte", true, null, null,
-                "CONTRIBUYENTE RÉGIMEN RIMPE"
-        );
-        var recipient = new CreditNoteData.Recipient(
+                "CONTRIBUYENTE RÉGIMEN RIMPE");
+        var recipient = new DebitNoteData.Recipient(
                 "04", "1790567890001",
-                "CLIENTE PRUEBA CIA. LTDA."
-        );
-        var tax = new CreditNoteData.Tax("2", "4",
-                new BigDecimal("15.00"),
-                new BigDecimal("50.00"),
-                new BigDecimal("7.50"));
-        var item = new CreditNoteData.Item(
-                "PROD-001", null,
-                "Servicio de hosting mensual",
-                BigDecimal.ONE,
-                new BigDecimal("50.00"),
-                BigDecimal.ZERO,
-                new BigDecimal("50.00"),
-                List.of(tax)
-        );
-        var totalTax = new CreditNoteData.TotalTax("2", "4",
-                new BigDecimal("50.00"),
-                new BigDecimal("7.50"));
+                "CLIENTE PRUEBA CIA. LTDA.");
+        var tax = new DebitNoteData.Tax(
+                "2", "4", new BigDecimal("15.00"),
+                new BigDecimal("50.00"), new BigDecimal("7.50"));
+        var payment = new DebitNoteData.Payment(
+                "01", new BigDecimal("57.50"), 30, "dias");
+        var reason = new DebitNoteData.Reason(
+                "Intereses por mora en pago", new BigDecimal("50.00"));
 
-        return CreditNoteXmlBuilder.build(new CreditNoteData(
+        return DebitNoteXmlBuilder.build(new DebitNoteData(
                 taxpayer,
-                "0404202601179001234500110010010000000421234567817",
+                "0404202605179001234500110010010000000421234567817",
                 "001", "001", "000000042",
                 today,
                 recipient,
                 "01",
                 "001-001-000000001",
                 today.minusDays(5),
-                "Devolución de producto",
-                List.of(item),
-                List.of(totalTax),
                 new BigDecimal("50.00"),
+                List.of(tax),
                 new BigDecimal("57.50"),
-                "DOLAR",
+                List.of(payment),
+                List.of(reason),
                 new LinkedHashMap<>() {
             {
-                put("Dirección", "Guayaquil");
-                put("Email", "test@example.com");
+                put("Dirección", "Guayaquil, Av. 9 de Octubre 456");
+                put("Email", "contabilidad@cliente.com");
             }
-        }
-        ));
+        }));
     }
 
     private Document parseXml(String xml) throws Exception {
@@ -134,21 +121,21 @@ class CreditNoteXsdMandatoryFieldsTest {
 
     private void validateAgainstXsd(String xml) throws SAXException, IOException {
         var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        var xsdUrl = getClass().getResource("/xsd/sri/NotaCredito_V1.1.0.xsd");
+        var xsdUrl = getClass().getResource("/xsd/sri/NotaDebito_V1.0.0.xsd");
         assertNotNull(xsdUrl, "XSD file must be on classpath");
         var schema = schemaFactory.newSchema(xsdUrl);
         var validator = schema.newValidator();
         validator.validate(new StreamSource(new StringReader(xml)));
     }
 
-    // ── Sanity check ──
+    // ── Sanity check ────────────────────────────────────────────────────────
     @Test
     @DisplayName("XML base generado por builder pasa validación XSD")
     void baseXmlIsValid() {
-        assertDoesNotThrow(() -> validateAgainstXsd(buildValidCreditNoteXml()));
+        assertDoesNotThrow(() -> validateAgainstXsd(buildValidDebitNoteXml()));
     }
 
-    // ── infoTributaria ──
+    // ── infoTributaria ──────────────────────────────────────────────────────
     @Nested
     @DisplayName("Campos obligatorios faltantes en infoTributaria")
     class InfoTributaria {
@@ -160,50 +147,46 @@ class CreditNoteXsdMandatoryFieldsTest {
         })
         @DisplayName("remover campo obligatorio de infoTributaria causa fallo XSD")
         void missingMandatoryField(String field) throws Exception {
-            var xml = removeElement(buildValidCreditNoteXml(), "infoTributaria", field);
+            var xml = removeElement(buildValidDebitNoteXml(), "infoTributaria", field);
             assertXsdFails(xml);
         }
     }
 
-    // ── infoNotaCredito ──
+    // ── infoNotaDebito ──────────────────────────────────────────────────────
     @Nested
-    @DisplayName("Campos obligatorios faltantes en infoNotaCredito")
-    class InfoNotaCredito {
+    @DisplayName("Campos obligatorios faltantes en infoNotaDebito")
+    class InfoNotaDebito {
 
         @ParameterizedTest(name = "sin <{0}> falla XSD")
         @ValueSource(strings = {
             "fechaEmision", "tipoIdentificacionComprador", "razonSocialComprador",
             "identificacionComprador", "codDocModificado", "numDocModificado",
-            "fechaEmisionDocSustento", "totalSinImpuestos", "valorModificacion",
-            "totalConImpuestos", "motivo"
+            "fechaEmisionDocSustento", "totalSinImpuestos", "impuestos", "valorTotal"
         })
-        @DisplayName("remover campo obligatorio de infoNotaCredito causa fallo XSD")
+        @DisplayName("remover campo obligatorio de infoNotaDebito causa fallo XSD")
         void missingMandatoryField(String field) throws Exception {
-            var xml = removeElement(buildValidCreditNoteXml(), "infoNotaCredito", field);
+            var xml = removeElement(buildValidDebitNoteXml(), "infoNotaDebito", field);
             assertXsdFails(xml);
         }
     }
 
-    // ── detalles ──
+    // ── motivos ─────────────────────────────────────────────────────────────
     @Nested
-    @DisplayName("Campos obligatorios faltantes en detalles")
-    class Detalles {
+    @DisplayName("Campos obligatorios faltantes en motivos")
+    class Motivos {
 
         @Test
-        @DisplayName("nota de crédito sin nodo <detalles> falla XSD")
-        void missingDetallesNode() throws Exception {
-            var xml = removeElement(buildValidCreditNoteXml(), "notaCredito", "detalles");
+        @DisplayName("nota de débito sin nodo <motivos> falla XSD")
+        void missingMotivosNode() throws Exception {
+            var xml = removeElement(buildValidDebitNoteXml(), "notaDebito", "motivos");
             assertXsdFails(xml);
         }
 
-        @ParameterizedTest(name = "sin <{0}> en detalle falla XSD")
-        @ValueSource(strings = {
-            "descripcion", "cantidad", "precioUnitario",
-            "precioTotalSinImpuesto", "impuestos"
-        })
-        @DisplayName("remover campo obligatorio de detalle causa fallo XSD")
-        void missingMandatoryFieldInDetail(String field) throws Exception {
-            var xml = removeElement(buildValidCreditNoteXml(), "detalle", field);
+        @ParameterizedTest(name = "sin <{0}> en motivo falla XSD")
+        @ValueSource(strings = {"razon", "valor"})
+        @DisplayName("remover campo obligatorio de motivo causa fallo XSD")
+        void missingMandatoryFieldInMotivo(String field) throws Exception {
+            var xml = removeElement(buildValidDebitNoteXml(), "motivo", field);
             assertXsdFails(xml);
         }
     }
