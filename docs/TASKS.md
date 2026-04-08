@@ -314,26 +314,26 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
 
 ### Sprint 8: Validación XSD en Builders (Semana 1)
 
-- [ ] **T-040** Agregar validación XSD a CreditNoteXmlBuilderTest
+- [x] **T-040** Agregar validación XSD a CreditNoteXmlBuilderTest
   - Agregar nested class `XsdValidation` al test existente
   - Test: nota de crédito simple pasa validación XSD (`NotaCredito_V1.1.0.xsd`)
   - Test: nota de crédito multi-ítem pasa validación XSD
   - Test: nota de crédito mínima (sin campos opcionales) pasa validación XSD
   - Usar `XsdValidator.validate(xml, DocumentType.CREDIT_NOTE)` + `assertTrue(result.valid())`
 
-- [ ] **T-041** Agregar validación XSD a DebitNoteXmlBuilderTest
+- [x] **T-041** Agregar validación XSD a DebitNoteXmlBuilderTest
   - Agregar nested class `XsdValidation` al test existente
   - Test: nota de débito simple pasa validación XSD (`NotaDebito_V1.0.0.xsd`)
   - Test: nota de débito con múltiples motivos pasa validación XSD
   - Test: nota de débito mínima pasa validación XSD
 
-- [ ] **T-042** Agregar validación XSD a WithholdingXmlBuilderTest
+- [x] **T-042** Agregar validación XSD a WithholdingXmlBuilderTest
   - Agregar nested class `XsdValidation` al test existente
   - Test: retención simple pasa validación XSD (`ComprobanteRetencion_V2.0.0.xsd`)
   - Test: retención con múltiples docs sustento y retenciones pasa XSD
   - Test: retención mínima pasa validación XSD
 
-- [ ] **T-043** Agregar validación XSD a WaybillXmlBuilderTest
+- [x] **T-043** Agregar validación XSD a WaybillXmlBuilderTest
   - Agregar nested class `XsdValidation` al test existente
   - Test: guía de remisión simple pasa validación XSD (`GuiaRemision_V1.1.0.xsd`)
   - Test: guía de remisión con múltiples destinatarios pasa XSD
