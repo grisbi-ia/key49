@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.3] - 2026-04-08
+
+### Agregado
+
+- Tests de validación XSD para `WithholdingXmlBuilder` (T-042): retención simple, múltiples docs sustento y mínima contra `ComprobanteRetencion_V2.0.0.xsd`
+
+### Corregido
+
+- `WithholdingDataFixtures`: formato de `numDocSustento` corregido a 15 dígitos sin guiones (patrón XSD `[0-9]{15}`)
+- `WithholdingDataFixtures`: `minimalSupportingDocument()` ahora incluye pago obligatorio (requerido por XSD)
+
 ## [0.16.2] - 2026-04-08
 
 ### Agregado

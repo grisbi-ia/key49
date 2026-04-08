@@ -7,7 +7,12 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.time.format.DateTimeFormatter;
 
@@ -228,7 +233,7 @@ class WithholdingXmlBuilderTest {
 
             assertEquals("01", getTextContent(doc, "codSustento"));
             assertEquals("01", getTextContent(doc, "codDocSustento"));
-            assertEquals("001-001-000000234", getTextContent(doc, "numDocSustento"));
+            assertEquals("001001000000234", getTextContent(doc, "numDocSustento"));
             assertEquals("15/03/2025", getTextContent(doc, "fechaEmisionDocSustento"));
             assertEquals("01", getTextContent(doc, "pagoLocExt"));
         }
@@ -360,14 +365,13 @@ class WithholdingXmlBuilderTest {
         }
 
         @Test
-        @DisplayName("pagos omitidos cuando lista vacía")
-        void paymentsOmitted() throws Exception {
+        @DisplayName("pagos incluidos en docSustento mínimo")
+        void paymentsIncluded() throws Exception {
             var xml = WithholdingXmlBuilder.build(WithholdingDataFixtures.minimalWithholding());
             var doc = parseXml(xml);
 
-            // minimalWithholding has empty payments list in supporting doc
             var pagosNodes = doc.getElementsByTagName("pagos");
-            assertEquals(0, pagosNodes.getLength());
+            assertTrue(pagosNodes.getLength() > 0, "pagos element must be present per XSD");
         }
     }
 
@@ -387,6 +391,43 @@ class WithholdingXmlBuilderTest {
             var first = (Element) campos.item(0);
             assertNotNull(first.getAttribute("nombre"));
             assertNotNull(first.getTextContent());
+        }
+    }
+
+    // ── Tests de validación XSD ──
+
+    @Nested
+    @DisplayName("Validación contra XSD retención v2.0.0")
+    class XsdValidation {
+
+        @Test
+        @DisplayName("retención simple pasa validación XSD")
+        void simpleWithholdingXsdValid() throws Exception {
+            var xml = WithholdingXmlBuilder.build(WithholdingDataFixtures.simpleWithholding());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("retención con múltiples docs sustento pasa validación XSD")
+        void multiDocWithholdingXsdValid() throws Exception {
+            var xml = WithholdingXmlBuilder.build(WithholdingDataFixtures.multiDocWithholding());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        @Test
+        @DisplayName("retención mínima pasa validación XSD")
+        void minimalWithholdingXsdValid() throws Exception {
+            var xml = WithholdingXmlBuilder.build(WithholdingDataFixtures.minimalWithholding());
+            assertDoesNotThrow(() -> validateAgainstXsd(xml));
+        }
+
+        private void validateAgainstXsd(String xml) throws SAXException, IOException {
+            var schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            var xsdUrl = getClass().getResource("/xsd/sri/ComprobanteRetencion_V2.0.0.xsd");
+            assertNotNull(xsdUrl, "XSD file must be on classpath");
+            var schema = schemaFactory.newSchema(xsdUrl);
+            var validator = schema.newValidator();
+            validator.validate(new StreamSource(new StringReader(xml)));
         }
     }
 }

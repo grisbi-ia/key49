@@ -70,7 +70,7 @@ final class WithholdingDataFixtures {
 
     static WithholdingData.SupportingDocument defaultSupportingDocument() {
         return new WithholdingData.SupportingDocument(
-                "01", "01", "001-001-000000234",
+                "01", "01", "001001000000234",
                 LocalDate.of(2025, 3, 15), null,
                 "1503202501179214673900110010010000002340000002341",
                 "01", null, null, null, null, null,
@@ -82,13 +82,13 @@ final class WithholdingDataFixtures {
 
     static WithholdingData.SupportingDocument minimalSupportingDocument() {
         return new WithholdingData.SupportingDocument(
-                "01", "01", "001-001-000000100",
+                "01", "01", "001001000000100",
                 LocalDate.of(2025, 3, 10), null,
                 null, "01", null, null, null, null, null,
                 new BigDecimal("500.00"), new BigDecimal("500.00"),
                 List.of(taxIva0()),
                 List.of(retentionRenta()),
-                List.of());
+                List.of(new WithholdingData.Payment("20", new BigDecimal("500.00"))));
     }
 
     static WithholdingData simpleWithholding() {
