@@ -341,7 +341,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
 
 ### Sprint 9: Tests Negativos — Campos Obligatorios Faltantes (Semana 1-2)
 
-- [ ] **T-044** Tests de campos obligatorios faltantes en Factura (XSD v2.1.0)
+- [x] **T-044** Tests de campos obligatorios faltantes en Factura (XSD v2.1.0)
   - Crear clase `InvoiceXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` y verificar que XSD falla:
     `ambiente`, `tipoEmision`, `razonSocial`, `ruc`, `claveAcceso`, `codDoc`, `estab`, `ptoEmi`, `secuencial`, `dirMatriz`

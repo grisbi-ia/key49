@@ -21,13 +21,11 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests unitarios para DebitNoteXmlBuilder.
  */
-
 class DebitNoteXmlBuilderTest {
 
     private static final DateTimeFormatter SRI_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // ── Helpers ──
-
     private Document parseXml(String xml) throws Exception {
         var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         var builder = factory.newDocumentBuilder();
@@ -45,7 +43,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de estructura general ──
-
     @Nested
     @DisplayName("Estructura general del XML de nota de débito")
     class GeneralStructure {
@@ -112,7 +109,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de infoTributaria ──
-
     @Nested
     @DisplayName("infoTributaria")
     class InfoTributaria {
@@ -152,7 +148,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de infoNotaDebito ──
-
     @Nested
     @DisplayName("infoNotaDebito")
     class InfoNotaDebito {
@@ -264,7 +259,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de motivos ──
-
     @Nested
     @DisplayName("Motivos")
     class Motivos {
@@ -309,7 +303,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de infoAdicional ──
-
     @Nested
     @DisplayName("Información adicional")
     class InfoAdicional {
@@ -329,7 +322,6 @@ class DebitNoteXmlBuilderTest {
     }
 
     // ── Tests de validación XSD ──
-
     @Nested
     @DisplayName("Validación contra XSD nota de débito v1.0.0")
     class XsdValidation {

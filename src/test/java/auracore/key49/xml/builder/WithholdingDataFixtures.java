@@ -2,14 +2,12 @@ package auracore.key49.xml.builder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Fixtures de datos para tests de comprobantes de retención.
  */
-
 final class WithholdingDataFixtures {
 
     private WithholdingDataFixtures() {

@@ -26,13 +26,11 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests unitarios para CreditNoteXmlBuilder.
  */
-
 class CreditNoteXmlBuilderTest {
 
     private static final DateTimeFormatter SRI_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     // ── Helpers ──
-
     private Document parseXml(String xml) throws Exception {
         var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         var builder = factory.newDocumentBuilder();
@@ -50,7 +48,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de estructura general ──
-
     @Nested
     @DisplayName("Estructura general del XML de nota de crédito")
     class GeneralStructure {
@@ -117,7 +114,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de infoTributaria ──
-
     @Nested
     @DisplayName("infoTributaria")
     class InfoTributaria {
@@ -157,7 +153,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de infoNotaCredito ──
-
     @Nested
     @DisplayName("infoNotaCredito")
     class InfoNotaCredito {
@@ -256,7 +251,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de detalles ──
-
     @Nested
     @DisplayName("Detalles de ítems")
     class Detalles {
@@ -308,7 +302,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de infoAdicional ──
-
     @Nested
     @DisplayName("Información adicional")
     class InfoAdicional {
@@ -328,7 +321,6 @@ class CreditNoteXmlBuilderTest {
     }
 
     // ── Tests de validación XSD ──
-
     @Nested
     @DisplayName("Validación contra XSD nota de crédito v1.1.0")
     class XsdValidation {

@@ -5,6 +5,16 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.5] - 2026-04-08
+
+### Agregado
+
+- Tests negativos de campos obligatorios faltantes en factura XSD v2.1.0 (T-044): clase `InvoiceXsdMandatoryFieldsTest` con 26 tests parametrizados que verifican que el XSD rechaza el XML cuando falta un campo obligatorio en `infoTributaria`, `infoFactura` o `detalles`
+
+### Corregido
+
+- Método duplicado `paymentsIncluded()` en `WithholdingXmlBuilderTest.Pagos` renombrado a `paymentsIncludedInMinimal()`
+
 ## [0.16.4] - 2026-04-08
 
 ### Agregado

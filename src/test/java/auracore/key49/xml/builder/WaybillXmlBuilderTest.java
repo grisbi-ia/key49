@@ -1,5 +1,18 @@
 package auracore.key49.xml.builder;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.time.format.DateTimeFormatter;
+
+import javax.xml.XMLConstants;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -8,15 +21,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-
-import javax.xml.XMLConstants;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.SchemaFactory;
-import java.io.IOException;
-import java.io.StringReader;
-import java.time.format.DateTimeFormatter;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class WaybillXmlBuilderTest {
 
@@ -415,7 +419,6 @@ class WaybillXmlBuilderTest {
     }
 
     // ── Tests de validación XSD ──
-
     @Nested
     @DisplayName("Validación contra XSD guía de remisión v1.1.0")
     class XsdValidation {
