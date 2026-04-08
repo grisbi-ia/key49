@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.6] - 2026-04-08
+
+### Agregado
+
+- Tests negativos de campos obligatorios faltantes en nota de crédito XSD v1.1.0 (T-045): clase `CreditNoteXsdMandatoryFieldsTest` con 28 tests parametrizados para `infoTributaria`, `infoNotaCredito` y `detalles`
+
 ## [0.16.5] - 2026-04-08
 
 ### Agregado

@@ -353,7 +353,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
   - Test: detalle sin campos obligatorios (`descripcion`, `cantidad`, `precioUnitario`, `descuento`, `precioTotalSinImpuesto`, `impuestos`) falla XSD
   - Usar helper que genere XML válido y luego remueva un nodo específico con DOM API
 
-- [ ] **T-045** Tests de campos obligatorios faltantes en Nota de Crédito (XSD v1.1.0)
+- [x] **T-045** Tests de campos obligatorios faltantes en Nota de Crédito (XSD v1.1.0)
   - Crear clase `CreditNoteXsdMandatoryFieldsTest` en `auracore.key49.xml.validation`
   - Tests parametrizados: remover cada campo obligatorio de `infoTributaria` → falla XSD
   - Tests parametrizados: remover cada campo obligatorio de `infoNotaCredito` → falla XSD:
