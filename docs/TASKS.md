@@ -421,7 +421,7 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
     - Test: nodo principal ausente → falla con mensaje descriptivo
   - Actualmente estos tests solo existen para `INVOICE`
 
-- [ ] **T-052** Helper reutilizable para manipulación de XML en tests
+- [x] **T-052** Helper reutilizable para manipulación de XML en tests ✅ `v0.16.13`
   - Crear clase `XmlTestHelper` en `auracore.key49.xml.validation` (package test)
   - Método `removeElement(String xml, String parentTag, String childTag)` → remueve un nodo hijo del XML usando DOM API
   - Método `replaceElementValue(String xml, String tagName, String newValue)` → reemplaza el texto de un nodo

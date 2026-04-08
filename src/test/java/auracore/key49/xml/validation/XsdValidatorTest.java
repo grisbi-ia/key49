@@ -12,8 +12,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import auracore.key49.core.model.enums.DocumentType;
-import auracore.key49.xml.builder.InvoiceData;
-import auracore.key49.xml.builder.InvoiceXmlBuilder;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -43,67 +41,6 @@ class XsdValidatorTest {
         }
     }
 
-    /**
-     * Genera un XML de factura válido usando InvoiceXmlBuilder.
-     */
-    private String buildValidInvoiceXml() {
-        var today = java.time.LocalDate.now(auracore.key49.core.Key49Constants.EC_ZONE);
-        var taxpayer = new InvoiceData.TaxpayerInfo(
-                "1", "1",
-                "EMPRESA DEMO S.A.", "DEMO",
-                "1790012345001",
-                "Quito, Av. Principal 123",
-                "Sucursal Norte", true, null, null,
-                "CONTRIBUYENTE RÉGIMEN RIMPE"
-        );
-        var recipient = new InvoiceData.Recipient(
-                "04", "1790567890001",
-                "CLIENTE PRUEBA CIA. LTDA.",
-                "Guayaquil, Av. 9 de Octubre 456"
-        );
-        var tax = new InvoiceData.Tax("2", "4",
-                new java.math.BigDecimal("15.00"),
-                new java.math.BigDecimal("50.00"),
-                new java.math.BigDecimal("7.50"));
-        var item = new InvoiceData.Item(
-                "PROD-001", null,
-                "Servicio de hosting mensual", "UNIDAD",
-                java.math.BigDecimal.ONE,
-                new java.math.BigDecimal("50.00"),
-                java.math.BigDecimal.ZERO,
-                new java.math.BigDecimal("50.00"),
-                java.util.List.of(tax)
-        );
-        var totalTax = new InvoiceData.TotalTax("2", "4", null,
-                new java.math.BigDecimal("50.00"),
-                new java.math.BigDecimal("15.00"),
-                new java.math.BigDecimal("7.50"));
-        var payment = new InvoiceData.Payment("20",
-                new java.math.BigDecimal("57.50"), 0, "dias");
-
-        return InvoiceXmlBuilder.build(new InvoiceData(
-                taxpayer,
-                "0404202601179001234500110010010000000421234567817",
-                "001", "001", "000000042",
-                today,
-                recipient,
-                java.util.List.of(item),
-                java.util.List.of(totalTax),
-                java.util.List.of(payment),
-                new java.math.BigDecimal("50.00"),
-                java.math.BigDecimal.ZERO,
-                java.math.BigDecimal.ZERO,
-                new java.math.BigDecimal("57.50"),
-                "DOLAR",
-                new java.util.LinkedHashMap<>() {
-            {
-                put("Dirección", "Guayaquil");
-                put("Email", "test@example.com");
-            }
-        }
-        ));
-    }
-
     // ── Tests de XML válido ──
     @Nested
     @DisplayName("XML válido")
@@ -112,7 +49,7 @@ class XsdValidatorTest {
         @Test
         @DisplayName("Factura generada por InvoiceXmlBuilder pasa validación XSD")
         void invoiceFromBuilderIsValid() {
-            var xml = buildValidInvoiceXml();
+            var xml = XmlTestHelper.buildValidXml(DocumentType.INVOICE);
 
             var result = XsdValidator.validate(xml, DocumentType.INVOICE);
 
@@ -419,7 +356,7 @@ class XsdValidatorTest {
         @Test
         @DisplayName("Validar dos veces el mismo tipo usa cache (no lanza excepción)")
         void secondValidationUsesCache() {
-            var xml = buildValidInvoiceXml();
+            var xml = XmlTestHelper.buildValidXml(DocumentType.INVOICE);
 
             var result1 = XsdValidator.validate(xml, DocumentType.INVOICE);
             var result2 = XsdValidator.validate(xml, DocumentType.INVOICE);
@@ -431,7 +368,7 @@ class XsdValidatorTest {
         @Test
         @DisplayName("clearSchemaCache() permite recarga del schema")
         void clearCacheAllowsReload() {
-            var xml = buildValidInvoiceXml();
+            var xml = XmlTestHelper.buildValidXml(DocumentType.INVOICE);
 
             var result1 = XsdValidator.validate(xml, DocumentType.INVOICE);
             XsdValidator.clearSchemaCache();
@@ -550,7 +487,7 @@ class XsdValidatorTest {
         @Test
         @DisplayName("XML de factura no pasa como nota de crédito")
         void invoiceXmlDoesNotValidateAsCreditNote() {
-            var xml = buildValidInvoiceXml();
+            var xml = XmlTestHelper.buildValidXml(DocumentType.INVOICE);
 
             var result = XsdValidator.validate(xml, DocumentType.CREDIT_NOTE);
 

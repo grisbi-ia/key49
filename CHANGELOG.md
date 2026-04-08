@@ -5,6 +5,12 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.13] - 2026-04-08
+
+### Cambiado
+
+- Extraída clase `XmlTestHelper` reutilizable para manipulación de XML en tests de validación XSD (T-052): centraliza `parseXml`, `serialize`, `removeElement`, `replaceElementValue`, `validateAgainstXsd`, `assertXsdFails` y `buildValidXml` (6 tipos de comprobante). Refactorizadas las 8 clases de test consumidoras eliminando ~1400 líneas de código duplicado
+
 ## [0.16.12] - 2026-04-08
 
 ### Agregado
