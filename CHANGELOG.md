@@ -5,6 +5,41 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.16.0] - 2026-04-08
+
+### Cambiado
+
+- **Refactorización mayor**: consolidación de 10 módulos Maven (key49-api, key49-core, key49-xml, key49-signer, key49-sri, key49-queue, key49-ride, key49-notify, key49-storage, key49-admin) en un solo módulo raíz
+  - Todo el código fuente migrado a `src/main/java/` y `src/test/java/` bajo el paquete `auracore.key49.*`
+  - Eliminados los 10 subdirectorios de módulos y sus POMs individuales
+  - POM raíz convertido de parent multi-módulo a proyecto único con todas las dependencias
+- **Migración de Hibernate Reactive a Hibernate ORM clásico (imperativo)**
+  - Reemplazado `quarkus-hibernate-reactive-panache` + `quarkus-reactive-pg-client` por `quarkus-hibernate-orm-panache` + `quarkus-jdbc-postgresql`
+  - Eliminadas todas las cadenas `Uni<T>` / `Uni.createFrom()` / `.chain()` / `.onItem()` — ahora código imperativo directo
+  - `TenantConnectionManager`: `withTenantSession()` y `withTenantTransaction()` ahora usan `EntityManager` + `@Transactional` con `SET search_path` vía native query
+  - Consumers RabbitMQ mantienen `@Blocking` (virtual threads)
+  - Repositorios Panache ahora extienden `PanacheRepositoryBase` imperativo
+- Campos JSONB en entidades: migrados de `@Type(JsonBinaryType.class)` a `@JdbcTypeCode(SqlTypes.JSON)`
+
+### Agregado
+
+- `quarkus-junit5-mockito` como dependencia de test para soporte de `@InjectMock`
+- 7 nuevos tests de integración para el pipeline async (35 test methods):
+  - `SignConsumerIntegrationTest` — firma XAdES-BES, clave acceso, outbox
+  - `SendConsumerIntegrationTest` — SOAP recepción: éxito, negocio, infra, reintentos
+  - `AuthorizeConsumerIntegrationTest` — SOAP autorización: éxito, negocio, infra, reintentos
+  - `NotifyConsumerIntegrationTest` — webhook dispatch, transición NOTIFIED
+  - `DlqConsumerIntegrationTest` — DLQ: RETRY→FAILED, estados terminales
+  - `ConsumerErrorHandlerIntegrationTest` — persistencia de errores, transición FAILED
+  - `OutboxPollerIntegrationTest` — polling, publicación, marking published
+- `TestSchemaHelper` — helper compartido con DDL para tests de integración de consumers
+- Tareas T-040 a T-052 en TASKS.md — Fase 5: cobertura de tests XML/XSD
+
+### Corregido
+
+- Todas las entidades, repositorios, servicios, recursos, filtros y consumers convertidos de reactive a imperativo
+- 1376 tests pasan (0 fallos, 0 errores) tras la migración completa
+
 ## [0.15.1] - 2026-04-08
 
 ### Corregido
