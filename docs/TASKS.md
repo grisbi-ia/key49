@@ -295,6 +295,81 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - InvoiceXmlBuilder null-safe BigDecimal
   - ConsumerErrorHandler: persistencia de errores en BD
 
+- [x] **T-037e** Corregir firma XAdES-BES para SRI ✓ `v0.17.0`
+  - Error [39] FIRMA INVALIDA: la firma generada no cumplía el estándar XAdES-BES del SRI
+  - `setDefaultNamespacePrefix("ds")` — sin esto la canonicalización rompe la firma
+  - IDs numéricos aleatorios (formato `Signature774366`) en lugar de UUID
+  - Solo certificado firmante en X509Data (no toda la cadena)
+  - Id en SignedInfo y Reference de SignedProperties
+  - `Element.setIdAttributeNS()` para registro de Ids en el DOM
+  - `"contenido comprobante"` en descripción del DataObjectFormat
+  - Verificado: factura autorizada exitosamente por SRI en ambiente de pruebas
+
+- [x] **T-037f** Corregir InvoiceDataMapper para SRI ✓ `v0.17.0`
+  - Error [35] ARCHIVO NO CUMPLE ESTRUCTURA XML: campos de impuestos null por deserialización incorrecta
+  - Reescrito con records `RawPayload`/`RawItem`/`RawTax`/`RawPayment` que coinciden con el JSON de `CreateInvoiceRequest`
+  - Cálculo de campos derivados: `subtotalBeforeTax`, `taxableBase`, `amount`, `totalTaxes`
+  - Verificado: factura pasa validación XSD y es aceptada por el SRI
+
+---
+
+## Fase 6: Correcciones de Mappers por Tipo de Documento (pruebas live)
+
+Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON del request_payload en records cuyos campos no coinciden con los nombres reales del DTO, resultando en valores null en el XML generado. Misma causa raíz que la corregida en `InvoiceDataMapper` (T-037f).
+
+- [ ] **T-053** Corregir CreditNoteDataMapper (queue/mapper)
+  - **Bug**: `PayloadTax` tiene campos `taxableBase` y `amount` que no existen en `CreateCreditNoteRequest.TaxRequest` → siempre null
+  - Reescribir siguiendo patrón de InvoiceDataMapper: records `RawPayload`/`RawItem`/`RawTax` con campos que coinciden con el DTO (`code`, `rateCode`, `rate`)
+  - Calcular `subtotalBeforeTax = qty * unitPrice - discount` por ítem
+  - Calcular `taxableBase` y `amount` (taxableBase × rate / 100) por impuesto
+  - Agregar `totalTaxes` sumando por código+porcentaje
+  - Validar con XML firmado de referencia de nota de crédito real
+
+- [ ] **T-054** Corregir PurchaseClearanceDataMapper (queue/mapper)
+  - **Bug crítico**: deserializa directamente en records de `PurchaseClearanceData.*` (no usa records intermedios)
+  - `Tax.taxCode` espera `"tax_code"` pero el DTO envía `"code"` → null
+  - `subtotalBeforeTax`, `taxableBase`, `amount`, `totalTaxes` todos null (cero cálculo)
+  - Reescritura completa siguiendo patrón de InvoiceDataMapper
+  - Crear records `RawPayload`/`RawItem`/`RawTax`/`RawPayment` que coinciden con `CreatePurchaseClearanceRequest`
+  - Calcular todos los campos derivados
+  - Validar con XML firmado de referencia
+
+- [ ] **T-055** Revisar WaybillDataMapper (queue/mapper)
+  - **Bug menor**: `PayloadCarrier.rise` no existe en `CreateWaybillRequest.CarrierRequest` (tiene `email`, `phone`)
+  - Corregir campo `rise` — verificar si el XML del SRI lo requiere y de dónde obtenerlo
+  - Validar con XML firmado de referencia de guía de remisión real
+
+- [ ] **T-056** Validación live de DebitNoteDataMapper
+  - Mapper correcto (campos coinciden, calcula impuestos)
+  - Validar enviando nota de débito real al SRI de pruebas
+
+- [ ] **T-057** Validación live de WithholdingDataMapper
+  - Mapper correcto (estructura diferente: el cliente provee todos los valores de impuestos)
+  - Validar enviando retención real al SRI de pruebas
+
+---
+
+- [ ] **T-037b** Integrar generación de RIDE en NotifyConsumer (queue, ride)
+  - Crear `RideDataMapper`: convierte `Document + Tenant + requestPayload` → `RideData` (y variantes por tipo de documento)
+  - Invocar el generador RIDE correcto según `DocumentType` (factura, nota de crédito, etc.)
+  - Guardar `byte[] ridePdf` para uso posterior (email, storage)
+  - Manejar fallo de RIDE como no-bloqueante (no impide transición a NOTIFIED)
+  - Test: verificar que NotifyConsumer genera RIDE para documento autorizado
+
+- [ ] **T-037c** Integrar almacenamiento MinIO en NotifyConsumer (queue, storage)
+  - Almacenar XML autorizado (`DocumentArtifact.AUTHORIZED_XML`) y RIDE (`DocumentArtifact.RIDE`) en MinIO
+  - Actualizar `doc.authorizedXmlPath` y `doc.ridePath` con rutas retornadas por `ObjectStorageService`
+  - Obtener `tenantId` del tenant para construir la ruta de storage
+  - Manejar fallo de storage como no-bloqueante
+  - Test: verificar que paths se guardan correctamente en el documento
+
+- [ ] **T-037d** Integrar envío de email en NotifyConsumer (queue, notify)
+  - Construir `EmailData` desde `Document + Tenant + ridePdf + authorizedXml`
+  - Invocar `EmailService.sendDocumentDelivery()`
+  - Actualizar `doc.emailSentAt`, `doc.emailStatus` ("SENT" o "FAILED")
+  - Registrar `doc.emailError` si falla (no bloquea transición a NOTIFIED)
+  - Test: verificar que email se invoca con datos correctos y campos se actualizan
+
 - [ ] **T-038** Grafana dashboards
   - Documentos por estado (gauge)
   - Throughput (rate)

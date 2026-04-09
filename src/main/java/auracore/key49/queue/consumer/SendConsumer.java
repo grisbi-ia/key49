@@ -25,6 +25,7 @@ import auracore.key49.sri.model.SriReceptionResponse;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 
 /**
@@ -55,6 +56,7 @@ public class SendConsumer {
 
     @Incoming("doc-send-in")
     @Blocking
+    @ActivateRequestContext
     public void process(JsonObject json) {
         var event = DocumentEvent.fromJson(json);
         log.infof("SendConsumer: processing documentId=%s, tenant=%s",
@@ -223,5 +225,6 @@ public class SendConsumer {
     }
 
     record SendInput(UUID id, String signedXml, DocumentStatus status) {
+
     }
 }

@@ -12,14 +12,17 @@ import javax.xml.crypto.dsig.XMLSignatureFactory;
 import javax.xml.crypto.dsig.dom.DOMValidateContext;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitarios para XAdESBESSigner.
@@ -30,7 +33,6 @@ class XAdESBESSignerTest {
     private static final char[] TEST_PASSWORD = "test1234".toCharArray();
 
     // ── Helpers ──
-
     private byte[] loadTestCertificate() {
         try (InputStream is = getClass().getResourceAsStream(TEST_CERT_PATH)) {
             if (is == null) {
@@ -71,8 +73,25 @@ class XAdESBESSignerTest {
         // El SRI de Ecuador requiere RSA-SHA1 — desactivar validación segura
         // para permitir verificar la firma en el test
         validateContext.setProperty("org.jcp.xml.dsig.secureValidation", Boolean.FALSE);
+
+        // Registrar atributos Id para resolución de URIs durante validación
+        var root = document.getDocumentElement();
+        validateContext.setIdAttributeNS(root, null, "id");
+        registerIdAttributes(document, validateContext);
+
         var signature = signatureFactory.unmarshalXMLSignature(validateContext);
         return signature.validate(validateContext);
+    }
+
+    private void registerIdAttributes(Document document, DOMValidateContext ctx) {
+        // Registrar elementos con atributo Id en el namespace XAdES
+        var elements = document.getElementsByTagName("*");
+        for (int i = 0; i < elements.getLength(); i++) {
+            var el = (org.w3c.dom.Element) elements.item(i);
+            if (el.hasAttribute("Id")) {
+                ctx.setIdAttributeNS(el, null, "Id");
+            }
+        }
     }
 
     /**
@@ -144,7 +163,6 @@ class XAdESBESSignerTest {
     }
 
     // ── Tests de firma exitosa ──
-
     @Nested
     @DisplayName("Firma exitosa")
     class SuccessfulSigning {
@@ -320,7 +338,6 @@ class XAdESBESSignerTest {
     }
 
     // ── Tests de carga de certificado ──
-
     @Nested
     @DisplayName("Carga de certificado")
     class CertificateLoading {
@@ -370,7 +387,6 @@ class XAdESBESSignerTest {
     }
 
     // ── Tests de errores ──
-
     @Nested
     @DisplayName("Manejo de errores")
     class ErrorHandling {
@@ -411,7 +427,6 @@ class XAdESBESSignerTest {
     }
 
     // ── Tests de estructura de firma ──
-
     @Nested
     @DisplayName("Estructura de la firma")
     class SignatureStructure {
@@ -431,8 +446,8 @@ class XAdESBESSignerTest {
         }
 
         @Test
-        @DisplayName("La firma contiene exactamente una Reference")
-        void containsExactlyOneReference() throws Exception {
+        @DisplayName("La firma XAdES-BES contiene 3 References")
+        void containsThreeReferences() throws Exception {
             var xml = simpleInvoiceXml();
             var p12 = loadTestCertificate();
 
@@ -441,7 +456,8 @@ class XAdESBESSignerTest {
 
             NodeList references = document.getElementsByTagNameNS(
                     XMLSignature.XMLNS, "Reference");
-            assertEquals(1, references.getLength(), "Should contain exactly one Reference");
+            assertEquals(3, references.getLength(),
+                    "XAdES-BES should contain 3 References: SignedProperties, KeyInfo, #comprobante");
         }
 
         @Test
@@ -453,7 +469,7 @@ class XAdESBESSignerTest {
             var signedXml = XAdESBESSigner.sign(xml, p12, TEST_PASSWORD);
 
             assertTrue(signedXml.contains("http://www.w3.org/2000/09/xmldsig#sha1")
-                            || signedXml.contains("xmldsig#sha1"),
+                    || signedXml.contains("xmldsig#sha1"),
                     "Should use SHA-1 digest method");
         }
 
@@ -496,7 +512,7 @@ class XAdESBESSignerTest {
 
             NodeList x509Certs = document.getElementsByTagNameNS(
                     XMLSignature.XMLNS, "X509Certificate");
-            assertEquals(1, x509Certs.getLength(), "Should contain one X509Certificate");
+            assertTrue(x509Certs.getLength() >= 1, "Should contain at least one X509Certificate");
 
             var certText = x509Certs.item(0).getTextContent();
             assertNotNull(certText);

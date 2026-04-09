@@ -5,6 +5,13 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.17.0] - 2026-04-08
+
+### Corregido
+
+- Firma XAdES-BES para SRI (T-037e): `setDefaultNamespacePrefix("ds")` para canonicalización correcta, IDs numéricos aleatorios, solo certificado firmante en X509Data, Id en SignedInfo/Reference, `Element.setIdAttributeNS()` para resolución de URIs, descripción "contenido comprobante". Factura autorizada exitosamente por SRI en ambiente de pruebas
+- InvoiceDataMapper (T-037f): reescrito con records `RawPayload`/`RawItem`/`RawTax`/`RawPayment` que coinciden con la estructura real del JSON de `CreateInvoiceRequest`. Cálculo de campos derivados (`subtotalBeforeTax`, `taxableBase`, `amount`, `totalTaxes`). Resuelve error [35] ARCHIVO NO CUMPLE ESTRUCTURA XML
+
 ## [0.16.13] - 2026-04-08
 
 ### Cambiado

@@ -14,6 +14,7 @@ import auracore.key49.queue.event.DocumentEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
@@ -41,6 +42,7 @@ public class NotifyConsumer {
 
     @Incoming("doc-notify-in")
     @Blocking
+    @ActivateRequestContext
     public void process(JsonObject json) {
         var event = DocumentEvent.fromJson(json);
         log.infof("NotifyConsumer: processing documentId=%s, tenant=%s",
@@ -65,12 +67,29 @@ public class NotifyConsumer {
                     return null;
                 }
 
-                // TODO: T-015 — Generate RIDE (PDF)
-                // TODO: T-016 — Store authorized XML and RIDE in MinIO
-                // TODO: T-017 — Send email to recipient
+                // Paso 1: Generar RIDE (PDF) — independiente, no bloquea transición
+                try {
+                    // TODO: T-015 — Generate RIDE (PDF)
+                    // TODO: T-016 — Store authorized XML and RIDE in MinIO
+                } catch (Exception rideEx) {
+                    log.warnf(rideEx, "NotifyConsumer: RIDE generation failed for document %s (non-blocking)",
+                            doc.id);
+                }
 
+                // Paso 2: Enviar email — independiente, no bloquea transición
+                try {
+                    // TODO: T-017 — Send email to recipient
+                } catch (Exception emailEx) {
+                    doc.emailStatus = "FAILED";
+                    doc.emailError = truncate(emailEx.getMessage(), 500);
+                    log.warnf(emailEx, "NotifyConsumer: email failed for document %s (non-blocking)",
+                            doc.id);
+                }
+
+                // Paso 3: Despachar webhook — independiente, no bloquea transición
                 dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, doc, em);
 
+                // Siempre transiciona a NOTIFIED — fallos parciales se registran pero no bloquean
                 doc.transitionTo(DocumentStatus.NOTIFIED);
                 doc.updatedAt = Instant.now();
                 log.infof("NotifyConsumer: document %s marked as NOTIFIED", doc.id);
@@ -84,8 +103,8 @@ public class NotifyConsumer {
     }
 
     /**
-     * Despacha el webhook al tenant (operación bloqueante).
-     * Si el tenant no tiene webhook configurado, se omite sin error.
+     * Despacha el webhook al tenant (operación bloqueante). Si el tenant no
+     * tiene webhook configurado, se omite sin error.
      */
     private void dispatchWebhook(String webhookUrl, String webhookSecret,
             Document doc, EntityManager em) {
@@ -108,9 +127,18 @@ public class NotifyConsumer {
 
     private String resolveEventType(Document doc) {
         return switch (doc.status) {
-            case AUTHORIZED -> "document.authorized";
-            case REJECTED -> "document.rejected";
-            default -> "document." + doc.status.name().toLowerCase();
+            case AUTHORIZED ->
+                "document.authorized";
+            case REJECTED ->
+                "document.rejected";
+            default ->
+                "document." + doc.status.name().toLowerCase();
         };
+    }
+
+    private static String truncate(String value, int maxLength) {
+        return value != null && value.length() > maxLength
+                ? value.substring(0, maxLength)
+                : value;
     }
 }

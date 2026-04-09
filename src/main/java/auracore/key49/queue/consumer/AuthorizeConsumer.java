@@ -25,6 +25,7 @@ import auracore.key49.sri.model.SriMessage;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 
 /**
@@ -55,6 +56,7 @@ public class AuthorizeConsumer {
 
     @Incoming("doc-authorize-in")
     @Blocking
+    @ActivateRequestContext
     public void process(JsonObject json) {
         var event = DocumentEvent.fromJson(json);
         log.infof("AuthorizeConsumer: processing documentId=%s, tenant=%s",
@@ -195,5 +197,6 @@ public class AuthorizeConsumer {
     }
 
     record AuthInput(UUID id, String accessKey, DocumentStatus status) {
+
     }
 }

@@ -35,6 +35,7 @@ import auracore.key49.xml.builder.WithholdingXmlBuilder;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
@@ -81,6 +82,7 @@ public class SignConsumer {
 
     @Incoming("doc-sign-in")
     @Blocking
+    @ActivateRequestContext
     public void process(JsonObject json) {
         var event = DocumentEvent.fromJson(json);
         log.infof("SignConsumer: processing documentId=%s, tenant=%s",
@@ -127,9 +129,10 @@ public class SignConsumer {
             var masterKey = CertificateEncryptor.decodeMasterKey(
                     masterKeyBase64.orElseThrow(()
                             -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
+            var p12Bytes = CertificateEncryptor.decrypt(tenant.certificateP12, masterKey);
             var password = CertificateEncryptor.decryptPassword(
                     tenant.certificatePasswordEnc, masterKey);
-            var signedXml = XAdESBESSigner.sign(unsignedXml, tenant.certificateP12, password);
+            var signedXml = XAdESBESSigner.sign(unsignedXml, p12Bytes, password);
 
             doc.transitionTo(DocumentStatus.SIGNED);
             doc.accessKey = accessKey;

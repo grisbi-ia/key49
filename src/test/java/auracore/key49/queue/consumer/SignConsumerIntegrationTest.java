@@ -32,10 +32,11 @@ import jakarta.inject.Inject;
 /**
  * Test de integración para SignConsumer.
  *
- * <p>Valida que el consumidor firma documentos correctamente:
- * genera XML, clave de acceso, firma XAdES-BES, y transiciona estado
- * CREATED → SIGNED. También verifica manejo de errores (documento no existente,
- * estado inválido, tenant sin certificado).</p>
+ * <p>
+ * Valida que el consumidor firma documentos correctamente: genera XML, clave de
+ * acceso, firma XAdES-BES, y transiciona estado CREATED → SIGNED. También
+ * verifica manejo de errores (documento no existente, estado inválido, tenant
+ * sin certificado).</p>
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -71,6 +72,7 @@ class SignConsumerIntegrationTest {
         }
         var masterKey = CertificateEncryptor.generateMasterKey();
         var masterKeyBase64 = java.util.Base64.getEncoder().encodeToString(masterKey);
+        var encCertP12 = CertificateEncryptor.encrypt(certP12, masterKey);
         var encPassword = CertificateEncryptor.encryptPassword("test1234".toCharArray(), masterKey);
 
         // Configurar master key como system property para que el consumer la lea
@@ -91,7 +93,7 @@ class SignConsumerIntegrationTest {
                 ps.setString(4, "Sign Test");
                 ps.setString(5, "Quito");
                 ps.setString(6, TENANT_SCHEMA);
-                ps.setBytes(7, certP12);
+                ps.setBytes(7, encCertP12);
                 ps.setBytes(8, encPassword);
                 ps.executeUpdate();
             }
@@ -123,10 +125,9 @@ class SignConsumerIntegrationTest {
         signConsumer.process(json);
 
         // Verificar que el documento ahora está SIGNED
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT status, access_key, original_xml FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT status, access_key, original_xml FROM %s.documents WHERE document_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docIdForSign.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "Documento debe existir");
@@ -135,16 +136,15 @@ class SignConsumerIntegrationTest {
                 assertEquals(49, rs.getString("access_key").length(), "Clave de acceso: 49 dígitos");
                 assertNotNull(rs.getString("original_xml"), "Debe tener XML firmado");
                 assertTrue(rs.getString("original_xml").contains("ds:Signature")
-                                || rs.getString("original_xml").contains("Signature"),
+                        || rs.getString("original_xml").contains("Signature"),
                         "XML debe contener firma XAdES");
             }
         }
 
         // Verificar que se creó un evento outbox para enviar al SRI
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT event_type, published FROM %s.outbox WHERE aggregate_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT event_type, published FROM %s.outbox WHERE aggregate_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docIdForSign.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "Debe existir evento outbox");
@@ -163,10 +163,9 @@ class SignConsumerIntegrationTest {
         signConsumer.process(json);
 
         // El documento debe mantener estado SIGNED (no re-procesar)
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docIdAlreadySigned.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next());
@@ -198,7 +197,6 @@ class SignConsumerIntegrationTest {
     }
 
     // ── Helpers ──
-
     private JsonObject toJson(DocumentEvent event) {
         return new JsonObject()
                 .put("document_id", event.documentId().toString())
@@ -209,7 +207,7 @@ class SignConsumerIntegrationTest {
     }
 
     private void insertDocument(java.sql.Connection conn, UUID docId, String status,
-                                String seqNum, String payload) throws SQLException {
+            String seqNum, String payload) throws SQLException {
         try (var ps = conn.prepareStatement("""
                 INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
                     sequence_number, recipient_id_type, recipient_id, recipient_name, recipient_email,
@@ -239,13 +237,13 @@ class SignConsumerIntegrationTest {
                             "discount", "0.00",
                             "taxes", List.of(Map.of(
                                     "code", "2",
-                                    "percentage_code", "4",
+                                    "rate_code", "4",
                                     "rate", "15"
                             ))
                     )),
                     "payments", List.of(Map.of(
-                            "method", "20",
-                            "amount", "57.50",
+                            "payment_method", "20",
+                            "total", "57.50",
                             "term", 0,
                             "time_unit", "days"
                     ))

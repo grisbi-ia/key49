@@ -16,15 +16,27 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import auracore.key49.core.Key49Constants;
+import auracore.key49.core.model.Document;
+import auracore.key49.core.model.WebhookDelivery;
+import auracore.key49.notify.webhook.WebhookDispatcher;
+import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 
 /**
  * Test de integración para ConsumerErrorHandler.
  *
- * <p>Verifica que errores inesperados de los consumers se persisten correctamente
+ * <p>
+ * Verifica que errores inesperados de los consumers se persisten correctamente
  * en la tabla documents y que se transiciona a FAILED si el documento no está
  * en estado terminal.</p>
  */
@@ -42,6 +54,9 @@ class ConsumerErrorHandlerIntegrationTest {
     @Inject
     DataSource dataSource;
 
+    @InjectMock
+    WebhookDispatcher webhookDispatcher;
+
     private UUID tenantId;
     private UUID docIdSigned;
     private UUID docIdAlreadyFailed;
@@ -55,8 +70,10 @@ class ConsumerErrorHandlerIntegrationTest {
             try (var ps = conn.prepareStatement("""
                     INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                         required_accounting, micro_enterprise_regime, environment,
-                        emission_type, rate_limit_rpm, status, created_at, updated_at)
-                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 'active', now(), now())
+                        emission_type, rate_limit_rpm, status, webhook_url, webhook_secret,
+                        created_at, updated_at)
+                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 'active',
+                        'https://example.com/webhook', 'secret123', now(), now())
                     """)) {
                 ps.setObject(1, tenantId.toString());
                 ps.setString(2, TENANT_RUC);
@@ -71,6 +88,7 @@ class ConsumerErrorHandlerIntegrationTest {
                 stmt.execute("CREATE SCHEMA IF NOT EXISTS " + TENANT_SCHEMA);
                 stmt.execute(TestSchemaHelper.documentsTableSql(TENANT_SCHEMA));
                 stmt.execute(TestSchemaHelper.outboxTableSql(TENANT_SCHEMA));
+                stmt.execute(TestSchemaHelper.webhookDeliveriesTableSql(TENANT_SCHEMA));
             }
 
             // Documento en CREATED (no terminal, CREATED → FAILED es transición válida)
@@ -143,10 +161,51 @@ class ConsumerErrorHandlerIntegrationTest {
         errorHandler.persistError(UUID.randomUUID(), "tenant_inexistente", "TestConsumer", exception);
     }
 
-    // ── Helpers ──
+    @Test
+    @Order(6)
+    @DisplayName("despacha webhook document.failed al transicionar a FAILED")
+    void shouldDispatchWebhook_whenTransitioningToFailed() throws Exception {
+        var docIdForWebhook = UUID.randomUUID();
+        try (var conn = dataSource.getConnection()) {
+            insertDocument(conn, docIdForWebhook, "000000004", "CREATED");
+        }
 
+        var delivery = WebhookDelivery.create(docIdForWebhook, "document.failed",
+                "https://example.com/webhook", "{}");
+        delivery.markDelivered(200, "OK", 50);
+        when(webhookDispatcher.dispatch(anyString(), anyString(), any(Document.class), eq("document.failed")))
+                .thenReturn(delivery);
+
+        errorHandler.persistError(docIdForWebhook, TENANT_SCHEMA, "TestConsumer",
+                new RuntimeException("Test failure for webhook"));
+
+        assertDocumentStatus(docIdForWebhook, "FAILED");
+        verify(webhookDispatcher).dispatch(
+                eq("https://example.com/webhook"), eq("secret123"),
+                any(Document.class), eq("document.failed"));
+    }
+
+    @Test
+    @Order(7)
+    @DisplayName("no despacha webhook si documento ya está en estado terminal")
+    void shouldNotDispatchWebhook_whenAlreadyTerminal() throws Exception {
+        var docIdTerminal = UUID.randomUUID();
+        try (var conn = dataSource.getConnection()) {
+            insertDocument(conn, docIdTerminal, "000000005", "FAILED");
+        }
+
+        reset(webhookDispatcher);
+
+        errorHandler.persistError(docIdTerminal, TENANT_SCHEMA, "TestConsumer",
+                new RuntimeException("Error on terminal doc"));
+
+        verify(webhookDispatcher, never()).dispatch(anyString(), anyString(),
+                any(Document.class), anyString());
+    }
+
+    // ── Helpers ──
     private void insertDocument(java.sql.Connection conn, UUID docId,
-                                String seqNum, String status) throws SQLException {
+            String seqNum, String status) throws SQLException {
         try (var ps = conn.prepareStatement("""
                 INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
                     sequence_number, recipient_id_type, recipient_id, recipient_name,
@@ -166,10 +225,9 @@ class ConsumerErrorHandlerIntegrationTest {
     }
 
     private void assertDocumentStatus(UUID docId, String expectedStatus) throws SQLException {
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docId.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "Documento debe existir");
@@ -179,10 +237,9 @@ class ConsumerErrorHandlerIntegrationTest {
     }
 
     private void assertDocumentHasError(UUID docId, String expectedMessage) throws SQLException {
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT last_error_message FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT last_error_message FROM %s.documents WHERE document_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docId.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next());

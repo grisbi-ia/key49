@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import auracore.key49.core.model.Document;
@@ -27,6 +28,7 @@ class InvoiceDataMapperTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         mapper = new InvoiceDataMapper(objectMapper);
     }
 
@@ -117,37 +119,27 @@ class InvoiceDataMapperTest {
     }
 
     @Test
-    void shouldParseItemsFromRequestPayload() {
+    void shouldParseItemsAndComputeDerivedFields() {
         var doc = createTestDocument();
         doc.requestPayload = """
                 {
                   "items": [{
-                    "mainCode": "PROD001",
+                    "main_code": "PROD001",
                     "description": "Test Product",
                     "quantity": 2.0,
-                    "unitPrice": 10.00,
+                    "unit_price": 10.00,
                     "discount": 0.00,
-                    "subtotalBeforeTax": 20.00,
                     "taxes": [{
-                      "taxCode": "2",
-                      "rateCode": "2",
-                      "rate": 12.00,
-                      "taxableBase": 20.00,
-                      "amount": 2.40
+                      "code": "2",
+                      "rate_code": "4",
+                      "rate": 15.00
                     }]
                   }],
-                  "totalTaxes": [{
-                    "taxCode": "2",
-                    "rateCode": "2",
-                    "taxableBase": 20.00,
-                    "rate": 12.00,
-                    "amount": 2.40
-                  }],
                   "payments": [{
-                    "paymentMethod": "01",
-                    "total": 22.40
+                    "payment_method": "01",
+                    "total": 23.00
                   }],
-                  "additionalInfo": {
+                  "additional_info": {
                     "email": "test@example.com"
                   }
                 }
@@ -156,19 +148,78 @@ class InvoiceDataMapperTest {
         var result = mapper.build(doc, createTestTenant(),
                 "1234567890123456789012345678901234567890123456789");
 
+        // Items
         assertEquals(1, result.items().size());
-        assertEquals("PROD001", result.items().getFirst().mainCode());
-        assertEquals("Test Product", result.items().getFirst().description());
-        assertEquals(new BigDecimal("2.0"), result.items().getFirst().quantity());
-        assertEquals(1, result.items().getFirst().taxes().size());
+        var item = result.items().getFirst();
+        assertEquals("PROD001", item.mainCode());
+        assertEquals("Test Product", item.description());
+        assertEquals(new BigDecimal("2.0"), item.quantity());
+        assertEquals(new BigDecimal("20.00"), item.subtotalBeforeTax());
 
+        // Item taxes — computed from item subtotal
+        assertEquals(1, item.taxes().size());
+        var tax = item.taxes().getFirst();
+        assertEquals("2", tax.taxCode());
+        assertEquals("4", tax.rateCode());
+        assertEquals(new BigDecimal("20.00"), tax.taxableBase());
+        assertEquals(new BigDecimal("3.00"), tax.amount()); // 20 * 15% = 3.00
+
+        // TotalTaxes — aggregated from items
         assertEquals(1, result.totalTaxes().size());
-        assertEquals("2", result.totalTaxes().getFirst().taxCode());
+        var totalTax = result.totalTaxes().getFirst();
+        assertEquals("2", totalTax.taxCode());
+        assertEquals("4", totalTax.rateCode());
+        assertEquals(new BigDecimal("20.00"), totalTax.taxableBase());
+        assertEquals(new BigDecimal("3.00"), totalTax.amount());
 
+        // Payments
         assertEquals(1, result.payments().size());
         assertEquals("01", result.payments().getFirst().paymentMethod());
 
+        // Additional info
         assertEquals("test@example.com", result.additionalInfo().get("email"));
+    }
+
+    @Test
+    void shouldAggregateMultipleItemTaxes() {
+        var doc = createTestDocument();
+        doc.requestPayload = """
+                {
+                  "items": [
+                    {
+                      "description": "Item A",
+                      "quantity": 1,
+                      "unit_price": 100.00,
+                      "discount": 0.00,
+                      "taxes": [{ "code": "2", "rate_code": "4", "rate": 15.00 }]
+                    },
+                    {
+                      "description": "Item B",
+                      "quantity": 2,
+                      "unit_price": 50.00,
+                      "discount": 10.00,
+                      "taxes": [{ "code": "2", "rate_code": "4", "rate": 15.00 }]
+                    }
+                  ]
+                }
+                """;
+
+        var result = mapper.build(doc, createTestTenant(),
+                "1234567890123456789012345678901234567890123456789");
+
+        assertEquals(2, result.items().size());
+
+        // Item A: 1 * 100 - 0 = 100.00
+        assertEquals(new BigDecimal("100.00"), result.items().get(0).subtotalBeforeTax());
+        // Item B: 2 * 50 - 10 = 90.00
+        assertEquals(new BigDecimal("90.00"), result.items().get(1).subtotalBeforeTax());
+
+        // Aggregated total tax: base = 100 + 90 = 190, amount = 15 + 13.50 = 28.50
+        assertEquals(1, result.totalTaxes().size());
+        var totalTax = result.totalTaxes().getFirst();
+        assertEquals("2", totalTax.taxCode());
+        assertEquals(new BigDecimal("190.00"), totalTax.taxableBase());
+        assertEquals(new BigDecimal("28.50"), totalTax.amount());
     }
 
     @Test
@@ -204,14 +255,16 @@ class InvoiceDataMapperTest {
     void shouldHandlePartialRequestPayload() {
         var doc = createTestDocument();
         doc.requestPayload = """
-                { "items": [{ "description": "Minimal Item", "quantity": 1, "unitPrice": 5.00,
-                  "discount": 0, "subtotalBeforeTax": 5.00, "taxes": [] }] }
+                { "items": [{ "description": "Minimal Item", "quantity": 1, "unit_price": 5.00,
+                  "discount": 0, "taxes": [] }] }
                 """;
 
         var result = mapper.build(doc, createTestTenant(),
                 "1234567890123456789012345678901234567890123456789");
 
         assertEquals(1, result.items().size());
+        assertEquals(new BigDecimal("5.00"), result.items().getFirst().subtotalBeforeTax());
+        assertTrue(result.items().getFirst().taxes().isEmpty());
         assertTrue(result.payments().isEmpty());
         assertTrue(result.totalTaxes().isEmpty());
     }
@@ -221,8 +274,8 @@ class InvoiceDataMapperTest {
         var doc = createTestDocument();
         doc.requestPayload = "not valid json";
 
-        assertThrows(IllegalArgumentException.class, () ->
-                mapper.build(doc, createTestTenant(),
+        assertThrows(IllegalArgumentException.class, ()
+                -> mapper.build(doc, createTestTenant(),
                         "1234567890123456789012345678901234567890123456789"));
     }
 
