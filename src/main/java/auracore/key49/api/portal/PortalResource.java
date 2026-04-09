@@ -1,5 +1,17 @@
 package auracore.key49.api.portal;
 
+import java.net.URI;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.jboss.logging.Logger;
+
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -9,17 +21,20 @@ import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.*;
-import org.jboss.logging.Logger;
-
-import java.net.URI;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.UUID;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.Response;
 
 /**
  * Controlador del portal web de consulta de documentos.
@@ -154,8 +169,8 @@ public class PortalResource {
     public TemplateInstance documentDetail(@PathParam("id") UUID id) {
         var session = getSession();
 
-        var doc = tcm.withTenantSession(session.schemaName(), em ->
-                em.find(Document.class, id)
+        var doc = tcm.withTenantSession(session.schemaName(), em
+                -> em.find(Document.class, id)
         );
 
         if (doc == null) {
@@ -182,8 +197,8 @@ public class PortalResource {
     public String documentStatusBadge(@PathParam("id") UUID id) {
         var session = getSession();
 
-        var doc = tcm.withTenantSession(session.schemaName(), em ->
-                em.find(Document.class, id)
+        var doc = tcm.withTenantSession(session.schemaName(), em
+                -> em.find(Document.class, id)
         );
 
         if (doc == null) {
@@ -260,6 +275,7 @@ public class PortalResource {
                 .data("filterQ", q)
                 .data("statuses", DocumentStatus.values())
                 .data("documentTypes", DocumentType.values())
+                .data("docTypeLabels", docTypeLabelsMap())
                 .data("formatDate", DISPLAY_DATE)
                 .data("ecZone", Key49Constants.EC_ZONE);
     }
@@ -297,40 +313,67 @@ public class PortalResource {
         return new TimelineEntry(label, dateStr, completed, active);
     }
 
+    private static Map<String, String> docTypeLabelsMap() {
+        return Arrays.stream(DocumentType.values())
+                .collect(Collectors.toMap(DocumentType::sriCode, DocumentType::description));
+    }
+
     static String documentTypeLabel(String code) {
         return switch (code) {
-            case "01" -> "Factura";
-            case "03" -> "Liquidación de Compra";
-            case "04" -> "Nota de Crédito";
-            case "05" -> "Nota de Débito";
-            case "06" -> "Guía de Remisión";
-            case "07" -> "Retención";
-            default -> code;
+            case "01" ->
+                "Factura";
+            case "03" ->
+                "Liquidación de Compra";
+            case "04" ->
+                "Nota de Crédito";
+            case "05" ->
+                "Nota de Débito";
+            case "06" ->
+                "Guía de Remisión";
+            case "07" ->
+                "Retención";
+            default ->
+                code;
         };
     }
 
     static String statusLabel(DocumentStatus s) {
         return switch (s) {
-            case CREATED -> "Creado";
-            case SIGNED -> "Firmado";
-            case SENT -> "Enviado";
-            case RECEIVED -> "Recibido";
-            case AUTHORIZED -> "Autorizado";
-            case NOTIFIED -> "Notificado";
-            case REJECTED -> "Rechazado";
-            case FAILED -> "Fallido";
-            case RETRY -> "Reintentando";
-            case VOIDED -> "Anulado";
+            case CREATED ->
+                "Creado";
+            case SIGNED ->
+                "Firmado";
+            case SENT ->
+                "Enviado";
+            case RECEIVED ->
+                "Recibido";
+            case AUTHORIZED ->
+                "Autorizado";
+            case NOTIFIED ->
+                "Notificado";
+            case REJECTED ->
+                "Rechazado";
+            case FAILED ->
+                "Fallido";
+            case RETRY ->
+                "Reintentando";
+            case VOIDED ->
+                "Anulado";
         };
     }
 
     static String statusClass(DocumentStatus s) {
         return switch (s) {
-            case AUTHORIZED, NOTIFIED -> "status-ok";
-            case REJECTED, FAILED -> "status-error";
-            case VOIDED -> "status-void";
-            case RETRY -> "status-warn";
-            default -> "status-pending";
+            case AUTHORIZED, NOTIFIED ->
+                "status-ok";
+            case REJECTED, FAILED ->
+                "status-error";
+            case VOIDED ->
+                "status-void";
+            case RETRY ->
+                "status-warn";
+            default ->
+                "status-pending";
         };
     }
 }

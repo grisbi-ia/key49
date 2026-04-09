@@ -19,7 +19,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 
-
 class CreditNoteDataMapperTest {
 
     private CreditNoteDataMapper mapper;
@@ -158,9 +157,7 @@ class CreditNoteDataMapperTest {
                         "taxes": [{
                             "code": "2",
                             "rate_code": "4",
-                            "rate": 15.00,
-                            "taxable_base": 100.00,
-                            "amount": 15.00
+                            "rate": 15.00
                         }]
                     }]
                 }
@@ -200,9 +197,7 @@ class CreditNoteDataMapperTest {
                         "taxes": [{
                             "code": "2",
                             "rate_code": "4",
-                            "rate": 15.00,
-                            "taxable_base": 100.00,
-                            "amount": 15.00
+                            "rate": 15.00
                         }]
                     }, {
                         "internal_code": "PROD-002",
@@ -213,9 +208,7 @@ class CreditNoteDataMapperTest {
                         "taxes": [{
                             "code": "2",
                             "rate_code": "4",
-                            "rate": 15.00,
-                            "taxable_base": 50.00,
-                            "amount": 7.50
+                            "rate": 15.00
                         }]
                     }]
                 }
@@ -252,8 +245,8 @@ class CreditNoteDataMapperTest {
         var doc = createTestDocument();
         doc.requestPayload = "not valid json";
 
-        assertThrows(IllegalArgumentException.class, () ->
-                mapper.build(doc, createTestTenant(),
+        assertThrows(IllegalArgumentException.class, ()
+                -> mapper.build(doc, createTestTenant(),
                         "1234567890123456789012345678901234567890123456789"));
     }
 
@@ -283,7 +276,6 @@ class CreditNoteDataMapperTest {
     }
 
     // ── Test data factories ──
-
     private Document createTestDocument() {
         var doc = new Document();
         doc.id = UUID.randomUUID();

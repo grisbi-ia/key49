@@ -4,8 +4,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Estado del documento en el pipeline de procesamiento.
- * Las transiciones válidas están definidas en la máquina de estados (ARCHITECTURE.md).
+ * Estado del documento en el pipeline de procesamiento. Las transiciones
+ * válidas están definidas en la máquina de estados (ARCHITECTURE.md).
  */
 public enum DocumentStatus {
 
@@ -28,8 +28,8 @@ public enum DocumentStatus {
             AUTHORIZED, Set.of(NOTIFIED, VOIDED),
             NOTIFIED, Set.of(VOIDED),
             RETRY, Set.of(SIGNED, SENT, AUTHORIZED, FAILED),
-            REJECTED, Set.of(),
-            FAILED, Set.of(),
+            REJECTED, Set.of(CREATED),
+            FAILED, Set.of(CREATED),
             VOIDED, Set.of()
     );
 
@@ -41,9 +41,19 @@ public enum DocumentStatus {
     }
 
     /**
-     * Indica si este es un estado terminal (sin transiciones de salida).
+     * Indica si este es un estado terminal de error (el documento puede ser
+     * reenviado).
+     */
+    public boolean isRetryableTerminal() {
+        return this == REJECTED || this == FAILED;
+    }
+
+    /**
+     * Indica si este es un estado terminal (sin transiciones de salida excepto
+     * reenvío).
      */
     public boolean isTerminal() {
-        return TRANSITIONS.getOrDefault(this, Set.of()).isEmpty();
+        return TRANSITIONS.getOrDefault(this, Set.of()).isEmpty()
+                || isRetryableTerminal();
     }
 }

@@ -19,7 +19,6 @@ import org.w3c.dom.Element;
  * Genera XML de comprobante de retención conforme al XSD ComprobanteRetencion
  * v2.0.0.
  */
-
 public final class WithholdingXmlBuilder {
 
     private static final String RETENTION_VERSION = "2.0.0";
@@ -104,7 +103,7 @@ public final class WithholdingXmlBuilder {
 
             appendElement(doc, docSustento, "codSustento", sd.supportCode());
             appendElement(doc, docSustento, "codDocSustento", sd.documentCode());
-            appendElement(doc, docSustento, "numDocSustento", sd.documentNumber());
+            appendElement(doc, docSustento, "numDocSustento", sd.documentNumber().replace("-", ""));
             appendElement(doc, docSustento, "fechaEmisionDocSustento",
                     sd.issueDate().format(SRI_DATE_FORMAT));
             if (sd.accountingDate() != null) {
@@ -204,7 +203,6 @@ public final class WithholdingXmlBuilder {
     }
 
     // ── Helpers ──
-
     private static void appendElement(Document doc, Element parent, String name, String value) {
         var el = doc.createElement(name);
         el.setTextContent(value != null ? value : "");

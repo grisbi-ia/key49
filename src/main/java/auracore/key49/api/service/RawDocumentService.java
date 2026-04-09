@@ -16,6 +16,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 
 import auracore.key49.api.exception.BusinessException;
+import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -27,8 +28,8 @@ import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.xml.accesskey.AccessKeyGenerator;
 import auracore.key49.xml.validation.XsdValidator;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.EntityManager;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 /**
  * Servicio para procesamiento de documentos electrónicos enviados como XML raw.
@@ -134,7 +135,7 @@ public class RawDocumentService {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null) {
                 Document existing = em.createQuery(
-                                "FROM Document d WHERE d.idempotencyKey = :key", Document.class)
+                        "FROM Document d WHERE d.idempotencyKey = :key", Document.class)
                         .setParameter("key", idempotencyKey)
                         .getResultStream().findFirst().orElse(null);
                 if (existing != null) {
@@ -151,8 +152,8 @@ public class RawDocumentService {
      * Consulta documento raw por ID.
      */
     public Document findById(UUID id) {
-        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em ->
-                em.find(Document.class, id));
+        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em
+                -> em.find(Document.class, id));
         if (doc == null) {
             throw new BusinessException("DOCUMENT_NOT_FOUND", "Document not found: " + id, 404);
         }
@@ -166,7 +167,7 @@ public class RawDocumentService {
             String accessKey, String finalXml,
             String idempotencyKey, String requestIp) {
 
-        Document duplicate = em.createQuery(
+        Document existing = em.createQuery(
                 "FROM Document d WHERE d.documentType = :dt AND d.establishment = :est "
                 + "AND d.issuePoint = :ip AND d.sequenceNumber = :sn", Document.class)
                 .setParameter("dt", documentType.sriCode())
@@ -175,16 +176,62 @@ public class RawDocumentService {
                 .setParameter("sn", metadata.sequenceNumber())
                 .getResultStream().findFirst().orElse(null);
 
-        if (duplicate != null) {
-            throw new BusinessException(
-                    "DUPLICATE_DOCUMENT",
-                    "Document %s-%s-%s already exists".formatted(
-                            metadata.establishment(), metadata.issuePoint(),
-                            metadata.sequenceNumber()),
-                    409);
+        if (existing == null) {
+            return persistDocument(em, metadata, documentType, accessKey,
+                    finalXml, idempotencyKey, requestIp);
         }
-        return persistDocument(em, metadata, documentType, accessKey,
-                finalXml, idempotencyKey, requestIp);
+
+        if (existing.status.isRetryableTerminal()) {
+            return recycleDocument(em, existing, metadata, documentType,
+                    accessKey, finalXml, idempotencyKey, requestIp);
+        }
+
+        var docNumber = "%s-%s-%s".formatted(metadata.establishment(), metadata.issuePoint(), metadata.sequenceNumber());
+        throw new DuplicateDocumentException(
+                "DUPLICATE_DOCUMENT",
+                "Document %s already exists with status %s".formatted(docNumber, existing.status.name()),
+                existing.id, existing.status.name(), existing.accessKey, existing.authorizationDate);
+    }
+
+    private Document recycleDocument(EntityManager em, Document doc,
+            XmlMetadata metadata, DocumentType documentType,
+            String accessKey, String finalXml,
+            String idempotencyKey, String requestIp) {
+        log.infof("Recycling failed document %s (was %s) for resubmission", doc.id, doc.status);
+
+        doc.issueDate = metadata.issueDate();
+        doc.accessKey = accessKey;
+        doc.recipientIdType = metadata.recipientIdType();
+        doc.recipientId = metadata.recipientId();
+        doc.recipientName = metadata.recipientName();
+        doc.recipientEmail = metadata.recipientEmail();
+        doc.totalAmount = metadata.totalAmount();
+        doc.subtotalBeforeTax = metadata.subtotalBeforeTax();
+        doc.vatAmount = metadata.vatAmount();
+        doc.originalXml = finalXml;
+        doc.idempotencyKey = idempotencyKey;
+        doc.requestIp = requestIp;
+
+        doc.status = DocumentStatus.CREATED;
+        doc.authorizationNumber = null;
+        doc.authorizationDate = null;
+        doc.sriSubmissionDate = null;
+        doc.lastErrorCode = null;
+        doc.lastErrorMessage = null;
+        doc.sriMessages = null;
+        doc.unsignedXmlPath = null;
+        doc.signedXmlPath = null;
+        doc.authorizedXmlPath = null;
+        doc.ridePath = null;
+        doc.retryCount = 0;
+        doc.nextRetryAt = null;
+        doc.updatedAt = Instant.now();
+
+        em.merge(doc);
+        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        em.persist(outbox);
+        em.flush();
+        return doc;
     }
 
     private Document persistDocument(

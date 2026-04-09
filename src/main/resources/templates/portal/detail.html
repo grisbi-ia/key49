@@ -141,13 +141,18 @@
         </ul>
 
         {#if doc.status.name == 'REJECTED' || doc.status.name == 'FAILED'}
-        <details>
+        <details open>
             <summary>Detalle del error</summary>
             {#if doc.lastErrorCode}
             <p><strong>Código:</strong> {doc.lastErrorCode}</p>
             {/if}
             {#if doc.lastErrorMessage}
             <p>{doc.lastErrorMessage}</p>
+            {/if}
+            {#if doc.sriMessages}
+            <p><strong>Mensajes SRI:</strong></p>
+            <pre
+                style="white-space:pre-wrap;word-break:break-word;font-size:0.8em;background:var(--pico-code-background-color);padding:0.75rem;border-radius:0.25rem;max-height:20rem;overflow:auto">{doc.sriMessages}</pre>
             {/if}
         </details>
         {/if}

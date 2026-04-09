@@ -582,12 +582,23 @@ curl -X POST http://localhost:8080/v1/tenant/certificate \
 ### Documento duplicado (409)
 
 ```json
-{ "error": { "code": "DUPLICATE_DOCUMENT" } }
+{
+  "error": {
+    "code": "DUPLICATE_DOCUMENT",
+    "message": "...",
+    "existingDocument": {
+      "id": "uuid",
+      "status": "AUTHORIZED",
+      "accessKey": "49 dígitos",
+      "authorizationDate": "..."
+    }
+  }
+}
 ```
 
-**Causa**: Ya existe un documento con la misma combinación de `document_type + establishment + issue_point + sequence_number`.
+**Causa**: Ya existe un documento activo o completado con la misma combinación de `document_type + establishment + issue_point + sequence_number`.
 
-**Solución**: Usar un `sequence_number` diferente.
+**Nota**: Si el documento existente estaba en estado `REJECTED` o `FAILED`, el sistema lo recicla automáticamente con los nuevos datos y retorna **202 Accepted** (no 409). Esto permite al cliente corregir errores y reenviar sin cambiar el secuencial.
 
 ### Rate limit excedido (429)
 

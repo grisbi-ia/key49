@@ -70,13 +70,10 @@ class SignConsumerIntegrationTest {
             assertNotNull(is, "test-cert.p12 must exist in test resources");
             certP12 = is.readAllBytes();
         }
-        var masterKey = CertificateEncryptor.generateMasterKey();
-        var masterKeyBase64 = java.util.Base64.getEncoder().encodeToString(masterKey);
+        // Usar la misma master key configurada en %test.key49.master-key
+        var masterKey = CertificateEncryptor.decodeMasterKey("Kt+uSavMguKGLq2ese9Zj0qbk5U97/rGPIaW0TCqask=");
         var encCertP12 = CertificateEncryptor.encrypt(certP12, masterKey);
         var encPassword = CertificateEncryptor.encryptPassword("test1234".toCharArray(), masterKey);
-
-        // Configurar master key como system property para que el consumer la lea
-        System.setProperty("key49.master-key", masterKeyBase64);
 
         try (var conn = dataSource.getConnection()) {
             // 1. Insertar tenant con certificado

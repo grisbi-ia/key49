@@ -422,17 +422,31 @@ Cada transición de estado está validada en código. No se permite transición 
 | `RETRY`       | `SIGNED`       | Re-procesamiento tras espera (vuelve a firmar si es necesario)           | Retry mechanism     |
 | `RETRY`       | `SENT`         | Re-envío al SRI tras espera                                              | Retry mechanism     |
 | `RETRY`       | `FAILED`       | Reintentos agotados (max 6)                                              | Retry mechanism     |
+| `REJECTED`    | `CREATED`      | Reciclaje: cliente reenvía documento con datos corregidos                | API REST            |
+| `FAILED`      | `CREATED`      | Reciclaje: cliente reenvía documento con datos corregidos                | API REST            |
+
+### Reciclaje de documentos fallidos
+
+Cuando un cliente reenvía un documento con los mismos datos de unicidad (tipo + establecimiento + punto de emisión + secuencial) y el documento existente está en estado `REJECTED` o `FAILED`, el sistema **recicla** el documento existente en lugar de rechazarlo. Esto permite al cliente corregir errores y reenviar sin necesidad de cambiar el secuencial.
+
+El reciclaje:
+
+1. Resetea el estado a `CREATED`
+2. Limpia campos de procesamiento (`access_key`, `authorization_number`, errores, rutas XML)
+3. Actualiza el `request_payload` con los nuevos datos
+4. Crea un nuevo evento outbox para iniciar el procesamiento
+
+Si el documento existente está en un estado **activo** (`CREATED`, `SIGNED`, `SENT`, `RECEIVED`, `RETRY`) o **completado** (`AUTHORIZED`, `NOTIFIED`, `VOIDED`), el sistema devuelve HTTP 409 con información del documento existente (id, estado, clave de acceso si disponible).
 
 ### Transiciones prohibidas (ejemplos)
 
 - `AUTHORIZED` → `CREATED` (no se puede volver atrás)
-- `FAILED` → cualquier estado (estado terminal)
-- `REJECTED` → cualquier estado (estado terminal)
 - `VOIDED` → cualquier estado (estado terminal)
 
 ### Estados terminales
 
-`NOTIFIED`, `REJECTED`, `FAILED`, `VOIDED`
+- **Terminales absolutos**: `VOIDED` (no permiten ninguna transición)
+- **Terminales reciclables**: `REJECTED`, `FAILED` (solo permiten transición a `CREATED` vía reciclaje de documento)
 
 ### Implementación
 
@@ -451,8 +465,8 @@ public enum DocumentStatus {
         AUTHORIZED, Set.of(NOTIFIED, VOIDED),
         NOTIFIED,   Set.of(VOIDED),
         RETRY,      Set.of(SIGNED, SENT, FAILED),
-        REJECTED,   Set.of(),
-        FAILED,     Set.of(),
+        REJECTED,   Set.of(CREATED),
+        FAILED,     Set.of(CREATED),
         VOIDED,     Set.of()
     );
 

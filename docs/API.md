@@ -1072,27 +1072,27 @@ Rechazar el webhook si las firmas no coinciden.
 
 ### Errores Generales
 
-| Código HTTP | Error Code                   | Descripción                                                                              |
-| ----------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
-| 400         | `VALIDATION_ERROR`           | Uno o más campos del request son inválidos                                               |
-| 400         | `INVALID_ESTABLISHMENT`      | `establishment` no tiene formato 3 dígitos numéricos                                     |
-| 400         | `INVALID_ISSUE_POINT`        | `issue_point` no tiene formato 3 dígitos numéricos                                       |
-| 400         | `INVALID_SEQUENCE_NUMBER`    | `sequence_number` no tiene formato 9 dígitos numéricos                                   |
-| 400         | `INVALID_RECIPIENT_ID`       | Identificación del receptor no pasa validación de formato (RUC/cédula)                   |
-| 400         | `INVALID_ISSUE_DATE`         | `issue_date` no es la fecha actual (America/Guayaquil)                                   |
-| 401         | `UNAUTHORIZED`               | API key no proporcionado o inválido                                                      |
-| 401         | `API_KEY_EXPIRED`            | API key expirado                                                                         |
-| 401         | `API_KEY_REVOKED`            | API key revocado                                                                         |
-| 403         | `TENANT_SUSPENDED`           | Tenant suspendido, no puede emitir documentos                                            |
-| 404         | `DOCUMENT_NOT_FOUND`         | Documento no encontrado                                                                  |
-| 409         | `DUPLICATE_DOCUMENT`         | Ya existe un documento con el mismo tipo, establecimiento, punto de emisión y secuencial |
-| 409         | `IDEMPOTENCY_CONFLICT`       | `X-Idempotency-Key` ya usado con un request distinto                                     |
-| 409         | `INVALID_STATE_TRANSITION`   | Transición de estado no permitida (ver state machine en ARCHITECTURE.md)                 |
-| 422         | `CERTIFICATE_NOT_CONFIGURED` | Tenant no tiene certificado .p12 configurado                                             |
-| 422         | `CERTIFICATE_EXPIRED`        | Certificado .p12 del tenant está expirado                                                |
-| 429         | `RATE_LIMIT_EXCEEDED`        | Se excedió el límite de requests por minuto                                              |
-| 500         | `INTERNAL_ERROR`             | Error interno de Key49                                                                   |
-| 502         | `SRI_UNAVAILABLE`            | No se pudo contactar al SRI (timeout o conexión rechazada)                               |
+| Código HTTP | Error Code                   | Descripción                                                                                                                                                                                                             |
+| ----------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`           | Uno o más campos del request son inválidos                                                                                                                                                                              |
+| 400         | `INVALID_ESTABLISHMENT`      | `establishment` no tiene formato 3 dígitos numéricos                                                                                                                                                                    |
+| 400         | `INVALID_ISSUE_POINT`        | `issue_point` no tiene formato 3 dígitos numéricos                                                                                                                                                                      |
+| 400         | `INVALID_SEQUENCE_NUMBER`    | `sequence_number` no tiene formato 9 dígitos numéricos                                                                                                                                                                  |
+| 400         | `INVALID_RECIPIENT_ID`       | Identificación del receptor no pasa validación de formato (RUC/cédula)                                                                                                                                                  |
+| 400         | `INVALID_ISSUE_DATE`         | `issue_date` no es la fecha actual (America/Guayaquil)                                                                                                                                                                  |
+| 401         | `UNAUTHORIZED`               | API key no proporcionado o inválido                                                                                                                                                                                     |
+| 401         | `API_KEY_EXPIRED`            | API key expirado                                                                                                                                                                                                        |
+| 401         | `API_KEY_REVOKED`            | API key revocado                                                                                                                                                                                                        |
+| 403         | `TENANT_SUSPENDED`           | Tenant suspendido, no puede emitir documentos                                                                                                                                                                           |
+| 404         | `DOCUMENT_NOT_FOUND`         | Documento no encontrado                                                                                                                                                                                                 |
+| 409         | `DUPLICATE_DOCUMENT`         | Documento activo/completado ya existe con el mismo tipo, establecimiento, punto de emisión y secuencial. Si el documento existente estaba en estado `REJECTED` o `FAILED`, se recicla automáticamente y se retorna 202. |
+| 409         | `IDEMPOTENCY_CONFLICT`       | `X-Idempotency-Key` ya usado con un request distinto                                                                                                                                                                    |
+| 409         | `INVALID_STATE_TRANSITION`   | Transición de estado no permitida (ver state machine en ARCHITECTURE.md)                                                                                                                                                |
+| 422         | `CERTIFICATE_NOT_CONFIGURED` | Tenant no tiene certificado .p12 configurado                                                                                                                                                                            |
+| 422         | `CERTIFICATE_EXPIRED`        | Certificado .p12 del tenant está expirado                                                                                                                                                                               |
+| 429         | `RATE_LIMIT_EXCEEDED`        | Se excedió el límite de requests por minuto                                                                                                                                                                             |
+| 500         | `INTERNAL_ERROR`             | Error interno de Key49                                                                                                                                                                                                  |
+| 502         | `SRI_UNAVAILABLE`            | No se pudo contactar al SRI (timeout o conexión rechazada)                                                                                                                                                              |
 
 ### Errores de XML Raw (POST /documents/raw)
 

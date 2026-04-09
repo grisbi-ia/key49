@@ -5,6 +5,7 @@ import auracore.key49.api.dto.CreateDebitNoteRequest.ReasonRequest;
 import auracore.key49.api.dto.CreateDebitNoteRequest.TaxRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.BusinessException.FieldError;
+import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -55,14 +56,13 @@ public class DebitNoteService {
     ObjectMapper objectMapper;
 
     // ── Crear nota de débito ──
-
     public Document createDebitNote(CreateDebitNoteRequest request, String idempotencyKey, String requestIp) {
         validateCreateRequest(request);
 
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null) {
                 Document existing = em.createQuery(
-                                "FROM Document d WHERE d.idempotencyKey = :key", Document.class)
+                        "FROM Document d WHERE d.idempotencyKey = :key", Document.class)
                         .setParameter("key", idempotencyKey)
                         .getResultStream().findFirst().orElse(null);
                 if (existing != null) {
@@ -75,28 +75,77 @@ public class DebitNoteService {
     }
 
     private Document checkUniquenessAndPersist(EntityManager em, CreateDebitNoteRequest request,
-                                                String idempotencyKey, String requestIp) {
-        Document duplicate = em.createQuery(
-                        "FROM Document d WHERE d.documentType = :dt AND d.establishment = :est " +
-                                "AND d.issuePoint = :ip AND d.sequenceNumber = :sn", Document.class)
+            String idempotencyKey, String requestIp) {
+        Document existing = em.createQuery(
+                "FROM Document d WHERE d.documentType = :dt AND d.establishment = :est "
+                + "AND d.issuePoint = :ip AND d.sequenceNumber = :sn", Document.class)
                 .setParameter("dt", DocumentType.DEBIT_NOTE.sriCode())
                 .setParameter("est", request.establishment())
                 .setParameter("ip", request.issuePoint())
                 .setParameter("sn", request.sequenceNumber())
                 .getResultStream().findFirst().orElse(null);
 
-        if (duplicate != null) {
-            throw new BusinessException(
-                    "DUPLICATE_DOCUMENT",
-                    "Document %s-%s-%s already exists".formatted(
-                            request.establishment(), request.issuePoint(), request.sequenceNumber()),
-                    409);
+        if (existing == null) {
+            return persistNewDocument(em, request, idempotencyKey, requestIp);
         }
-        return persistNewDocument(em, request, idempotencyKey, requestIp);
+
+        if (existing.status.isRetryableTerminal()) {
+            return recycleDocument(em, existing, request, idempotencyKey, requestIp);
+        }
+
+        var docNumber = "%s-%s-%s".formatted(request.establishment(), request.issuePoint(), request.sequenceNumber());
+        throw new DuplicateDocumentException(
+                "DUPLICATE_DOCUMENT",
+                "Debit note %s already exists with status %s".formatted(docNumber, existing.status.name()),
+                existing.id, existing.status.name(), existing.accessKey, existing.authorizationDate);
+    }
+
+    private Document recycleDocument(EntityManager em, Document doc, CreateDebitNoteRequest request,
+            String idempotencyKey, String requestIp) {
+        log.infof("Recycling failed document %s (was %s) for resubmission", doc.id, doc.status);
+
+        doc.issueDate = request.issueDate();
+        doc.recipientIdType = request.recipient().idType();
+        doc.recipientId = request.recipient().id();
+        doc.recipientName = request.recipient().name();
+        doc.recipientEmail = request.recipient().email();
+        doc.recipientPhone = request.recipient().phone();
+        doc.idempotencyKey = idempotencyKey;
+        doc.requestIp = requestIp;
+
+        computeAndSetTotals(doc, request);
+
+        try {
+            doc.requestPayload = objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize request payload", e);
+        }
+
+        doc.status = DocumentStatus.CREATED;
+        doc.accessKey = null;
+        doc.authorizationNumber = null;
+        doc.authorizationDate = null;
+        doc.sriSubmissionDate = null;
+        doc.lastErrorCode = null;
+        doc.lastErrorMessage = null;
+        doc.sriMessages = null;
+        doc.unsignedXmlPath = null;
+        doc.signedXmlPath = null;
+        doc.authorizedXmlPath = null;
+        doc.ridePath = null;
+        doc.retryCount = 0;
+        doc.nextRetryAt = null;
+        doc.updatedAt = Instant.now();
+
+        em.merge(doc);
+        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        em.persist(outbox);
+        em.flush();
+        return doc;
     }
 
     private Document persistNewDocument(EntityManager em, CreateDebitNoteRequest request,
-                                         String idempotencyKey, String requestIp) {
+            String idempotencyKey, String requestIp) {
         var doc = new Document();
         doc.documentType = DocumentType.DEBIT_NOTE.sriCode();
         doc.establishment = request.establishment();
@@ -131,10 +180,9 @@ public class DebitNoteService {
     }
 
     // ── Consultar nota de débito por ID ──
-
     public Document findById(UUID id) {
-        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em ->
-                em.find(Document.class, id));
+        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em
+                -> em.find(Document.class, id));
         if (doc == null) {
             throw new BusinessException("DOCUMENT_NOT_FOUND", "Document not found: " + id, 404);
         }
@@ -142,10 +190,9 @@ public class DebitNoteService {
     }
 
     // ── Listar notas de débito con filtros y paginación ──
-
     public PagedResult listDebitNotes(String status, LocalDate dateFrom, LocalDate dateTo,
-                                            String recipientId, String accessKey,
-                                            int page, int perPage, String sort) {
+            String recipientId, String accessKey,
+            int page, int perPage, String sort) {
         int safePage = Math.max(1, page);
         int safePerPage = Math.max(1, Math.min(100, perPage));
 
@@ -195,7 +242,6 @@ public class DebitNoteService {
     }
 
     // ── Anular nota de débito localmente ──
-
     public Document voidDebitNote(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException("VALIDATION_ERROR", "Void reason is required", 400);
@@ -223,7 +269,6 @@ public class DebitNoteService {
     }
 
     // ── Reenviar email ──
-
     public Instant resendEmail(UUID id) {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             Document doc = em.find(Document.class, id);
@@ -251,7 +296,6 @@ public class DebitNoteService {
     }
 
     // ── Validaciones ──
-
     void validateCreateRequest(CreateDebitNoteRequest request) {
         var errors = new ArrayList<FieldError>();
 
@@ -395,7 +439,6 @@ public class DebitNoteService {
     }
 
     // ── Cálculo de totales ──
-
     void computeAndSetTotals(Document doc, CreateDebitNoteRequest request) {
         BigDecimal subtotalBeforeTax = BigDecimal.ZERO;
         BigDecimal vatAmount = BigDecimal.ZERO;
@@ -435,7 +478,6 @@ public class DebitNoteService {
     }
 
     // ── Utilidades ──
-
     private String resolveOrderBy(String sort) {
         if (sort == null || sort.isBlank()) {
             sort = "-issue_date";
@@ -443,15 +485,21 @@ public class DebitNoteService {
         boolean desc = sort.startsWith("-");
         String field = desc ? sort.substring(1) : sort;
         String column = switch (field) {
-            case "issue_date" -> "d.issueDate";
-            case "created_at" -> "d.createdAt";
-            case "total_amount" -> "d.totalAmount";
-            case "status" -> "d.status";
-            default -> "d.issueDate";
+            case "issue_date" ->
+                "d.issueDate";
+            case "created_at" ->
+                "d.createdAt";
+            case "total_amount" ->
+                "d.totalAmount";
+            case "status" ->
+                "d.status";
+            default ->
+                "d.issueDate";
         };
         return " ORDER BY " + column + (desc ? " DESC" : " ASC");
     }
 
     public record PagedResult(List<Document> items, long total) {
+
     }
 }

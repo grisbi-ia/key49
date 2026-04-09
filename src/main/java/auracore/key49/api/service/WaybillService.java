@@ -5,6 +5,7 @@ import auracore.key49.api.dto.CreateWaybillRequest.AddresseeRequest;
 import auracore.key49.api.dto.CreateWaybillRequest.ItemRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.BusinessException.FieldError;
+import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -32,7 +33,6 @@ import java.util.regex.Pattern;
 /**
  * Servicio de negocio para operaciones sobre guías de remisión electrónicas.
  */
-
 @ApplicationScoped
 public class WaybillService {
 
@@ -53,7 +53,6 @@ public class WaybillService {
     ObjectMapper objectMapper;
 
     // ── Crear guía de remisión ──
-
     public Document createWaybill(CreateWaybillRequest request,
             String idempotencyKey, String requestIp) {
 
@@ -62,8 +61,8 @@ public class WaybillService {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 Document existing = em.createQuery(
-                                "FROM Document d WHERE d.idempotencyKey = :key AND d.documentType = :docType",
-                                Document.class)
+                        "FROM Document d WHERE d.idempotencyKey = :key AND d.documentType = :docType",
+                        Document.class)
                         .setParameter("key", idempotencyKey)
                         .setParameter("docType", DocumentType.WAYBILL.sriCode())
                         .getResultStream().findFirst().orElse(null);
@@ -79,26 +78,77 @@ public class WaybillService {
     private Document checkUniquenessAndPersist(EntityManager em,
             CreateWaybillRequest request, String idempotencyKey, String requestIp) {
 
-        Long count = em.createQuery(
-                "SELECT count(d) FROM Document d WHERE d.documentType = :docType "
-                        + "AND d.establishment = :est AND d.issuePoint = :pt "
-                        + "AND d.sequenceNumber = :seq",
-                Long.class)
+        Document existing = em.createQuery(
+                "FROM Document d WHERE d.documentType = :docType "
+                + "AND d.establishment = :est AND d.issuePoint = :pt "
+                + "AND d.sequenceNumber = :seq", Document.class)
                 .setParameter("docType", DocumentType.WAYBILL.sriCode())
                 .setParameter("est", request.establishment())
                 .setParameter("pt", request.issuePoint())
                 .setParameter("seq", request.sequenceNumber())
-                .getSingleResult();
+                .getResultStream().findFirst().orElse(null);
 
-        if (count > 0) {
-            throw new BusinessException(
-                    "DUPLICATE_DOCUMENT",
-                    "Waybill %s-%s-%s already exists".formatted(
-                            request.establishment(), request.issuePoint(),
-                            request.sequenceNumber()),
-                    409);
+        if (existing == null) {
+            return persistNewDocument(em, request, idempotencyKey, requestIp);
         }
-        return persistNewDocument(em, request, idempotencyKey, requestIp);
+
+        if (existing.status.isRetryableTerminal()) {
+            return recycleDocument(em, existing, request, idempotencyKey, requestIp);
+        }
+
+        var docNumber = "%s-%s-%s".formatted(request.establishment(), request.issuePoint(), request.sequenceNumber());
+        throw new DuplicateDocumentException(
+                "DUPLICATE_DOCUMENT",
+                "Waybill %s already exists with status %s".formatted(docNumber, existing.status.name()),
+                existing.id, existing.status.name(), existing.accessKey, existing.authorizationDate);
+    }
+
+    private Document recycleDocument(EntityManager em, Document doc, CreateWaybillRequest request,
+            String idempotencyKey, String requestIp) {
+        log.infof("Recycling failed document %s (was %s) for resubmission", doc.id, doc.status);
+
+        doc.issueDate = request.issueDate();
+        doc.recipientIdType = request.carrier().idType();
+        doc.recipientId = request.carrier().id();
+        doc.recipientName = request.carrier().name();
+        doc.recipientEmail = request.carrier() != null ? request.carrier().email() : null;
+        doc.idempotencyKey = idempotencyKey;
+        doc.requestIp = requestIp;
+
+        try {
+            doc.requestPayload = objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new BusinessException(
+                    "SERIALIZATION_ERROR", "Failed to serialize request", 500);
+        }
+
+        doc.subtotalBeforeTax = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        doc.totalDiscount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        doc.vatAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        doc.iceAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        doc.totalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
+        doc.status = DocumentStatus.CREATED;
+        doc.accessKey = null;
+        doc.authorizationNumber = null;
+        doc.authorizationDate = null;
+        doc.sriSubmissionDate = null;
+        doc.lastErrorCode = null;
+        doc.lastErrorMessage = null;
+        doc.sriMessages = null;
+        doc.unsignedXmlPath = null;
+        doc.signedXmlPath = null;
+        doc.authorizedXmlPath = null;
+        doc.ridePath = null;
+        doc.retryCount = 0;
+        doc.nextRetryAt = null;
+        doc.updatedAt = Instant.now();
+
+        em.merge(doc);
+        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        em.persist(outbox);
+        em.flush();
+        return doc;
     }
 
     private Document persistNewDocument(EntityManager em,
@@ -149,10 +199,9 @@ public class WaybillService {
     }
 
     // ── Consultar por ID ──
-
     public Document findById(UUID id) {
-        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em ->
-                em.find(Document.class, id));
+        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em
+                -> em.find(Document.class, id));
         if (doc == null) {
             throw new BusinessException(
                     "DOCUMENT_NOT_FOUND", "Waybill not found: " + id, 404);
@@ -161,7 +210,6 @@ public class WaybillService {
     }
 
     // ── Listar guías de remisión ──
-
     public PagedResult listWaybills(String status, LocalDate dateFrom,
             LocalDate dateTo, String recipientId, String accessKey,
             int page, int perPage, String sort) {
@@ -215,7 +263,6 @@ public class WaybillService {
     }
 
     // ── Anular guía de remisión localmente ──
-
     public Document voidWaybill(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(
@@ -247,7 +294,6 @@ public class WaybillService {
     }
 
     // ── Reenviar email ──
-
     public Instant resendEmail(UUID id) {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             Document doc = em.find(Document.class, id);
@@ -277,7 +323,6 @@ public class WaybillService {
     }
 
     // ── Validaciones ──
-
     void validateCreateRequest(CreateWaybillRequest request) {
         var errors = new ArrayList<FieldError>();
 
@@ -427,7 +472,6 @@ public class WaybillService {
     }
 
     // ── Utilidades ──
-
     private String resolveOrderBy(String sort) {
         if (sort == null || sort.isBlank()) {
             sort = "-issue_date";
@@ -435,14 +479,19 @@ public class WaybillService {
         boolean desc = sort.startsWith("-");
         String field = desc ? sort.substring(1) : sort;
         String column = switch (field) {
-            case "issue_date" -> "d.issueDate";
-            case "created_at" -> "d.createdAt";
-            case "status" -> "d.status";
-            default -> "d.issueDate";
+            case "issue_date" ->
+                "d.issueDate";
+            case "created_at" ->
+                "d.createdAt";
+            case "status" ->
+                "d.status";
+            default ->
+                "d.issueDate";
         };
         return " ORDER BY " + column + (desc ? " DESC" : " ASC");
     }
 
     public record PagedResult(List<Document> items, long total) {
+
     }
 }

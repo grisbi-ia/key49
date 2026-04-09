@@ -18,7 +18,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 
-
 class PurchaseClearanceDataMapperTest {
 
     private PurchaseClearanceDataMapper mapper;
@@ -128,21 +127,11 @@ class PurchaseClearanceDataMapperTest {
                     "quantity": 50.0,
                     "unitPrice": 1.50,
                     "discount": 0.00,
-                    "subtotalBeforeTax": 75.00,
                     "taxes": [{
-                      "taxCode": "2",
+                      "code": "2",
                       "rateCode": "4",
-                      "rate": 15.00,
-                      "taxableBase": 75.00,
-                      "amount": 11.25
+                      "rate": 15.00
                     }]
-                  }],
-                  "totalTaxes": [{
-                    "taxCode": "2",
-                    "rateCode": "4",
-                    "taxableBase": 75.00,
-                    "rate": 15.00,
-                    "amount": 11.25
                   }],
                   "payments": [{
                     "paymentMethod": "01",
@@ -206,7 +195,7 @@ class PurchaseClearanceDataMapperTest {
         var doc = createTestDocument();
         doc.requestPayload = """
                 { "items": [{ "description": "Leche cruda", "quantity": 100, "unitPrice": 0.50,
-                  "discount": 0, "subtotalBeforeTax": 50.00, "taxes": [] }] }
+                  "discount": 0, "taxes": [] }] }
                 """;
 
         var result = mapper.build(doc, createTestTenant(),
@@ -222,8 +211,8 @@ class PurchaseClearanceDataMapperTest {
         var doc = createTestDocument();
         doc.requestPayload = "not valid json";
 
-        assertThrows(IllegalArgumentException.class, () ->
-                mapper.build(doc, createTestTenant(),
+        assertThrows(IllegalArgumentException.class, ()
+                -> mapper.build(doc, createTestTenant(),
                         "1234567890123456789012345678901234567890123456789"));
     }
 

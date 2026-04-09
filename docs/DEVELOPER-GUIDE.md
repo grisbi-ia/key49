@@ -32,6 +32,7 @@
 ### 1. Obtener credenciales
 
 Contacta al equipo de Key49 para obtener:
+
 - Tu **API Key** con prefijo `fec_test_` (sandbox) o `fec_live_` (producción)
 - Tu **tenant** configurado con RUC y certificado .p12 del SRI
 
@@ -128,10 +129,10 @@ Todas las peticiones a `/v1/*` requieren un API Key en el header `Authorization`
 Authorization: Bearer fec_test_xxxxxxxxxxxxxxxxxxxx
 ```
 
-| Prefijo       | Ambiente         |
-|---------------|------------------|
-| `fec_test_`   | Sandbox (pruebas) |
-| `fec_live_`   | Producción        |
+| Prefijo     | Ambiente          |
+| ----------- | ----------------- |
+| `fec_test_` | Sandbox (pruebas) |
+| `fec_live_` | Producción        |
 
 **Sin API Key** → HTTP 401 `UNAUTHORIZED`
 **API Key expirada** → HTTP 401 `API_KEY_EXPIRED`
@@ -143,14 +144,14 @@ Authorization: Bearer fec_test_xxxxxxxxxxxxxxxxxxxx
 
 ### Tipos de documento
 
-| Código | Tipo                     | Endpoint                    |
-|--------|--------------------------|-----------------------------|
-| 01     | Factura                  | `/v1/invoices`              |
-| 03     | Liquidación de Compra    | `/v1/purchase-clearances`   |
-| 04     | Nota de Crédito          | `/v1/credit-notes`          |
-| 05     | Nota de Débito           | `/v1/debit-notes`           |
-| 06     | Guía de Remisión         | `/v1/waybills`              |
-| 07     | Comprobante de Retención | `/v1/withholdings`          |
+| Código | Tipo                     | Endpoint                  |
+| ------ | ------------------------ | ------------------------- |
+| 01     | Factura                  | `/v1/invoices`            |
+| 03     | Liquidación de Compra    | `/v1/purchase-clearances` |
+| 04     | Nota de Crédito          | `/v1/credit-notes`        |
+| 05     | Nota de Débito           | `/v1/debit-notes`         |
+| 06     | Guía de Remisión         | `/v1/waybills`            |
+| 07     | Comprobante de Retención | `/v1/withholdings`        |
 
 ### Numeración (responsabilidad del cliente)
 
@@ -176,18 +177,18 @@ CREATED → SIGNED → SENT → RECEIVED → AUTHORIZED → NOTIFIED
                      Post-autorización → VOIDED (anulación local)
 ```
 
-| Estado       | Descripción                                      |
-|--------------|--------------------------------------------------|
-| `CREATED`    | Documento recibido y persistido                  |
-| `SIGNED`     | XML generado y firmado con XAdES-BES             |
-| `SENT`       | Enviado al SRI vía SOAP                          |
-| `RECEIVED`   | SRI confirma recepción                           |
-| `AUTHORIZED` | SRI autoriza el comprobante                      |
-| `NOTIFIED`   | RIDE generado y email enviado al receptor         |
-| `REJECTED`   | SRI rechazó (error de negocio, terminal)         |
-| `RETRY`      | Reintentando tras error de infraestructura       |
-| `FAILED`     | Reintentos agotados                              |
-| `VOIDED`     | Anulado localmente (post-autorización)           |
+| Estado       | Descripción                                |
+| ------------ | ------------------------------------------ |
+| `CREATED`    | Documento recibido y persistido            |
+| `SIGNED`     | XML generado y firmado con XAdES-BES       |
+| `SENT`       | Enviado al SRI vía SOAP                    |
+| `RECEIVED`   | SRI confirma recepción                     |
+| `AUTHORIZED` | SRI autoriza el comprobante                |
+| `NOTIFIED`   | RIDE generado y email enviado al receptor  |
+| `REJECTED`   | SRI rechazó (error de negocio, terminal)   |
+| `RETRY`      | Reintentando tras error de infraestructura |
+| `FAILED`     | Reintentos agotados                        |
+| `VOIDED`     | Anulado localmente (post-autorización)     |
 
 ---
 
@@ -199,57 +200,57 @@ POST /v1/invoices
 
 ### Campos del request
 
-| Campo                 | Tipo     | Requerido | Descripción                         |
-|-----------------------|----------|-----------|-------------------------------------|
-| `establishment`       | string   | Sí        | 3 dígitos: `"001"`                  |
-| `issue_point`         | string   | Sí        | 3 dígitos: `"001"`                  |
-| `sequence_number`     | string   | Sí        | 9 dígitos: `"000000042"`            |
-| `issue_date`          | string   | Sí        | Fecha del día: `"2026-04-07"`       |
-| `recipient`           | object   | Sí        | Datos del comprador                 |
-| `items`               | array    | Sí        | Mínimo 1 ítem                       |
-| `payments`            | array    | Sí        | Mínimo 1 forma de pago             |
-| `additional_info`     | object   | No        | Pares clave-valor libres            |
+| Campo             | Tipo   | Requerido | Descripción                   |
+| ----------------- | ------ | --------- | ----------------------------- |
+| `establishment`   | string | Sí        | 3 dígitos: `"001"`            |
+| `issue_point`     | string | Sí        | 3 dígitos: `"001"`            |
+| `sequence_number` | string | Sí        | 9 dígitos: `"000000042"`      |
+| `issue_date`      | string | Sí        | Fecha del día: `"2026-04-07"` |
+| `recipient`       | object | Sí        | Datos del comprador           |
+| `items`           | array  | Sí        | Mínimo 1 ítem                 |
+| `payments`        | array  | Sí        | Mínimo 1 forma de pago        |
+| `additional_info` | object | No        | Pares clave-valor libres      |
 
 **recipient:**
 
-| Campo     | Tipo   | Requerido | Descripción                                      |
-|-----------|--------|-----------|--------------------------------------------------|
+| Campo     | Tipo   | Requerido | Descripción                                                          |
+| --------- | ------ | --------- | -------------------------------------------------------------------- |
 | `id_type` | string | Sí        | `"04"` RUC, `"05"` cédula, `"06"` pasaporte, `"07"` consumidor final |
-| `id`      | string | Sí        | Número de identificación                         |
-| `name`    | string | Sí        | Razón social o nombre                            |
-| `address` | string | No        | Dirección                                         |
-| `email`   | string | No        | Email para notificación                          |
-| `phone`   | string | No        | Teléfono                                          |
+| `id`      | string | Sí        | Número de identificación                                             |
+| `name`    | string | Sí        | Razón social o nombre                                                |
+| `address` | string | No        | Dirección                                                            |
+| `email`   | string | No        | Email para notificación                                              |
+| `phone`   | string | No        | Teléfono                                                             |
 
 **items[]:**
 
-| Campo            | Tipo    | Requerido | Descripción                     |
-|------------------|---------|-----------|---------------------------------|
-| `main_code`      | string  | Sí        | Código principal del producto   |
-| `auxiliary_code`  | string  | No        | Código auxiliar (EAN, etc.)     |
-| `description`    | string  | Sí        | Descripción del ítem            |
-| `unit_of_measure` | string  | No        | Unidad de medida                |
-| `quantity`       | number  | Sí        | Cantidad                        |
-| `unit_price`     | number  | Sí        | Precio unitario                 |
-| `discount`       | number  | Sí        | Descuento aplicado              |
-| `taxes`          | array   | Sí        | Impuestos aplicables            |
+| Campo             | Tipo   | Requerido | Descripción                   |
+| ----------------- | ------ | --------- | ----------------------------- |
+| `main_code`       | string | Sí        | Código principal del producto |
+| `auxiliary_code`  | string | No        | Código auxiliar (EAN, etc.)   |
+| `description`     | string | Sí        | Descripción del ítem          |
+| `unit_of_measure` | string | No        | Unidad de medida              |
+| `quantity`        | number | Sí        | Cantidad                      |
+| `unit_price`      | number | Sí        | Precio unitario               |
+| `discount`        | number | Sí        | Descuento aplicado            |
+| `taxes`           | array  | Sí        | Impuestos aplicables          |
 
 **items[].taxes[]:**
 
-| Campo       | Tipo   | Requerido | Descripción                                   |
-|-------------|--------|-----------|-----------------------------------------------|
-| `code`      | string | Sí        | `"2"` = IVA, `"3"` = ICE, `"5"` = IRBPNR     |
-| `rate_code` | string | Sí        | `"0"` = 0%, `"2"` = 12%, `"4"` = 15%          |
-| `rate`      | number | Sí        | Porcentaje: `15`                               |
+| Campo       | Tipo   | Requerido | Descripción                              |
+| ----------- | ------ | --------- | ---------------------------------------- |
+| `code`      | string | Sí        | `"2"` = IVA, `"3"` = ICE, `"5"` = IRBPNR |
+| `rate_code` | string | Sí        | `"0"` = 0%, `"2"` = 12%, `"4"` = 15%     |
+| `rate`      | number | Sí        | Porcentaje: `15`                         |
 
 **payments[]:**
 
-| Campo            | Tipo   | Requerido | Descripción                                  |
-|------------------|--------|-----------|----------------------------------------------|
+| Campo            | Tipo   | Requerido | Descripción                                                                                                                                 |
+| ---------------- | ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `payment_method` | string | Sí        | Código SRI: `"01"` efectivo, `"16"` tarjeta débito, `"17"` dinero electrónico, `"18"` tarjeta prepago, `"19"` tarjeta crédito, `"20"` otros |
-| `total`          | number | Sí        | Monto del pago                               |
-| `term`           | number | No        | Plazo (ej: `30`)                             |
-| `time_unit`      | string | No        | `"dias"`, `"meses"`                          |
+| `total`          | number | Sí        | Monto del pago                                                                                                                              |
+| `term`           | number | No        | Plazo (ej: `30`)                                                                                                                            |
+| `time_unit`      | string | No        | `"dias"`, `"meses"`                                                                                                                         |
 
 ### Ejemplo curl
 
@@ -303,12 +304,12 @@ Modifica una factura emitida previamente (devolución total o parcial).
 
 ### Campos adicionales vs factura
 
-| Campo                        | Tipo   | Requerido | Descripción                           |
-|------------------------------|--------|-----------|---------------------------------------|
-| `modified_document_code`     | string | Sí        | `"01"` = factura                      |
-| `modified_document_number`   | string | Sí        | Ej: `"001-001-000000042"`             |
-| `modified_document_date`     | string | Sí        | Fecha del documento modificado        |
-| `reason`                     | string | Sí        | Motivo de la nota de crédito          |
+| Campo                      | Tipo   | Requerido | Descripción                    |
+| -------------------------- | ------ | --------- | ------------------------------ |
+| `modified_document_code`   | string | Sí        | `"01"` = factura               |
+| `modified_document_number` | string | Sí        | Ej: `"001-001-000000042"`      |
+| `modified_document_date`   | string | Sí        | Fecha del documento modificado |
+| `reason`                   | string | Sí        | Motivo de la nota de crédito   |
 
 ### Ejemplo curl
 
@@ -360,20 +361,20 @@ Incrementa el valor de una factura emitida (cargos adicionales, intereses, etc.)
 
 ### Campos adicionales vs factura
 
-| Campo                        | Tipo   | Requerido | Descripción                       |
-|------------------------------|--------|-----------|-----------------------------------|
-| `modified_document_code`     | string | Sí        | `"01"` = factura                  |
-| `modified_document_number`   | string | Sí        | Ej: `"001-001-000000042"`         |
-| `modified_document_date`     | string | Sí        | Fecha del documento modificado    |
-| `reasons`                    | array  | Sí        | Motivos del débito                |
-| `taxes`                      | array  | Sí        | Impuestos sobre los motivos       |
+| Campo                      | Tipo   | Requerido | Descripción                    |
+| -------------------------- | ------ | --------- | ------------------------------ |
+| `modified_document_code`   | string | Sí        | `"01"` = factura               |
+| `modified_document_number` | string | Sí        | Ej: `"001-001-000000042"`      |
+| `modified_document_date`   | string | Sí        | Fecha del documento modificado |
+| `reasons`                  | array  | Sí        | Motivos del débito             |
+| `taxes`                    | array  | Sí        | Impuestos sobre los motivos    |
 
 **reasons[]:**
 
-| Campo         | Tipo   | Requerido | Descripción         |
-|---------------|--------|-----------|---------------------|
+| Campo         | Tipo   | Requerido | Descripción           |
+| ------------- | ------ | --------- | --------------------- |
 | `description` | string | Sí        | Descripción del cargo |
-| `amount`      | number | Sí        | Valor del cargo     |
+| `amount`      | number | Sí        | Valor del cargo       |
 
 ### Ejemplo curl
 
@@ -420,50 +421,50 @@ Ampara el transporte de mercadería entre establecimientos o a clientes.
 
 ### Campos del request
 
-| Campo                  | Tipo   | Requerido | Descripción                          |
-|------------------------|--------|-----------|--------------------------------------|
-| `establishment`        | string | Sí        | 3 dígitos                            |
-| `issue_point`          | string | Sí        | 3 dígitos                            |
-| `sequence_number`      | string | Sí        | 9 dígitos                            |
-| `issue_date`           | string | Sí        | Fecha del día                        |
-| `departure_address`    | string | Sí        | Dirección de partida                 |
-| `carrier`              | object | Sí        | Datos del transportista              |
-| `transport_start_date` | string | Sí        | Fecha inicio del transporte          |
-| `transport_end_date`   | string | Sí        | Fecha fin del transporte             |
+| Campo                  | Tipo   | Requerido | Descripción                           |
+| ---------------------- | ------ | --------- | ------------------------------------- |
+| `establishment`        | string | Sí        | 3 dígitos                             |
+| `issue_point`          | string | Sí        | 3 dígitos                             |
+| `sequence_number`      | string | Sí        | 9 dígitos                             |
+| `issue_date`           | string | Sí        | Fecha del día                         |
+| `departure_address`    | string | Sí        | Dirección de partida                  |
+| `carrier`              | object | Sí        | Datos del transportista               |
+| `transport_start_date` | string | Sí        | Fecha inicio del transporte           |
+| `transport_end_date`   | string | Sí        | Fecha fin del transporte              |
 | `license_plate`        | string | Sí        | Placa del vehículo (ej: `"PBA-1234"`) |
-| `addressees`           | array  | Sí        | Destinatarios (mínimo 1)            |
+| `addressees`           | array  | Sí        | Destinatarios (mínimo 1)              |
 
 **carrier:**
 
-| Campo     | Tipo   | Requerido | Descripción                     |
-|-----------|--------|-----------|---------------------------------|
-| `id_type` | string | Sí        | Tipo de identificación          |
-| `id`      | string | Sí        | RUC o cédula del transportista  |
-| `name`    | string | Sí        | Nombre o razón social           |
-| `email`   | string | No        | Email                           |
-| `phone`   | string | No        | Teléfono                        |
+| Campo     | Tipo   | Requerido | Descripción                    |
+| --------- | ------ | --------- | ------------------------------ |
+| `id_type` | string | Sí        | Tipo de identificación         |
+| `id`      | string | Sí        | RUC o cédula del transportista |
+| `name`    | string | Sí        | Nombre o razón social          |
+| `email`   | string | No        | Email                          |
+| `phone`   | string | No        | Teléfono                       |
 
 **addressees[]:**
 
-| Campo                        | Tipo   | Requerido | Descripción                              |
-|------------------------------|--------|-----------|------------------------------------------|
-| `id`                         | string | Sí        | Identificación del destinatario          |
-| `name`                       | string | Sí        | Nombre del destinatario                  |
-| `address`                    | string | Sí        | Dirección de destino                     |
-| `transfer_reason`            | string | Sí        | Motivo del traslado                      |
-| `destination_establishment`  | string | No        | Código de establecimiento destino        |
-| `route`                      | string | No        | Ruta del transporte                      |
-| `support_document_code`      | string | Sí        | `"01"` factura, `"03"` liquidación, etc. |
-| `support_document_number`    | string | Sí        | Ej: `"001-001-000000042"`                |
-| `items`                      | array  | Sí        | Ítems transportados                      |
+| Campo                       | Tipo   | Requerido | Descripción                              |
+| --------------------------- | ------ | --------- | ---------------------------------------- |
+| `id`                        | string | Sí        | Identificación del destinatario          |
+| `name`                      | string | Sí        | Nombre del destinatario                  |
+| `address`                   | string | Sí        | Dirección de destino                     |
+| `transfer_reason`           | string | Sí        | Motivo del traslado                      |
+| `destination_establishment` | string | No        | Código de establecimiento destino        |
+| `route`                     | string | No        | Ruta del transporte                      |
+| `support_document_code`     | string | Sí        | `"01"` factura, `"03"` liquidación, etc. |
+| `support_document_number`   | string | Sí        | Ej: `"001-001-000000042"`                |
+| `items`                     | array  | Sí        | Ítems transportados                      |
 
 **addressees[].items[]:**
 
-| Campo            | Tipo   | Requerido | Descripción           |
-|------------------|--------|-----------|-----------------------|
-| `main_code`      | string | Sí        | Código del producto   |
-| `description`    | string | Sí        | Descripción           |
-| `quantity`       | number | Sí        | Cantidad              |
+| Campo         | Tipo   | Requerido | Descripción         |
+| ------------- | ------ | --------- | ------------------- |
+| `main_code`   | string | Sí        | Código del producto |
+| `description` | string | Sí        | Descripción         |
+| `quantity`    | number | Sí        | Cantidad            |
 
 ### Ejemplo curl
 
@@ -518,51 +519,51 @@ Emitido por el agente de retención para declarar retenciones de impuestos.
 
 ### Campos del request
 
-| Campo                   | Tipo    | Requerido | Descripción                           |
-|-------------------------|---------|-----------|---------------------------------------|
-| `establishment`         | string  | Sí        | 3 dígitos                             |
-| `issue_point`           | string  | Sí        | 3 dígitos                             |
-| `sequence_number`       | string  | Sí        | 9 dígitos                             |
-| `issue_date`            | string  | Sí        | Fecha del día                         |
-| `subject`               | object  | Sí        | Datos del sujeto retenido             |
-| `fiscal_period`         | string  | Sí        | Período fiscal: `"04/2026"`            |
-| `related_party`         | boolean | No        | `true` si es parte relacionada        |
-| `supporting_documents`  | array   | Sí        | Documentos de sustento (mínimo 1)    |
+| Campo                  | Tipo    | Requerido | Descripción                       |
+| ---------------------- | ------- | --------- | --------------------------------- |
+| `establishment`        | string  | Sí        | 3 dígitos                         |
+| `issue_point`          | string  | Sí        | 3 dígitos                         |
+| `sequence_number`      | string  | Sí        | 9 dígitos                         |
+| `issue_date`           | string  | Sí        | Fecha del día                     |
+| `subject`              | object  | Sí        | Datos del sujeto retenido         |
+| `fiscal_period`        | string  | Sí        | Período fiscal: `"04/2026"`       |
+| `related_party`        | boolean | No        | `true` si es parte relacionada    |
+| `supporting_documents` | array   | Sí        | Documentos de sustento (mínimo 1) |
 
 **subject:**
 
-| Campo          | Tipo   | Requerido | Descripción                     |
-|----------------|--------|-----------|---------------------------------|
-| `id_type`      | string | Sí        | Tipo de identificación          |
-| `id`           | string | Sí        | RUC o cédula del retenido       |
-| `name`         | string | Sí        | Nombre o razón social           |
-| `subject_type` | string | No        | Tipo de sujeto: `"01"`, `"02"`  |
-| `email`        | string | No        | Email                           |
+| Campo          | Tipo   | Requerido | Descripción                    |
+| -------------- | ------ | --------- | ------------------------------ |
+| `id_type`      | string | Sí        | Tipo de identificación         |
+| `id`           | string | Sí        | RUC o cédula del retenido      |
+| `name`         | string | Sí        | Nombre o razón social          |
+| `subject_type` | string | No        | Tipo de sujeto: `"01"`, `"02"` |
+| `email`        | string | No        | Email                          |
 
 **supporting_documents[]:**
 
-| Campo                | Tipo   | Requerido | Descripción                           |
-|----------------------|--------|-----------|---------------------------------------|
-| `support_code`       | string | Sí        | Código tipo sustento ATS               |
-| `document_code`      | string | Sí        | `"01"` factura, etc.                  |
-| `document_number`    | string | Sí        | Ej: `"001-001-000000042"`            |
-| `issue_date`         | string | Sí        | Fecha del documento sustento          |
-| `payment_locality`   | string | No        | Código de localidad                   |
-| `total_without_tax`  | number | Sí        | Subtotal sin impuestos                |
-| `total_amount`       | number | Sí        | Total con impuestos                   |
-| `taxes`              | array  | Sí        | Impuestos del documento               |
-| `withholdings`       | array  | Sí        | Retenciones aplicadas                 |
-| `payments`           | array  | Sí        | Formas de pago                         |
+| Campo               | Tipo   | Requerido | Descripción                  |
+| ------------------- | ------ | --------- | ---------------------------- |
+| `support_code`      | string | Sí        | Código tipo sustento ATS     |
+| `document_code`     | string | Sí        | `"01"` factura, etc.         |
+| `document_number`   | string | Sí        | Ej: `"001-001-000000042"`    |
+| `issue_date`        | string | Sí        | Fecha del documento sustento |
+| `payment_locality`  | string | No        | Código de localidad          |
+| `total_without_tax` | number | Sí        | Subtotal sin impuestos       |
+| `total_amount`      | number | Sí        | Total con impuestos          |
+| `taxes`             | array  | Sí        | Impuestos del documento      |
+| `withholdings`      | array  | Sí        | Retenciones aplicadas        |
+| `payments`          | array  | Sí        | Formas de pago               |
 
 **withholdings[]:**
 
-| Campo            | Tipo   | Requerido | Descripción                          |
-|------------------|--------|-----------|--------------------------------------|
-| `code`           | string | Sí        | `"1"` renta, `"2"` IVA, `"6"` ISD   |
-| `retention_code` | string | Sí        | Código de retención (ej: `"312"`)    |
-| `taxable_base`   | number | Sí        | Base imponible                       |
-| `retention_rate`  | number | Sí        | Porcentaje de retención              |
-| `retained_amount` | number | Sí        | Monto retenido                       |
+| Campo             | Tipo   | Requerido | Descripción                       |
+| ----------------- | ------ | --------- | --------------------------------- |
+| `code`            | string | Sí        | `"1"` renta, `"2"` IVA, `"6"` ISD |
+| `retention_code`  | string | Sí        | Código de retención (ej: `"312"`) |
+| `taxable_base`    | number | Sí        | Base imponible                    |
+| `retention_rate`  | number | Sí        | Porcentaje de retención           |
+| `retained_amount` | number | Sí        | Monto retenido                    |
 
 ### Ejemplo curl
 
@@ -632,20 +633,20 @@ Emitida cuando se adquiere bienes o servicios a personas no obligadas a llevar c
 
 En lugar de `recipient`, se usa **`supplier`** (datos del proveedor informal).
 
-| Campo         | Tipo   | Requerido | Descripción                     |
-|---------------|--------|-----------|---------------------------------|
-| `supplier`    | object | Sí        | Datos del proveedor             |
+| Campo      | Tipo   | Requerido | Descripción         |
+| ---------- | ------ | --------- | ------------------- |
+| `supplier` | object | Sí        | Datos del proveedor |
 
 **supplier:**
 
-| Campo     | Tipo   | Requerido | Descripción                                         |
-|-----------|--------|-----------|-----------------------------------------------------|
+| Campo     | Tipo   | Requerido | Descripción                                                                               |
+| --------- | ------ | --------- | ----------------------------------------------------------------------------------------- |
 | `id_type` | string | Sí        | `"04"` RUC, `"05"` cédula, `"06"` pasaporte, `"07"` consumidor final, `"08"` id. exterior |
-| `id`      | string | Sí        | Número de identificación                            |
-| `name`    | string | Sí        | Nombre del proveedor                                |
-| `address` | string | No        | Dirección                                            |
-| `email`   | string | No        | Email                                                |
-| `phone`   | string | No        | Teléfono                                             |
+| `id`      | string | Sí        | Número de identificación                                                                  |
+| `name`    | string | Sí        | Nombre del proveedor                                                                      |
+| `address` | string | No        | Dirección                                                                                 |
+| `email`   | string | No        | Email                                                                                     |
+| `phone`   | string | No        | Teléfono                                                                                  |
 
 Los campos `items` y `payments` son idénticos a los de factura.
 
@@ -714,15 +715,15 @@ curl -s "https://sandbox.key49.ec/v1/invoices?status=AUTHORIZED&date_from=2026-0
 
 **Filtros disponibles:**
 
-| Parámetro      | Tipo   | Descripción                        |
-|----------------|--------|------------------------------------|
-| `status`       | string | Filtrar por estado                 |
-| `date_from`    | string | Fecha desde (YYYY-MM-DD)          |
-| `date_to`      | string | Fecha hasta (YYYY-MM-DD)          |
-| `recipient_id` | string | Identificación del receptor       |
-| `access_key`   | string | Clave de acceso (49 dígitos)      |
-| `page`         | int    | Página (default: 1)               |
-| `per_page`     | int    | Resultados por página (default: 20, max: 100) |
+| Parámetro      | Tipo   | Descripción                                                            |
+| -------------- | ------ | ---------------------------------------------------------------------- |
+| `status`       | string | Filtrar por estado                                                     |
+| `date_from`    | string | Fecha desde (YYYY-MM-DD)                                               |
+| `date_to`      | string | Fecha hasta (YYYY-MM-DD)                                               |
+| `recipient_id` | string | Identificación del receptor                                            |
+| `access_key`   | string | Clave de acceso (49 dígitos)                                           |
+| `page`         | int    | Página (default: 1)                                                    |
+| `per_page`     | int    | Resultados por página (default: 20, max: 100)                          |
 | `sort`         | string | Ordenamiento: `created_at`, `-created_at`, `issue_date`, `-issue_date` |
 
 ### Respuesta paginada
@@ -793,6 +794,7 @@ curl -s -X POST https://sandbox.key49.ec/v1/invoices/{id}/void \
 ```
 
 **Requisitos:**
+
 - El documento debe estar en estado `AUTHORIZED` o `NOTIFIED`
 - El campo `reason` es obligatorio
 
@@ -808,11 +810,11 @@ X-Idempotency-Key: mi-clave-unica-12345
 
 **Comportamiento:**
 
-| Escenario                              | Resultado                                  |
-|----------------------------------------|--------------------------------------------|
-| Primera petición con el key            | Crea el documento normalmente              |
-| Misma petición con el mismo key        | Retorna el resultado original (sin reprocesar) |
-| Petición distinta con el mismo key     | HTTP 409 `IDEMPOTENCY_CONFLICT`            |
+| Escenario                          | Resultado                                      |
+| ---------------------------------- | ---------------------------------------------- |
+| Primera petición con el key        | Crea el documento normalmente                  |
+| Misma petición con el mismo key    | Retorna el resultado original (sin reprocesar) |
+| Petición distinta con el mismo key | HTTP 409 `IDEMPOTENCY_CONFLICT`                |
 
 **Recomendación**: usa UUIDs o timestamps combinados con el tipo de documento como claves de idempotencia.
 
@@ -846,50 +848,50 @@ Al exceder el límite: HTTP 429 con header `Retry-After`:
 
 ### Errores de validación (400)
 
-| Código                     | Descripción                                     |
-|----------------------------|-------------------------------------------------|
-| `VALIDATION_ERROR`         | Campos inválidos (ver `error.details[]`)        |
-| `INVALID_ESTABLISHMENT`    | Establecimiento no tiene 3 dígitos              |
-| `INVALID_ISSUE_POINT`      | Punto de emisión no tiene 3 dígitos             |
-| `INVALID_SEQUENCE_NUMBER`  | Secuencial no tiene 9 dígitos                   |
-| `INVALID_RECIPIENT_ID`     | RUC/cédula en formato inválido                  |
-| `INVALID_ISSUE_DATE`       | Fecha de emisión no es hoy (UTC-5)              |
+| Código                    | Descripción                              |
+| ------------------------- | ---------------------------------------- |
+| `VALIDATION_ERROR`        | Campos inválidos (ver `error.details[]`) |
+| `INVALID_ESTABLISHMENT`   | Establecimiento no tiene 3 dígitos       |
+| `INVALID_ISSUE_POINT`     | Punto de emisión no tiene 3 dígitos      |
+| `INVALID_SEQUENCE_NUMBER` | Secuencial no tiene 9 dígitos            |
+| `INVALID_RECIPIENT_ID`    | RUC/cédula en formato inválido           |
+| `INVALID_ISSUE_DATE`      | Fecha de emisión no es hoy (UTC-5)       |
 
 ### Errores de autenticación (401/403)
 
-| Código               | Descripción                     |
-|----------------------|---------------------------------|
-| `UNAUTHORIZED`       | API key faltante o inválida     |
-| `API_KEY_EXPIRED`    | API key expirada                |
-| `API_KEY_REVOKED`    | API key revocada                |
-| `TENANT_SUSPENDED`   | Tenant suspendido               |
+| Código             | Descripción                 |
+| ------------------ | --------------------------- |
+| `UNAUTHORIZED`     | API key faltante o inválida |
+| `API_KEY_EXPIRED`  | API key expirada            |
+| `API_KEY_REVOKED`  | API key revocada            |
+| `TENANT_SUSPENDED` | Tenant suspendido           |
 
 ### Errores de conflicto (409)
 
-| Código                       | Descripción                                      |
-|------------------------------|--------------------------------------------------|
-| `DUPLICATE_DOCUMENT`         | Documento con mismo tipo/establecimiento/punto/secuencial |
-| `IDEMPOTENCY_CONFLICT`      | Key de idempotencia usada con body distinto      |
-| `INVALID_STATE_TRANSITION`   | Transición de estado no permitida                |
+| Código                     | Descripción                                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DUPLICATE_DOCUMENT`       | Documento activo/completado con mismo tipo/establecimiento/punto/secuencial. Documentos en REJECTED/FAILED se reciclan automáticamente (retorna 202). |
+| `IDEMPOTENCY_CONFLICT`     | Key de idempotencia usada con body distinto                                                                                                           |
+| `INVALID_STATE_TRANSITION` | Transición de estado no permitida                                                                                                                     |
 
 ### Errores de procesamiento (422)
 
-| Código                        | Descripción                            |
-|-------------------------------|----------------------------------------|
-| `CERTIFICATE_NOT_CONFIGURED`  | Tenant sin certificado .p12            |
-| `CERTIFICATE_EXPIRED`         | Certificado del tenant expirado        |
+| Código                       | Descripción                     |
+| ---------------------------- | ------------------------------- |
+| `CERTIFICATE_NOT_CONFIGURED` | Tenant sin certificado .p12     |
+| `CERTIFICATE_EXPIRED`        | Certificado del tenant expirado |
 
 ### Errores de límite (429)
 
-| Código                  | Descripción                            |
-|-------------------------|----------------------------------------|
-| `RATE_LIMIT_EXCEEDED`   | Excedido el límite de requests/minuto  |
+| Código                | Descripción                           |
+| --------------------- | ------------------------------------- |
+| `RATE_LIMIT_EXCEEDED` | Excedido el límite de requests/minuto |
 
 ### Errores de servidor (500/502)
 
-| Código            | Descripción                                  |
-|-------------------|----------------------------------------------|
-| `INTERNAL_ERROR`  | Error interno del servidor                   |
+| Código            | Descripción                                      |
+| ----------------- | ------------------------------------------------ |
+| `INTERNAL_ERROR`  | Error interno del servidor                       |
 | `SRI_UNAVAILABLE` | SRI no disponible (timeout o conexión rechazada) |
 
 ### Formato de error
@@ -1035,9 +1037,9 @@ const API_KEY = "fec_test_TuApiKeyAqui";
 const BASE_URL = "https://sandbox.key49.ec/v1";
 
 const headers = {
-  "Authorization": `Bearer ${API_KEY}`,
+  Authorization: `Bearer ${API_KEY}`,
   "Content-Type": "application/json",
-  "X-Idempotency-Key": `inv-${new Date().toISOString().split("T")[0]}-001`
+  "X-Idempotency-Key": `inv-${new Date().toISOString().split("T")[0]}-001`,
 };
 
 // Emitir factura
@@ -1050,28 +1052,32 @@ const invoice = {
     id_type: "04",
     id: "1790012345001",
     name: "Empresa Cliente S.A.",
-    email: "contabilidad@cliente.com"
+    email: "contabilidad@cliente.com",
   },
-  items: [{
-    main_code: "SRV-001",
-    description: "Servicio de consultoría",
-    quantity: 1,
-    unit_price: 100.00,
-    discount: 0.00,
-    taxes: [{ code: "2", rate_code: "4", rate: 15 }]
-  }],
-  payments: [{
-    payment_method: "01",
-    total: 115.00,
-    term: 0,
-    time_unit: "dias"
-  }]
+  items: [
+    {
+      main_code: "SRV-001",
+      description: "Servicio de consultoría",
+      quantity: 1,
+      unit_price: 100.0,
+      discount: 0.0,
+      taxes: [{ code: "2", rate_code: "4", rate: 15 }],
+    },
+  ],
+  payments: [
+    {
+      payment_method: "01",
+      total: 115.0,
+      term: 0,
+      time_unit: "dias",
+    },
+  ],
 };
 
 const resp = await fetch(`${BASE_URL}/invoices`, {
   method: "POST",
   headers,
-  body: JSON.stringify(invoice)
+  body: JSON.stringify(invoice),
 });
 
 const { data } = await resp.json();

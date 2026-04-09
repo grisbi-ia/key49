@@ -317,7 +317,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
 
 Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON del request_payload en records cuyos campos no coinciden con los nombres reales del DTO, resultando en valores null en el XML generado. Misma causa raíz que la corregida en `InvoiceDataMapper` (T-037f).
 
-- [ ] **T-053** Corregir CreditNoteDataMapper (queue/mapper)
+- [x] **T-053** Corregir CreditNoteDataMapper (queue/mapper)
   - **Bug**: `PayloadTax` tiene campos `taxableBase` y `amount` que no existen en `CreateCreditNoteRequest.TaxRequest` → siempre null
   - Reescribir siguiendo patrón de InvoiceDataMapper: records `RawPayload`/`RawItem`/`RawTax` con campos que coinciden con el DTO (`code`, `rateCode`, `rate`)
   - Calcular `subtotalBeforeTax = qty * unitPrice - discount` por ítem
@@ -325,7 +325,7 @@ Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON d
   - Agregar `totalTaxes` sumando por código+porcentaje
   - Validar con XML firmado de referencia de nota de crédito real
 
-- [ ] **T-054** Corregir PurchaseClearanceDataMapper (queue/mapper)
+- [x] **T-054** Corregir PurchaseClearanceDataMapper (queue/mapper)
   - **Bug crítico**: deserializa directamente en records de `PurchaseClearanceData.*` (no usa records intermedios)
   - `Tax.taxCode` espera `"tax_code"` pero el DTO envía `"code"` → null
   - `subtotalBeforeTax`, `taxableBase`, `amount`, `totalTaxes` todos null (cero cálculo)
@@ -334,16 +334,16 @@ Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON d
   - Calcular todos los campos derivados
   - Validar con XML firmado de referencia
 
-- [ ] **T-055** Revisar WaybillDataMapper (queue/mapper)
+- [x] **T-055** Revisar WaybillDataMapper (queue/mapper)
   - **Bug menor**: `PayloadCarrier.rise` no existe en `CreateWaybillRequest.CarrierRequest` (tiene `email`, `phone`)
   - Corregir campo `rise` — verificar si el XML del SRI lo requiere y de dónde obtenerlo
   - Validar con XML firmado de referencia de guía de remisión real
 
-- [ ] **T-056** Validación live de DebitNoteDataMapper
+- [x] **T-056** Validación live de DebitNoteDataMapper
   - Mapper correcto (campos coinciden, calcula impuestos)
   - Validar enviando nota de débito real al SRI de pruebas
 
-- [ ] **T-057** Validación live de WithholdingDataMapper
+- [x] **T-057** Validación live de WithholdingDataMapper
   - Mapper correcto (estructura diferente: el cliente provee todos los valores de impuestos)
   - Validar enviando retención real al SRI de pruebas
 

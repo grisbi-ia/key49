@@ -13,12 +13,12 @@ class DocumentTransitionTest {
 
     @ParameterizedTest
     @CsvSource({
-            "CREATED, SIGNED",
-            "SIGNED, SENT",
-            "SENT, RECEIVED",
-            "RECEIVED, AUTHORIZED",
-            "AUTHORIZED, NOTIFIED",
-            "NOTIFIED, VOIDED"
+        "CREATED, SIGNED",
+        "SIGNED, SENT",
+        "SENT, RECEIVED",
+        "RECEIVED, AUTHORIZED",
+        "AUTHORIZED, NOTIFIED",
+        "NOTIFIED, VOIDED"
     })
     void shouldTransitionThroughHappyPath(DocumentStatus from, DocumentStatus to) {
         var doc = new Document();
@@ -53,14 +53,13 @@ class DocumentTransitionTest {
     }
 
     @Test
-    void shouldPreserveStateOnFailedTransition() {
+    void shouldAllowRejectedToCreatedTransition() {
         var doc = new Document();
         doc.status = DocumentStatus.REJECTED;
 
-        assertThrows(InvalidStateTransitionException.class,
-                () -> doc.transitionTo(DocumentStatus.CREATED));
+        doc.transitionTo(DocumentStatus.CREATED);
 
-        assertEquals(DocumentStatus.REJECTED, doc.status);
+        assertEquals(DocumentStatus.CREATED, doc.status);
     }
 
     @Test

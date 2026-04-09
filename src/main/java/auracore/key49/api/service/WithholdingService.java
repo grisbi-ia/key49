@@ -5,6 +5,7 @@ import auracore.key49.api.dto.CreateWithholdingRequest.SupportingDocumentRequest
 import auracore.key49.api.dto.CreateWithholdingRequest.WithholdingLineRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.BusinessException.FieldError;
+import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -34,12 +35,11 @@ import java.util.regex.Pattern;
  * Servicio de negocio para operaciones sobre comprobantes de retención
  * electrónicos.
  */
-
 @ApplicationScoped
 public class WithholdingService {
 
     private static final Pattern FISCAL_PERIOD_PATTERN = Pattern.compile("\\d{2}/\\d{4}");
-    private static final Pattern DOC_NUMBER_PATTERN = Pattern.compile("\\d{3}-\\d{3}-\\d{9}");
+    private static final Pattern DOC_NUMBER_PATTERN = Pattern.compile("\\d{3}-\\d{3}-\\d{9}|\\d{15}");
 
     @Inject
     Logger log;
@@ -54,7 +54,6 @@ public class WithholdingService {
     ObjectMapper objectMapper;
 
     // ── Crear comprobante de retención ──
-
     public Document createWithholding(CreateWithholdingRequest request,
             String idempotencyKey, String requestIp) {
 
@@ -63,8 +62,8 @@ public class WithholdingService {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 Document existing = em.createQuery(
-                                "FROM Document d WHERE d.idempotencyKey = :key AND d.documentType = :docType",
-                                Document.class)
+                        "FROM Document d WHERE d.idempotencyKey = :key AND d.documentType = :docType",
+                        Document.class)
                         .setParameter("key", idempotencyKey)
                         .setParameter("docType", DocumentType.WITHHOLDING.sriCode())
                         .getResultStream().findFirst().orElse(null);
@@ -80,26 +79,73 @@ public class WithholdingService {
     private Document checkUniquenessAndPersist(EntityManager em,
             CreateWithholdingRequest request, String idempotencyKey, String requestIp) {
 
-        Long count = em.createQuery(
-                "SELECT count(d) FROM Document d WHERE d.documentType = :docType "
-                        + "AND d.establishment = :est AND d.issuePoint = :pt "
-                        + "AND d.sequenceNumber = :seq",
-                Long.class)
+        Document existing = em.createQuery(
+                "FROM Document d WHERE d.documentType = :docType "
+                + "AND d.establishment = :est AND d.issuePoint = :pt "
+                + "AND d.sequenceNumber = :seq", Document.class)
                 .setParameter("docType", DocumentType.WITHHOLDING.sriCode())
                 .setParameter("est", request.establishment())
                 .setParameter("pt", request.issuePoint())
                 .setParameter("seq", request.sequenceNumber())
-                .getSingleResult();
+                .getResultStream().findFirst().orElse(null);
 
-        if (count > 0) {
-            throw new BusinessException(
-                    "DUPLICATE_DOCUMENT",
-                    "Withholding %s-%s-%s already exists".formatted(
-                            request.establishment(), request.issuePoint(),
-                            request.sequenceNumber()),
-                    409);
+        if (existing == null) {
+            return persistNewDocument(em, request, idempotencyKey, requestIp);
         }
-        return persistNewDocument(em, request, idempotencyKey, requestIp);
+
+        if (existing.status.isRetryableTerminal()) {
+            return recycleDocument(em, existing, request, idempotencyKey, requestIp);
+        }
+
+        var docNumber = "%s-%s-%s".formatted(request.establishment(), request.issuePoint(), request.sequenceNumber());
+        throw new DuplicateDocumentException(
+                "DUPLICATE_DOCUMENT",
+                "Withholding %s already exists with status %s".formatted(docNumber, existing.status.name()),
+                existing.id, existing.status.name(), existing.accessKey, existing.authorizationDate);
+    }
+
+    private Document recycleDocument(EntityManager em, Document doc,
+            CreateWithholdingRequest request, String idempotencyKey, String requestIp) {
+        log.infof("Recycling failed document %s (was %s) for resubmission", doc.id, doc.status);
+
+        doc.issueDate = request.issueDate();
+        doc.recipientIdType = request.subject().idType();
+        doc.recipientId = request.subject().id();
+        doc.recipientName = request.subject().name();
+        doc.recipientEmail = request.subject() != null ? request.subject().email() : null;
+        doc.idempotencyKey = idempotencyKey;
+        doc.requestIp = requestIp;
+
+        try {
+            doc.requestPayload = objectMapper.writeValueAsString(request);
+        } catch (Exception e) {
+            throw new BusinessException(
+                    "SERIALIZATION_ERROR", "Failed to serialize request", 500);
+        }
+
+        computeAndSetTotals(doc, request);
+
+        doc.status = DocumentStatus.CREATED;
+        doc.accessKey = null;
+        doc.authorizationNumber = null;
+        doc.authorizationDate = null;
+        doc.sriSubmissionDate = null;
+        doc.lastErrorCode = null;
+        doc.lastErrorMessage = null;
+        doc.sriMessages = null;
+        doc.unsignedXmlPath = null;
+        doc.signedXmlPath = null;
+        doc.authorizedXmlPath = null;
+        doc.ridePath = null;
+        doc.retryCount = 0;
+        doc.nextRetryAt = null;
+        doc.updatedAt = Instant.now();
+
+        em.merge(doc);
+        var outbox = OutboxEvent.create(doc.id, "doc.sign", "{}");
+        em.persist(outbox);
+        em.flush();
+        return doc;
     }
 
     private Document persistNewDocument(EntityManager em,
@@ -142,10 +188,9 @@ public class WithholdingService {
     }
 
     // ── Consultar por ID ──
-
     public Document findById(UUID id) {
-        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em ->
-                em.find(Document.class, id));
+        Document doc = tcm.withTenantSession(tenantContext.getSchemaName(), em
+                -> em.find(Document.class, id));
         if (doc == null) {
             throw new BusinessException(
                     "DOCUMENT_NOT_FOUND", "Withholding not found: " + id, 404);
@@ -154,7 +199,6 @@ public class WithholdingService {
     }
 
     // ── Listar comprobantes de retención ──
-
     public PagedResult listWithholdings(String status, LocalDate dateFrom,
             LocalDate dateTo, String recipientId, String accessKey,
             int page, int perPage, String sort) {
@@ -208,7 +252,6 @@ public class WithholdingService {
     }
 
     // ── Anular comprobante de retención localmente ──
-
     public Document voidWithholding(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(
@@ -240,7 +283,6 @@ public class WithholdingService {
     }
 
     // ── Reenviar email ──
-
     public Instant resendEmail(UUID id) {
         return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             Document doc = em.find(Document.class, id);
@@ -270,7 +312,6 @@ public class WithholdingService {
     }
 
     // ── Validaciones ──
-
     void validateCreateRequest(CreateWithholdingRequest request) {
         var errors = new ArrayList<FieldError>();
 
@@ -446,7 +487,6 @@ public class WithholdingService {
     }
 
     // ── Cálculo de totales ──
-
     void computeAndSetTotals(Document doc, CreateWithholdingRequest request) {
         BigDecimal totalRetained = BigDecimal.ZERO;
         BigDecimal ivaRetained = BigDecimal.ZERO;
@@ -478,7 +518,6 @@ public class WithholdingService {
     }
 
     // ── Utilidades ──
-
     private String resolveOrderBy(String sort) {
         if (sort == null || sort.isBlank()) {
             sort = "-issue_date";
@@ -486,15 +525,21 @@ public class WithholdingService {
         boolean desc = sort.startsWith("-");
         String field = desc ? sort.substring(1) : sort;
         String column = switch (field) {
-            case "issue_date" -> "d.issueDate";
-            case "created_at" -> "d.createdAt";
-            case "total_amount" -> "d.totalAmount";
-            case "status" -> "d.status";
-            default -> "d.issueDate";
+            case "issue_date" ->
+                "d.issueDate";
+            case "created_at" ->
+                "d.createdAt";
+            case "total_amount" ->
+                "d.totalAmount";
+            case "status" ->
+                "d.status";
+            default ->
+                "d.issueDate";
         };
         return " ORDER BY " + column + (desc ? " DESC" : " ASC");
     }
 
     public record PagedResult(List<Document> items, long total) {
+
     }
 }

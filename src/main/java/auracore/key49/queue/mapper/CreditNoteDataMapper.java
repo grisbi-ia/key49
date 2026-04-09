@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,10 +22,12 @@ import jakarta.inject.Inject;
  * nota de crédito.
  *
  * <p>
- * Extrae ítems, impuestos totalizados, datos del doc modificado e información
- * adicional del {@code requestPayload} JSON del documento.
+ * El {@code requestPayload} almacenado contiene la estructura de
+ * {@code CreateCreditNoteRequest} (serializado con SNAKE_CASE). Este mapper
+ * parsea esa estructura y computa los campos derivados que requiere el XML del
+ * SRI: subtotalBeforeTax por ítem, taxableBase y amount por impuesto, y los
+ * totalTaxes agregados.
  */
-
 @ApplicationScoped
 public class CreditNoteDataMapper {
 
@@ -40,16 +42,15 @@ public class CreditNoteDataMapper {
      * Construye un CreditNoteData completo a partir de los datos del documento,
      * el tenant emisor y la clave de acceso generada.
      *
-     * @param doc       documento con datos del comprobante
-     * @param tenant    tenant emisor con información tributaria
+     * @param doc documento con datos del comprobante
+     * @param tenant tenant emisor con información tributaria
      * @param accessKey clave de acceso de 49 dígitos
      * @return datos listos para generar el XML de nota de crédito
      */
     public CreditNoteData build(Document doc, Tenant tenant, String accessKey) {
-        var payload = parsePayload(doc.requestPayload);
-
-        var items = mapItems(payload.items());
-        var totalTaxes = computeTotalTaxes(items);
+        var raw = parsePayload(doc.requestPayload);
+        var items = buildItems(raw.items());
+        var totalTaxes = aggregateTotalTaxes(items);
 
         return new CreditNoteData(
                 buildTaxpayerInfo(tenant),
@@ -62,16 +63,16 @@ public class CreditNoteDataMapper {
                         doc.recipientIdType,
                         doc.recipientId,
                         doc.recipientName),
-                payload.modifiedDocumentCode(),
-                payload.modifiedDocumentNumber(),
-                payload.modifiedDocumentDate(),
-                payload.reason(),
+                raw.modifiedDocumentCode(),
+                raw.modifiedDocumentNumber(),
+                raw.modifiedDocumentDate(),
+                raw.reason(),
                 items,
                 totalTaxes,
                 doc.subtotalBeforeTax,
                 doc.totalAmount,
                 doc.currency,
-                payload.additionalInfo() != null ? payload.additionalInfo() : Map.of()
+                raw.additionalInfo() != null ? raw.additionalInfo() : Map.of()
         );
     }
 
@@ -92,73 +93,83 @@ public class CreditNoteDataMapper {
         );
     }
 
-    private List<CreditNoteData.Item> mapItems(List<PayloadItem> payloadItems) {
-        if (payloadItems == null || payloadItems.isEmpty()) {
+    private List<CreditNoteData.Item> buildItems(List<RawItem> rawItems) {
+        if (rawItems == null || rawItems.isEmpty()) {
             return List.of();
         }
-        return payloadItems.stream()
-                .map(pi -> {
-                    var taxes = pi.taxes() != null
-                            ? pi.taxes().stream()
-                            .map(t -> new CreditNoteData.Tax(
-                                    t.code(), t.rateCode(), t.rate(),
-                                    t.taxableBase(), t.amount()))
-                            .toList()
-                            : List.<CreditNoteData.Tax>of();
+        var result = new ArrayList<CreditNoteData.Item>(rawItems.size());
+        for (var raw : rawItems) {
+            var qty = raw.quantity() != null ? raw.quantity() : BigDecimal.ZERO;
+            var price = raw.unitPrice() != null ? raw.unitPrice() : BigDecimal.ZERO;
+            var discount = raw.discount() != null ? raw.discount() : BigDecimal.ZERO;
+            var subtotal = qty.multiply(price).subtract(discount).setScale(2, RoundingMode.HALF_UP);
 
-                    BigDecimal lineTotal = pi.quantity().multiply(pi.unitPrice());
-                    BigDecimal discount = pi.discount() != null ? pi.discount() : BigDecimal.ZERO;
-                    BigDecimal subtotal = lineTotal.subtract(discount);
+            var taxes = buildItemTaxes(raw.taxes(), subtotal);
 
-                    return new CreditNoteData.Item(
-                            pi.internalCode(), pi.additionalCode(),
-                            pi.description(), pi.quantity(), pi.unitPrice(),
-                            discount, subtotal, taxes);
-                })
-                .toList();
-    }
-
-    /**
-     * Calcula impuestos totalizados agrupados por (taxCode, rateCode).
-     */
-    private List<CreditNoteData.TotalTax> computeTotalTaxes(List<CreditNoteData.Item> items) {
-        var taxMap = new HashMap<String, BigDecimal[]>();
-        for (var item : items) {
-            if (item.taxes() == null) continue;
-            for (var tax : item.taxes()) {
-                var key = tax.taxCode() + "|" + tax.rateCode();
-                var accum = taxMap.computeIfAbsent(key, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
-                if (tax.taxableBase() != null) {
-                    accum[0] = accum[0].add(tax.taxableBase());
-                }
-                if (tax.amount() != null) {
-                    accum[1] = accum[1].add(tax.amount());
-                } else if (tax.rate() != null && tax.taxableBase() != null) {
-                    accum[1] = accum[1].add(
-                            tax.taxableBase().multiply(tax.rate())
-                                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-                }
-            }
-        }
-
-        var result = new ArrayList<CreditNoteData.TotalTax>();
-        for (var entry : taxMap.entrySet()) {
-            var parts = entry.getKey().split("\\|", 2);
-            result.add(new CreditNoteData.TotalTax(
-                    parts[0], parts.length > 1 ? parts[1] : null,
-                    entry.getValue()[0].setScale(2, RoundingMode.HALF_UP),
-                    entry.getValue()[1].setScale(2, RoundingMode.HALF_UP)));
+            result.add(new CreditNoteData.Item(
+                    raw.internalCode(),
+                    raw.additionalCode(),
+                    raw.description(),
+                    qty,
+                    price,
+                    discount,
+                    subtotal,
+                    taxes
+            ));
         }
         return List.copyOf(result);
     }
 
-    private CreditNotePayload parsePayload(String requestPayload) {
+    private List<CreditNoteData.Tax> buildItemTaxes(List<RawTax> rawTaxes, BigDecimal taxableBase) {
+        if (rawTaxes == null || rawTaxes.isEmpty()) {
+            return List.of();
+        }
+        var result = new ArrayList<CreditNoteData.Tax>(rawTaxes.size());
+        for (var raw : rawTaxes) {
+            var rate = raw.rate() != null ? raw.rate() : BigDecimal.ZERO;
+            var amount = taxableBase
+                    .multiply(rate)
+                    .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+
+            result.add(new CreditNoteData.Tax(
+                    raw.code(),
+                    raw.rateCode(),
+                    rate,
+                    taxableBase,
+                    amount
+            ));
+        }
+        return List.copyOf(result);
+    }
+
+    private List<CreditNoteData.TotalTax> aggregateTotalTaxes(List<CreditNoteData.Item> items) {
+        var map = new LinkedHashMap<String, TaxAccumulator>();
+        for (var item : items) {
+            for (var tax : item.taxes()) {
+                var key = tax.taxCode() + "|" + tax.rateCode();
+                map.computeIfAbsent(key, k -> new TaxAccumulator(tax.taxCode(), tax.rateCode()))
+                        .add(tax.taxableBase(), tax.amount());
+            }
+        }
+        var result = new ArrayList<CreditNoteData.TotalTax>(map.size());
+        for (var acc : map.values()) {
+            result.add(new CreditNoteData.TotalTax(
+                    acc.taxCode,
+                    acc.rateCode,
+                    acc.base.setScale(2, RoundingMode.HALF_UP),
+                    acc.amount.setScale(2, RoundingMode.HALF_UP)
+            ));
+        }
+        return List.copyOf(result);
+    }
+
+    private RawPayload parsePayload(String requestPayload) {
         if (requestPayload == null || requestPayload.isBlank()) {
-            return new CreditNotePayload(null, null, null, null, List.of(), Map.of());
+            return new RawPayload(null, null, null, null, List.of(), Map.of());
         }
         try {
-            var parsed = objectMapper.readValue(requestPayload, CreditNotePayload.class);
-            return new CreditNotePayload(
+            var parsed = objectMapper.readValue(requestPayload, RawPayload.class);
+            return new RawPayload(
                     parsed.modifiedDocumentCode(),
                     parsed.modifiedDocumentNumber(),
                     parsed.modifiedDocumentDate(),
@@ -171,33 +182,53 @@ public class CreditNoteDataMapper {
         }
     }
 
-    /**
-     * Estructura interna que coincide con la serialización JSON de CreateCreditNoteRequest.
-     */
-    record CreditNotePayload(
+    // ── Records internos que reflejan la estructura de CreateCreditNoteRequest ──
+    record RawPayload(
             String modifiedDocumentCode,
             String modifiedDocumentNumber,
             LocalDate modifiedDocumentDate,
             String reason,
-            List<PayloadItem> items,
+            List<RawItem> items,
             Map<String, String> additionalInfo
-    ) {}
+            ) {
 
-    record PayloadItem(
+    }
+
+    record RawItem(
             String internalCode,
             String additionalCode,
             String description,
             BigDecimal quantity,
             BigDecimal unitPrice,
             BigDecimal discount,
-            List<PayloadTax> taxes
-    ) {}
+            List<RawTax> taxes
+            ) {
 
-    record PayloadTax(
+    }
+
+    record RawTax(
             String code,
             String rateCode,
-            BigDecimal rate,
-            BigDecimal taxableBase,
-            BigDecimal amount
-    ) {}
+            BigDecimal rate
+            ) {
+
+    }
+
+    private static class TaxAccumulator {
+
+        final String taxCode;
+        final String rateCode;
+        BigDecimal base = BigDecimal.ZERO;
+        BigDecimal amount = BigDecimal.ZERO;
+
+        TaxAccumulator(String taxCode, String rateCode) {
+            this.taxCode = taxCode;
+            this.rateCode = rateCode;
+        }
+
+        void add(BigDecimal taxableBase, BigDecimal taxAmount) {
+            this.base = this.base.add(taxableBase);
+            this.amount = this.amount.add(taxAmount);
+        }
+    }
 }

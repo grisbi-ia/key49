@@ -18,7 +18,6 @@ import jakarta.inject.Inject;
  * Mapea Document + Tenant + accessKey a WaybillData para generar el XML de guía
  * de remisión.
  */
-
 @ApplicationScoped
 public class WaybillDataMapper {
 
@@ -40,7 +39,7 @@ public class WaybillDataMapper {
                 payload.carrier() != null ? payload.carrier().idType() : doc.recipientIdType,
                 payload.carrier() != null ? payload.carrier().id() : doc.recipientId,
                 payload.carrier() != null ? payload.carrier().name() : doc.recipientName,
-                payload.carrier() != null ? payload.carrier().rise() : null);
+                null);
 
         return new WaybillData(
                 buildTaxpayerInfo(tenant),
@@ -103,8 +102,8 @@ public class WaybillDataMapper {
         }
         return items.stream()
                 .map(i -> new WaybillData.Item(
-                        i.mainCode(), i.auxiliaryCode(), i.description(),
-                        i.quantity(), mapItemDetails(i.additionalDetails())))
+                i.mainCode(), i.auxiliaryCode(), i.description(),
+                i.quantity(), mapItemDetails(i.additionalDetails())))
                 .toList();
     }
 
@@ -137,7 +136,6 @@ public class WaybillDataMapper {
     }
 
     // ── Payload records ──
-
     record WaybillPayload(
             String departureAddress,
             PayloadCarrier carrier,
@@ -150,7 +148,7 @@ public class WaybillDataMapper {
     }
 
     record PayloadCarrier(
-            String idType, String id, String name, String rise) {
+            String idType, String id, String name, String email, String phone) {
 
     }
 

@@ -5,6 +5,32 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.18.0] - 2026-04-09
+
+### Agregado
+
+- **Smart duplicate handling** (todos los servicios): documentos en estado REJECTED/FAILED se reciclan automáticamente al reenviar con los mismos datos de unicidad (tipo + establecimiento + punto + secuencial), retornando 202. Documentos en estado activo/completado retornan 409 con información del documento existente (id, status, accessKey, authorizationDate)
+- `DuplicateDocumentException` + `DuplicateDocumentExceptionMapper`: excepción de negocio y mapper JAX-RS que produce 409 con `error.existingDocument`
+- `DocumentStatus.isRetryableTerminal()`: distingue estados terminales reciclables (REJECTED, FAILED) de terminales absolutos (VOIDED)
+- Transiciones `REJECTED → CREATED` y `FAILED → CREATED` en la máquina de estados
+- Portal: columna "Documento" con nombre legible del tipo en dashboard.html
+- Portal: sección de mensajes SRI detallados en detail.html
+- Script `test-curls.sh` para pruebas manuales de los 6 tipos de documento electrónico
+- Configuración `%test.key49.outbox.poll-interval=9999s`, `%test.key49.retry.poll-interval=9999s` y `%test.key49.master-key` para estabilizar tests
+
+### Corregido
+
+- **CreditNoteDataMapper** (T-053): reescrito con records `RawPayload`/`RawItem`/`RawTax` que coinciden con `CreateCreditNoteRequest`. Cálculo de `subtotalBeforeTax`, `taxableBase`, `amount` y `totalTaxes` agregados
+- **PurchaseClearanceDataMapper** (T-054): reescritura completa con records intermedios. Corregido `taxCode` → `code`, campos derivados calculados
+- **WaybillDataMapper** (T-055): corregido campo `rise` (null) en `PayloadCarrier`
+- **DebitNoteDataMapper** (T-056): validado correcto, sin cambios requeridos
+- **WithholdingDataMapper/WithholdingXmlBuilder** (T-057): validado correcto, corrección menor en builder
+- **CreditNoteDataMapperTest**: JSON de test alineado con records actuales (eliminados `taxable_base`, `amount`)
+- **PurchaseClearanceDataMapperTest**: JSON de test alineado (eliminados `subtotalBeforeTax`, `taxCode`, `totalTaxes`)
+- **SignConsumerIntegrationTest**: uso de master key fija configurada en `%test` en vez de `System.setProperty` (no funciona tras arranque de Quarkus)
+- **E2E tests**: estabilizados desactivando outbox/retry pollers en perfil test; tests de duplicados actualizados para aceptar 409 o 202
+- `test-curls.sh`: tarifa retención código 312 corregida de 1.75% a 2.0% según catálogo SRI
+
 ## [0.17.0] - 2026-04-08
 
 ### Corregido

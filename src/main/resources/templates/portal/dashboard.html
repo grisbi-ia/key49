@@ -49,6 +49,7 @@
             <tr>
                 <th>Fecha</th>
                 <th>Tipo</th>
+                <th>Documento</th>
                 <th>Serie</th>
                 <th>Receptor</th>
                 <th class="text-right">Total</th>
@@ -61,6 +62,7 @@
             <tr>
                 <td>{doc.issueDate}</td>
                 <td>{doc.documentType}</td>
+                <td><small>{docTypeLabels.get(doc.documentType) ?: doc.documentType}</small></td>
                 <td class="doc-number">{doc.establishment}-{doc.issuePoint}-{doc.sequenceNumber}</td>
                 <td>
                     <small>{doc.recipientName}</small><br>
