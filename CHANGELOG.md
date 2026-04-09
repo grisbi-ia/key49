@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.19.0] - 2026-04-09
+
+### Agregado
+
+- **RideDataMapper** (T-037b): mapper que convierte `Document + Tenant + requestPayload` al record RIDE apropiado según el tipo de documento y genera el PDF invocando el generador correspondiente (factura, nota de crédito, nota de débito, retención, guía de remisión, liquidación de compra)
+- **Integración RIDE en NotifyConsumer** (T-037b): paso 1 del flujo de notificación genera el RIDE (PDF) de forma no-bloqueante — fallo en la generación no impide la transición a NOTIFIED
+- **Integración MinIO en NotifyConsumer** (T-037c): paso 2 almacena el XML autorizado (`DocumentArtifact.AUTHORIZED_XML`) y el RIDE (`DocumentArtifact.RIDE`) en MinIO, actualizando `doc.authorizedXmlPath` y `doc.ridePath`. Fallo de storage es no-bloqueante
+- **Integración email en NotifyConsumer** (T-037d): paso 3 construye `EmailData` y envía email con RIDE PDF y XML autorizado adjuntos. Actualiza `doc.emailSentAt`, `doc.emailStatus` ("SENT"/"FAILED") y `doc.emailError`. Fallo de email es no-bloqueante
+- `RideDataMapperTest`: 10 tests unitarios cubriendo los 6 tipos de documento, payloads vacíos/null, JSON inválido y tipo desconocido
+- `NotifyConsumerTest`: 12 tests unitarios con mocks verificando flujo completo, fallos parciales no-bloqueantes (RIDE, storage, email), actualización de campos y casos borde
+
 ## [0.18.0] - 2026-04-09
 
 ### Agregado

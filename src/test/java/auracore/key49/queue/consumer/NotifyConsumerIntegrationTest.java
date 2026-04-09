@@ -22,8 +22,11 @@ import static org.mockito.Mockito.when;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.WebhookDelivery;
+import auracore.key49.notify.email.EmailService;
 import auracore.key49.notify.webhook.WebhookDispatcher;
 import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.mapper.RideDataMapper;
+import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.json.JsonObject;
@@ -32,9 +35,10 @@ import jakarta.inject.Inject;
 /**
  * Test de integración para NotifyConsumer.
  *
- * <p>Verifica la notificación de documentos autorizados con mock del WebhookDispatcher.
- * Escenarios: notificación exitosa (AUTHORIZED → NOTIFIED), sin webhook configurado,
- * fallo de webhook (no bloquea transición).</p>
+ * <p>
+ * Verifica la notificación de documentos autorizados con mock del
+ * WebhookDispatcher. Escenarios: notificación exitosa (AUTHORIZED → NOTIFIED),
+ * sin webhook configurado, fallo de webhook (no bloquea transición).</p>
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -52,6 +56,15 @@ class NotifyConsumerIntegrationTest {
 
     @InjectMock
     WebhookDispatcher webhookDispatcher;
+
+    @InjectMock
+    RideDataMapper rideDataMapper;
+
+    @InjectMock
+    ObjectStorageService objectStorageService;
+
+    @InjectMock
+    EmailService emailService;
 
     private UUID tenantId;
     private UUID docIdNotify;
@@ -155,7 +168,6 @@ class NotifyConsumerIntegrationTest {
     }
 
     // ── Helpers ──
-
     private JsonObject toJson(UUID documentId) {
         return toJson(documentId, TENANT_SCHEMA);
     }
@@ -171,12 +183,12 @@ class NotifyConsumerIntegrationTest {
     }
 
     private void insertAuthorizedDocument(java.sql.Connection conn, UUID docId,
-                                          String seqNum) throws SQLException {
+            String seqNum) throws SQLException {
         insertDocument(conn, docId, seqNum, "AUTHORIZED");
     }
 
     private void insertDocument(java.sql.Connection conn, UUID docId,
-                                String seqNum, String status) throws SQLException {
+            String seqNum, String status) throws SQLException {
         var baseKey = "050420260117921467390011001001000000000";
         var accessKey = baseKey + "0".repeat(49 - baseKey.length() - seqNum.length()) + seqNum;
         try (var ps = conn.prepareStatement("""
@@ -201,10 +213,9 @@ class NotifyConsumerIntegrationTest {
     }
 
     private void assertDocumentStatus(UUID docId, String expectedStatus) throws SQLException {
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT status FROM %s.documents WHERE document_id = ?::uuid"
+                        .formatted(TENANT_SCHEMA))) {
             ps.setString(1, docId.toString());
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "Documento debe existir");

@@ -1,16 +1,24 @@
 package auracore.key49.queue.consumer;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.Document;
+import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import auracore.key49.notify.email.EmailData;
+import auracore.key49.notify.email.EmailService;
 import auracore.key49.notify.webhook.WebhookDispatcher;
 import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.mapper.RideDataMapper;
+import auracore.key49.storage.DocumentArtifact;
+import auracore.key49.storage.ObjectStorageService;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -40,6 +48,15 @@ public class NotifyConsumer {
     @Inject
     WebhookDispatcher webhookDispatcher;
 
+    @Inject
+    RideDataMapper rideDataMapper;
+
+    @Inject
+    ObjectStorageService objectStorageService;
+
+    @Inject
+    EmailService emailService;
+
     @Incoming("doc-notify-in")
     @Blocking
     @ActivateRequestContext
@@ -68,17 +85,60 @@ public class NotifyConsumer {
                 }
 
                 // Paso 1: Generar RIDE (PDF) — independiente, no bloquea transición
+                byte[] ridePdf = null;
                 try {
-                    // TODO: T-015 — Generate RIDE (PDF)
-                    // TODO: T-016 — Store authorized XML and RIDE in MinIO
+                    ridePdf = rideDataMapper.generateRide(doc, tenant);
+                    log.infof("NotifyConsumer: RIDE generated for document %s (%d bytes)",
+                            doc.id, ridePdf.length);
                 } catch (Exception rideEx) {
                     log.warnf(rideEx, "NotifyConsumer: RIDE generation failed for document %s (non-blocking)",
                             doc.id);
                 }
 
-                // Paso 2: Enviar email — independiente, no bloquea transición
+                // Paso 2: Almacenar artefactos en MinIO — independiente, no bloquea transición
+                byte[] authorizedXmlBytes = null;
                 try {
-                    // TODO: T-017 — Send email to recipient
+                    if (doc.originalXml != null) {
+                        authorizedXmlBytes = doc.originalXml.getBytes(StandardCharsets.UTF_8);
+                        var xmlPath = objectStorageService.store(
+                                tenant.schemaName, doc.issueDate, doc.documentType,
+                                doc.accessKey, DocumentArtifact.AUTHORIZED_XML, authorizedXmlBytes);
+                        doc.authorizedXmlPath = xmlPath;
+                        log.debugf("NotifyConsumer: authorized XML stored at %s", xmlPath);
+                    }
+                    if (ridePdf != null) {
+                        var ridePdfPath = objectStorageService.store(
+                                tenant.schemaName, doc.issueDate, doc.documentType,
+                                doc.accessKey, DocumentArtifact.RIDE, ridePdf);
+                        doc.ridePath = ridePdfPath;
+                        log.debugf("NotifyConsumer: RIDE stored at %s", ridePdfPath);
+                    }
+                } catch (Exception storageEx) {
+                    log.warnf(storageEx, "NotifyConsumer: storage failed for document %s (non-blocking)",
+                            doc.id);
+                }
+
+                // Paso 3: Enviar email — independiente, no bloquea transición
+                try {
+                    var docType = DocumentType.fromSriCode(doc.documentType);
+                    var documentNumber = doc.establishment + "-" + doc.issuePoint + "-" + doc.sequenceNumber;
+                    var emailData = new EmailData(
+                            tenant.legalName,
+                            tenant.ruc,
+                            doc.recipientName,
+                            EmailData.parseEmails(doc.recipientEmail),
+                            docType.description(),
+                            documentNumber,
+                            doc.accessKey,
+                            doc.issueDate,
+                            doc.totalAmount,
+                            doc.currency,
+                            ridePdf,
+                            authorizedXmlBytes
+                    );
+                    emailService.sendDocumentDelivery(emailData);
+                    doc.emailSentAt = Instant.now();
+                    doc.emailStatus = "SENT";
                 } catch (Exception emailEx) {
                     doc.emailStatus = "FAILED";
                     doc.emailError = truncate(emailEx.getMessage(), 500);
@@ -86,7 +146,7 @@ public class NotifyConsumer {
                             doc.id);
                 }
 
-                // Paso 3: Despachar webhook — independiente, no bloquea transición
+                // Paso 4: Despachar webhook — independiente, no bloquea transición
                 dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, doc, em);
 
                 // Siempre transiciona a NOTIFIED — fallos parciales se registran pero no bloquean

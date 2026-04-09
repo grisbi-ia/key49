@@ -349,21 +349,21 @@ Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON d
 
 ---
 
-- [ ] **T-037b** Integrar generación de RIDE en NotifyConsumer (queue, ride)
+- [x] **T-037b** Integrar generación de RIDE en NotifyConsumer (queue, ride)
   - Crear `RideDataMapper`: convierte `Document + Tenant + requestPayload` → `RideData` (y variantes por tipo de documento)
   - Invocar el generador RIDE correcto según `DocumentType` (factura, nota de crédito, etc.)
   - Guardar `byte[] ridePdf` para uso posterior (email, storage)
   - Manejar fallo de RIDE como no-bloqueante (no impide transición a NOTIFIED)
   - Test: verificar que NotifyConsumer genera RIDE para documento autorizado
 
-- [ ] **T-037c** Integrar almacenamiento MinIO en NotifyConsumer (queue, storage)
+- [x] **T-037c** Integrar almacenamiento MinIO en NotifyConsumer (queue, storage)
   - Almacenar XML autorizado (`DocumentArtifact.AUTHORIZED_XML`) y RIDE (`DocumentArtifact.RIDE`) en MinIO
   - Actualizar `doc.authorizedXmlPath` y `doc.ridePath` con rutas retornadas por `ObjectStorageService`
   - Obtener `tenantId` del tenant para construir la ruta de storage
   - Manejar fallo de storage como no-bloqueante
   - Test: verificar que paths se guardan correctamente en el documento
 
-- [ ] **T-037d** Integrar envío de email en NotifyConsumer (queue, notify)
+- [x] **T-037d** Integrar envío de email en NotifyConsumer (queue, notify)
   - Construir `EmailData` desde `Document + Tenant + ridePdf + authorizedXml`
   - Invocar `EmailService.sendDocumentDelivery()`
   - Actualizar `doc.emailSentAt`, `doc.emailStatus` ("SENT" o "FAILED")
