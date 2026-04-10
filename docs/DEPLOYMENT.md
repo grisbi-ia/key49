@@ -159,40 +159,46 @@ O desde la consola web de MinIO en `http://localhost:9001`.
 
 Para desarrollo, los valores por defecto en `application.properties` son suficientes. Solo se necesita configurar la conexión a PostgreSQL si difiere del default.
 
-| Variable                             | Default                             | Descripción                         |
-| ------------------------------------ | ----------------------------------- | ----------------------------------- |
-| `KEY49_DB_USER`                      | `postgres`                          | Usuario PostgreSQL                  |
-| `KEY49_DB_PASSWORD`                  | `1234abcd`                          | Contraseña PostgreSQL               |
-| `KEY49_DB_REACTIVE_URL`              | `postgresql://localhost:5433/key49` | URL de conexión reactiva            |
-| `KEY49_REDIS_URL`                    | `redis://localhost:6379`            | URL de Redis                        |
-| `KEY49_RABBITMQ_HOST`                | `localhost`                         | Host de RabbitMQ                    |
-| `KEY49_RABBITMQ_PORT`                | `5672`                              | Puerto de RabbitMQ                  |
-| `KEY49_RABBITMQ_USER`                | `guest`                             | Usuario de RabbitMQ                 |
-| `KEY49_RABBITMQ_PASSWORD`            | `guest`                             | Contraseña de RabbitMQ              |
-| `KEY49_STORAGE_ENDPOINT`             | `http://localhost:9000`             | Endpoint de MinIO/S3                |
-| `KEY49_STORAGE_ACCESS_KEY`           | `minioadmin`                        | Access key de MinIO                 |
-| `KEY49_STORAGE_SECRET_KEY`           | `minioadmin`                        | Secret key de MinIO                 |
-| `KEY49_STORAGE_BUCKET`               | `key49-documents`                   | Nombre del bucket                   |
-| `KEY49_STORAGE_REGION`               | `us-east-1`                         | Región S3                           |
-| `KEY49_TIMEZONE`                     | `America/Guayaquil`                 | Zona horaria (UTC-5)                |
-| `KEY49_SRI_ENVIRONMENT`              | `test`                              | Ambiente SRI: `test` o `production` |
-| `KEY49_SRI_RECEPTION_TIMEOUT_MS`     | `3000`                              | Timeout de recepción SOAP (ms)      |
-| `KEY49_SRI_AUTHORIZATION_TIMEOUT_MS` | `5000`                              | Timeout de autorización SOAP (ms)   |
-| `KEY49_SRI_MAX_RETRIES`              | `6`                                 | Máximo de reintentos SRI            |
-| `KEY49_EMAIL_FROM`                   | `facturacion@key49.ec`              | Email remitente                     |
-| `KEY49_EMAIL_ENABLED`                | `true`                              | Habilitar envío de emails           |
-| `KEY49_SMTP_HOST`                    | `localhost`                         | Servidor SMTP                       |
-| `KEY49_SMTP_PORT`                    | `1025`                              | Puerto SMTP                         |
-| `KEY49_SMTP_USER`                    | (vacío)                             | Usuario SMTP                        |
-| `KEY49_SMTP_PASSWORD`                | (vacío)                             | Contraseña SMTP                     |
-| `KEY49_SMTP_START_TLS`               | `DISABLED`                          | StartTLS para SMTP                  |
-| `KEY49_SMTP_SSL`                     | `false`                             | SSL para SMTP                       |
-| `KEY49_WEBHOOK_ENABLED`              | `true`                              | Habilitar webhooks                  |
-| `KEY49_WEBHOOK_CONNECT_TIMEOUT_MS`   | `5000`                              | Timeout de conexión webhook (ms)    |
-| `KEY49_WEBHOOK_READ_TIMEOUT_MS`      | `10000`                             | Timeout de lectura webhook (ms)     |
-| `KEY49_OUTBOX_POLL_INTERVAL`         | `500ms`                             | Intervalo del outbox poller         |
-| `KEY49_OUTBOX_BATCH_SIZE`            | `50`                                | Tamaño del batch del outbox         |
-| `KEY49_RETRY_POLL_INTERVAL`          | `5s`                                | Intervalo del retry poller          |
+| Variable                              | Default                             | Descripción                         |
+| ------------------------------------- | ----------------------------------- | ----------------------------------- |
+| `KEY49_DB_USER`                       | `postgres`                          | Usuario PostgreSQL                  |
+| `KEY49_DB_PASSWORD`                   | `1234abcd`                          | Contraseña PostgreSQL               |
+| `KEY49_DB_REACTIVE_URL`               | `postgresql://localhost:5433/key49` | URL de conexión reactiva            |
+| `KEY49_REDIS_URL`                     | `redis://localhost:6379`            | URL de Redis                        |
+| `KEY49_RABBITMQ_HOST`                 | `localhost`                         | Host de RabbitMQ                    |
+| `KEY49_RABBITMQ_PORT`                 | `5672`                              | Puerto de RabbitMQ                  |
+| `KEY49_RABBITMQ_USER`                 | `guest`                             | Usuario de RabbitMQ                 |
+| `KEY49_RABBITMQ_PASSWORD`             | `guest`                             | Contraseña de RabbitMQ              |
+| `KEY49_STORAGE_ENDPOINT`              | `http://localhost:9000`             | Endpoint de MinIO/S3                |
+| `KEY49_STORAGE_ACCESS_KEY`            | `minioadmin`                        | Access key de MinIO                 |
+| `KEY49_STORAGE_SECRET_KEY`            | `minioadmin`                        | Secret key de MinIO                 |
+| `KEY49_STORAGE_BUCKET`                | `key49-documents`                   | Nombre del bucket                   |
+| `KEY49_STORAGE_REGION`                | `us-east-1`                         | Región S3                           |
+| `KEY49_TIMEZONE`                      | `America/Guayaquil`                 | Zona horaria (UTC-5)                |
+| `KEY49_SRI_ENVIRONMENT`               | `test`                              | Ambiente SRI: `test` o `production` |
+| `KEY49_SRI_RECEPTION_TIMEOUT_MS`      | `3000`                              | Timeout de recepción SOAP (ms)      |
+| `KEY49_SRI_AUTHORIZATION_TIMEOUT_MS`  | `5000`                              | Timeout de autorización SOAP (ms)   |
+| `KEY49_SRI_MAX_RETRIES`               | `6`                                 | Máximo de reintentos SRI            |
+| `KEY49_EMAIL_FROM`                    | `facturacion@key49.ec`              | Email remitente                     |
+| `KEY49_EMAIL_ENABLED`                 | `true`                              | Habilitar envío de emails           |
+| `KEY49_SMTP_HOST`                     | `localhost`                         | Servidor SMTP                       |
+| `KEY49_SMTP_PORT`                     | `1025`                              | Puerto SMTP                         |
+| `KEY49_SMTP_USER`                     | (vacío)                             | Usuario SMTP                        |
+| `KEY49_SMTP_PASSWORD`                 | (vacío)                             | Contraseña SMTP                     |
+| `KEY49_SMTP_START_TLS`                | `DISABLED`                          | StartTLS para SMTP                  |
+| `KEY49_SMTP_SSL`                      | `false`                             | SSL para SMTP                       |
+| `KEY49_WEBHOOK_ENABLED`               | `true`                              | Habilitar webhooks                  |
+| `KEY49_WEBHOOK_CONNECT_TIMEOUT_MS`    | `5000`                              | Timeout de conexión webhook (ms)    |
+| `KEY49_WEBHOOK_READ_TIMEOUT_MS`       | `10000`                             | Timeout de lectura webhook (ms)     |
+| `KEY49_OUTBOX_POLL_INTERVAL`          | `500ms`                             | Intervalo del outbox poller         |
+| `KEY49_OUTBOX_BATCH_SIZE`             | `50`                                | Tamaño del batch del outbox         |
+| `KEY49_RETRY_POLL_INTERVAL`           | `5s`                                | Intervalo del retry poller          |
+| `KEY49_DB_POOL_MIN`                   | `5`                                 | Conexiones mínimas del pool Agroal  |
+| `KEY49_DB_POOL_MAX`                   | `50`                                | Conexiones máximas del pool Agroal  |
+| `KEY49_DB_POOL_ACQUISITION_TIMEOUT`   | `5S`                                | Timeout para obtener conexión       |
+| `KEY49_DB_POOL_IDLE_REMOVAL_INTERVAL` | `2M`                                | Intervalo de limpieza de ociosas    |
+| `KEY49_DB_POOL_MAX_LIFETIME`          | `30M`                               | Vida máxima de una conexión         |
+| `KEY49_THREAD_POOL_MAX`               | `50`                                | Platform threads máximos (fallback) |
 
 ### Producción
 
@@ -204,6 +210,29 @@ Variables adicionales para producción:
 | `KEY49_OTEL_TRACES_EXPORTER` | `otlp` para exportar a Grafana Tempo             |
 | `KEY49_OTEL_ENDPOINT`        | URL del collector OTLP (ej: `http://tempo:4317`) |
 | `KEY49_SMTP_START_TLS`       | `REQUIRED` para servidores SMTP reales           |
+
+### Virtual Threads y Dimensionamiento de Pools
+
+Key49 ejecuta con **virtual threads habilitados** (`quarkus.virtual-threads.enabled=true`). Esto significa:
+
+- Las operaciones con `@Blocking` (consumers RabbitMQ, clientes SOAP del SRI) se ejecutan en virtual threads, no en platform threads del pool.
+- Los **event loops** de Vert.x manejan I/O no-bloqueante (HTTP, Redis, RabbitMQ). Su tamaño se auto-configura como `2 × cores`. No se debe sobreescribir salvo en casos excepcionales.
+- El **thread pool** (`KEY49_THREAD_POOL_MAX=50`) es un fallback para tareas que no usan virtual threads. Con virtual threads activos, su importancia es menor, pero se mantiene como límite de seguridad.
+
+**Recomendaciones de producción:**
+
+| Parámetro               | Fórmula sugerida                         | Ejemplo (4 cores, 20 tenants) |
+| ----------------------- | ---------------------------------------- | ----------------------------- |
+| `KEY49_DB_POOL_MAX`     | `min(num_tenants × 2 + 10, 50)`          | `50`                          |
+| `KEY49_DB_POOL_MIN`     | `5` (suficiente para conexiones idle)    | `5`                           |
+| `KEY49_THREAD_POOL_MAX` | `50` (fallback, virtual threads dominan) | `50`                          |
+| Event loops (auto)      | `2 × cores` (no configurar)              | `8`                           |
+
+**Métricas a monitorear:**
+
+- `agroal.active.count` — conexiones activas en el pool
+- `agroal.awaiting.count` — requests esperando conexión (alerta si > 0 sostenido)
+- `agroal.max.used.count` — pico de conexiones usadas (ajustar `max-size` si se acerca al tope)
 
 ---
 

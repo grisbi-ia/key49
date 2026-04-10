@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.20.1] - 2026-04-10
+
+### Agregado
+
+- **Configuración de thread pool** (T-059): `quarkus.thread-pool.max-threads=50` parametrizado con `KEY49_THREAD_POOL_MAX`. Event loops de Vert.x en auto-configuración (2 × cores). Documentación en DEPLOYMENT.md con tabla de dimensionamiento y métricas a monitorear
+- `ThreadPoolConfigTest`: 4 tests de integración — virtual threads habilitados, pool configurado, 20 requests HTTP concurrentes sin starvation, 20 accesos BD concurrentes sin bloqueo
+
+### Corregido
+
+- **BouncyCastle duplicado en pom.xml**: eliminada property `bouncycastle.version=1.80` y versiones explícitas de `bcprov-jdk18on`/`bcpkix-jdk18on`. Ahora gestionadas por el BOM de Quarkus 3.34 (1.83), resolviendo inconsistencia con `bcutil-jdk18on` transitivo
+
 ## [0.20.0] - 2026-04-10
 
 ### Agregado

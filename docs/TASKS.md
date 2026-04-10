@@ -521,7 +521,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Métrica Micrometer: `agroal.active.count`, `agroal.awaiting.count` expuestas en `/q/metrics`
   - Test: verificar que el pool se inicializa con los valores configurados
 
-- [ ] **T-059** Configurar worker threads de Quarkus
+- [x] **T-059** Configurar worker threads de Quarkus ✓
   - Quarkus usa virtual threads (ya habilitado), pero verificar `quarkus.thread-pool.max-threads` para platform threads residuales
   - Configurar `quarkus.vertx.event-loops-pool-size` acorde a cores disponibles
   - Variable de entorno: `KEY49_THREAD_POOL_MAX`

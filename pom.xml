@@ -38,7 +38,6 @@
 
         <!-- Library versions -->
         <xmlsec.version>4.0.4</xmlsec.version>
-        <bouncycastle.version>1.80</bouncycastle.version>
         <openpdf.version>2.0.3</openpdf.version>
         <zxing.version>3.5.3</zxing.version>
         <minio.version>8.5.17</minio.version>
@@ -161,16 +160,14 @@
             <version>${xmlsec.version}</version>
         </dependency>
 
-        <!-- ── BouncyCastle (crypto provider) ── -->
+        <!-- ── BouncyCastle (crypto provider — versión gestionada por Quarkus BOM) ── -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>${bouncycastle.version}</version>
         </dependency>
 
         <!-- ── OpenPDF (RIDE generation) ── -->
