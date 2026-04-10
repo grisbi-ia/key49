@@ -17,6 +17,7 @@ import org.xml.sax.InputSource;
 
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.DuplicateDocumentException;
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -54,6 +55,9 @@ public class RawDocumentService {
 
     @ConfigProperty(name = "key49.sri.environment", defaultValue = "test")
     String sriEnvironment;
+
+    @Inject
+    DocumentMetrics documentMetrics;
 
     /**
      * Procesa un XML raw: valida, extrae datos, genera clave de acceso,
@@ -132,7 +136,8 @@ public class RawDocumentService {
         var finalXml = injectAccessKey(xmlDoc, accessKey, documentTypeCode);
 
         // 9. Persist
-        return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
+        final boolean[] created = {false};
+        var doc = tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null) {
                 Document existing = em.createQuery(
                         "FROM Document d WHERE d.idempotencyKey = :key", Document.class)
@@ -143,9 +148,14 @@ public class RawDocumentService {
                     return existing;
                 }
             }
+            created[0] = true;
             return checkUniquenessAndPersist(em, metadata, documentType, accessKey,
                     finalXml, idempotencyKey, requestIp);
         });
+        if (created[0]) {
+            documentMetrics.recordCreated(tenantContext.getSchemaName(), doc.documentType);
+        }
+        return doc;
     }
 
     /**

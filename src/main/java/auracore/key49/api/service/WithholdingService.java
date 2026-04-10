@@ -6,6 +6,7 @@ import auracore.key49.api.dto.CreateWithholdingRequest.WithholdingLineRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.BusinessException.FieldError;
 import auracore.key49.api.exception.DuplicateDocumentException;
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
@@ -53,13 +54,17 @@ public class WithholdingService {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    DocumentMetrics documentMetrics;
+
     // ── Crear comprobante de retención ──
     public Document createWithholding(CreateWithholdingRequest request,
             String idempotencyKey, String requestIp) {
 
         validateCreateRequest(request);
 
-        return tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
+        final boolean[] created = {false};
+        var doc = tcm.withTenantTransaction(tenantContext.getSchemaName(), em -> {
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 Document existing = em.createQuery(
                         "FROM Document d WHERE d.idempotencyKey = :key AND d.documentType = :docType",
@@ -72,8 +77,13 @@ public class WithholdingService {
                     return existing;
                 }
             }
+            created[0] = true;
             return checkUniquenessAndPersist(em, request, idempotencyKey, requestIp);
         });
+        if (created[0]) {
+            documentMetrics.recordCreated(tenantContext.getSchemaName(), doc.documentType);
+        }
+        return doc;
     }
 
     private Document checkUniquenessAndPersist(EntityManager em,

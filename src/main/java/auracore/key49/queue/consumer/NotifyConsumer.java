@@ -6,6 +6,7 @@ import java.time.Instant;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -56,6 +57,9 @@ public class NotifyConsumer {
 
     @Inject
     EmailService emailService;
+
+    @Inject
+    DocumentMetrics documentMetrics;
 
     @Inject
     InFlightTracker tracker;
@@ -146,7 +150,8 @@ public class NotifyConsumer {
                         d.ridePath = fRidePath;
                     }
 
-                    dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, d, em);
+                    dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, d, em,
+                            event.tenantSchemaName());
 
                     d.transitionTo(DocumentStatus.NOTIFIED);
                     d.updatedAt = Instant.now();
@@ -197,6 +202,7 @@ public class NotifyConsumer {
     private void sendEmailAndUpdateStatus(EmailData emailData, DocumentEvent event) {
         try {
             emailService.sendDocumentDelivery(emailData);
+            documentMetrics.recordEmailSent(event.tenantSchemaName());
             connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                 var doc = em.find(Document.class, event.documentId());
                 if (doc != null) {
@@ -209,6 +215,7 @@ public class NotifyConsumer {
         } catch (Exception emailEx) {
             log.warnf(emailEx, "NotifyConsumer: email failed for document %s (non-blocking)",
                     event.documentId());
+            documentMetrics.recordEmailFailed(event.tenantSchemaName());
             try {
                 connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                     var doc = em.find(Document.class, event.documentId());
@@ -231,7 +238,7 @@ public class NotifyConsumer {
      * tiene webhook configurado, se omite sin error.
      */
     private void dispatchWebhook(String webhookUrl, String webhookSecret,
-            Document doc, EntityManager em) {
+            Document doc, EntityManager em, String tenantSchemaName) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             log.debugf("NotifyConsumer: no webhook configured for document %s", doc.id);
             return;
@@ -243,6 +250,7 @@ public class NotifyConsumer {
             var delivery = webhookDispatcher.dispatch(webhookUrl, webhookSecret, doc, eventType);
             if (delivery != null) {
                 em.persist(delivery);
+                documentMetrics.recordWebhookDispatched(tenantSchemaName);
             }
         } catch (Exception ex) {
             log.warnf(ex, "NotifyConsumer: webhook dispatch failed for document %s (non-blocking)", doc.id);

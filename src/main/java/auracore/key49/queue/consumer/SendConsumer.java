@@ -12,6 +12,7 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
@@ -55,6 +56,9 @@ public class SendConsumer {
 
     @Inject
     ObjectMapper objectMapper;
+
+    @Inject
+    DocumentMetrics documentMetrics;
 
     @Inject
     InFlightTracker tracker;
@@ -102,7 +106,10 @@ public class SendConsumer {
 
                 // SOAP call (blocking, outside transaction)
                 try {
+                    var timer = documentMetrics.sriReceptionTimer(event.tenantSchemaName());
+                    var sample = io.micrometer.core.instrument.Timer.start();
                     var response = sriReceptionClient.send(input.signedXml, sriEnv);
+                    sample.stop(timer);
                     handleResponse(event, response);
                 } catch (CircuitBreakerOpenException ex) {
                     handleInfraError(event,
@@ -147,6 +154,8 @@ public class SendConsumer {
                 doc.transitionTo(targetStatus);
                 doc.lastErrorCode = extractFirstErrorCode(response.messages());
                 doc.lastErrorMessage = extractErrorSummary(response.messages());
+                documentMetrics.recordRejected(event.tenantSchemaName(),
+                        doc.lastErrorCode != null ? doc.lastErrorCode : "SRI_REJECTED");
                 log.warnf("SendConsumer: document %s %s by SRI: %s",
                         doc.id, targetStatus, doc.lastErrorMessage);
 

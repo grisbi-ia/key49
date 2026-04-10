@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -87,6 +88,9 @@ class NotifyConsumerTest {
 
     @Mock
     InFlightTracker tracker;
+
+    @Mock
+    DocumentMetrics documentMetrics;
 
     @InjectMocks
     NotifyConsumer notifyConsumer;

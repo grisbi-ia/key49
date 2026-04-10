@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -30,6 +31,9 @@ public class DlqConsumer {
 
     @Inject
     TenantConnectionManager connectionManager;
+
+    @Inject
+    DocumentMetrics documentMetrics;
 
     @Inject
     InFlightTracker tracker;
@@ -60,6 +64,7 @@ public class DlqConsumer {
                         }
                         doc.lastErrorMessage = "Exhausted all retries — moved to DLQ";
                         doc.updatedAt = Instant.now();
+                        documentMetrics.recordFailed(event.tenantSchemaName());
                     }
 
                     // TODO: T-014 — Log to audit_log table

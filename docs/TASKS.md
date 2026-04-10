@@ -370,17 +370,6 @@ Bugs detectados durante pruebas live con SRI: los mappers deserializan el JSON d
   - Registrar `doc.emailError` si falla (no bloquea transición a NOTIFIED)
   - Test: verificar que email se invoca con datos correctos y campos se actualizan
 
-- [ ] **T-038** Grafana dashboards
-  - Documentos por estado (gauge)
-  - Throughput (rate)
-  - Latencia SRI P50/P95/P99 (histogram)
-  - Errores por tipo (counter)
-  - Cola depths (gauge)
-
-- [ ] **T-039** SDK básico (opcional)
-  - Cliente Java (para integradores Quarkus/Spring)
-  - Cliente Node.js (npm package)
-
 ---
 
 ## Fase 5: Cobertura de Tests XML/XSD (2 semanas)
@@ -683,7 +672,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 16: Observabilidad Avanzada (Semana 6-7)
 
-- [ ] **T-077** Métricas dimensionadas por tenant
+- [x] **T-077** Métricas dimensionadas por tenant ✅ `v0.25.0`
   - Agregar tag `tenant_id` a todas las métricas de negocio:
     - `key49.documents.created{tenant=X, type=INVOICE}` (counter)
     - `key49.documents.authorized{tenant=X}` (counter)
@@ -712,52 +701,9 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Verificar que MDC se propaga en virtual threads (Quarkus context propagation)
   - Test: procesar documento, verificar que todos los logs del flujo tienen tenant_id
 
-- [ ] **T-080** Grafana dashboards (complementa T-038)
-  - Dashboard "Overview": documentos por estado (gauge), throughput global (rate), latencia P50/P95/P99
-  - Dashboard "Per-Tenant": métricas desglosadas por tenant_id, comparación entre tenants
-  - Dashboard "Infrastructure": pool de conexiones BD, queue depth, Redis hit rate, MinIO latencia
-  - Dashboard "Alerts": historial de alertas, SLA breaches, certificados por vencer
-  - Exportar dashboards como JSON en `infra/grafana/dashboards/`
-  - Documentar setup de Grafana + Prometheus en `DEPLOYMENT.md`
+### Sprint 17: Funcionalidades de Valor para Producción (Semana 8)
 
-### Sprint 17: Load Testing y Sizing (Semana 7-8)
-
-- [ ] **T-081** Scripts de load testing
-  - Crear scripts k6 o Gatling en `tests/load/`:
-    - Escenario 1: 1 tenant, 100 facturas/min durante 10 min
-    - Escenario 2: 5 tenants simultáneos, 50 facturas/min cada uno durante 10 min
-    - Escenario 3: Pico de carga: 10 tenants, 200 facturas/min total durante 5 min
-    - Escenario 4: Consulta masiva: 1000 GET /invoices con filtros variados
-  - Medir: latencia P50/P95/P99, throughput, error rate, recursos (CPU/RAM/conexiones)
-  - Generar reporte con resultados baseline (antes de tuning vs después)
-
-- [ ] **T-082** Benchmark de throughput por tipo de documento
-  - Medir tiempo end-to-end (CREATED → NOTIFIED) para cada tipo de documento
-  - Identificar cuello de botella por tipo: factura vs retención vs guía de remisión
-  - Medir tiempos individuales: firma (~Xms), envío SRI (~Xms), autorización (~Xms), RIDE (~Xms), email (~Xms)
-  - Documentar resultados en `docs/PERFORMANCE.md`
-  - Establecer baselines para regresiones futuras
-
-- [ ] **T-083** Guía de sizing y capacidad
-  - Documentar en `docs/SIZING.md`:
-    - Fórmulas: conexiones BD = f(tenants, concurrencia), RAM = f(tenants, caché, PDFs en vuelo)
-    - Perfil "Small" (1-5 tenants, <500 docs/día): 2 vCPU, 2GB RAM, pool=10
-    - Perfil "Medium" (5-20 tenants, <5000 docs/día): 4 vCPU, 4GB RAM, pool=30
-    - Perfil "Large" (20-50 tenants, <20000 docs/día): 8 vCPU, 8GB RAM, pool=50
-    - Requisitos de PostgreSQL, RabbitMQ, Redis, MinIO por perfil
-  - Incluir diagrama de despliegue (Mermaid) con componentes y flujos de red
-
-- [ ] **T-084** Docker production image optimizado
-  - Multi-stage Dockerfile: build con Maven → runtime con JRE mínimo
-  - Evaluar Quarkus native image (GraalVM) para reducir startup y memoria
-  - Configurar JVM flags para producción: `-XX:MaxRAMPercentage=75`, `-XX:+UseG1GC`
-  - Health check en Dockerfile: `HEALTHCHECK CMD curl -f http://localhost:8080/q/health/ready`
-  - Publicar imagen en registry (Docker Hub o GHCR)
-  - Documentar en `DEPLOYMENT.md`
-
-### Sprint 18: Funcionalidades de Valor para Producción (Semana 8)
-
-- [ ] **T-085** Retry manual desde portal web
+- [ ] **T-080** Retry manual desde portal web
   - Botón "Reintentar" en documentos con estado FAILED o REJECTED en la vista de detalle
   - Endpoint: `POST /portal/documents/{id}/retry`
   - Validar que el documento está en estado terminal (FAILED) antes de reintentar
@@ -766,7 +712,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Log: registrar quién y cuándo reintentó (audit trail)
   - Test: documento FAILED, hacer retry desde portal, verificar que entra al pipeline
 
-- [ ] **T-086** Dashboard de métricas del tenant en portal
+- [ ] **T-081** Dashboard de métricas del tenant en portal
   - Nueva página `/portal/dashboard` con resumen visual para el tenant:
     - Total de documentos por estado (cards: Autorizados ✓, En proceso ⏳, Fallidos ✗)
     - Gráfico de barras: documentos emitidos por día (últimos 30 días)
@@ -776,7 +722,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Datos: queries agregadas a la tabla `documents` del esquema del tenant
   - Test: verificar que los contadores coinciden con datos reales
 
-- [ ] **T-087** API de consulta masiva y exportación CSV
+- [ ] **T-082** API de consulta masiva y exportación CSV
   - `GET /v1/documents/export?format=csv&from=2025-01-01&to=2025-01-31&status=AUTHORIZED`
   - Streaming response (no cargar todo en memoria): usar `StreamingOutput` o `Multi<String>`
   - Campos CSV: access_key, document_type, sequence, recipient, total, status, authorized_at
@@ -784,13 +730,70 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Header `Content-Disposition: attachment; filename=key49-export-2025-01-31.csv`
   - Test: exportar 100 documentos, verificar formato CSV válido
 
-- [ ] **T-088** Notificaciones de estado del sistema por tenant
+- [ ] **T-083** Notificaciones de estado del sistema por tenant
   - Webhook `system.maintenance` antes de ventanas de mantenimiento programado
   - Webhook `system.incident` si el SRI está caído (basado en circuit breaker, T-065)
   - Webhook `certificate.expired` (además del existente `certificate.expiring`)
   - Endpoint: `GET /v1/system/status` → estado actual del SRI, MinIO, colas
   - Beneficio: los integradores pueden pausar envíos cuando el sistema reporta problemas
   - Test: simular SRI caído, verificar que webhook system.incident se dispara
+
+  - [ ] **T-084** Docker production image optimizado
+  - Multi-stage Dockerfile: build con Maven → runtime con JRE mínimo
+  - Evaluar Quarkus native image (GraalVM) para reducir startup y memoria
+  - Configurar JVM flags para producción: `-XX:MaxRAMPercentage=75`, `-XX:+UseG1GC`
+  - Health check en Dockerfile: `HEALTHCHECK CMD curl -f http://localhost:8080/q/health/ready`
+  - Publicar imagen en registry (Docker Hub o GHCR)
+  - Documentar en `DEPLOYMENT.md`
+
+### Sprint 18: Grafana y Observabilidad Avanzada (Semana 7-8)
+
+- [ ] **T-085** Grafana dashboards
+  - Documentos por estado (gauge)
+  - Throughput (rate)
+  - Latencia SRI P50/P95/P99 (histogram)
+  - Errores por tipo (counter)
+  - Cola depths (gauge)
+- [ ] **T-085A** Grafana dashboards (complementa T-080)
+  - Dashboard "Overview": documentos por estado (gauge), throughput global (rate), latencia P50/P95/P99
+  - Dashboard "Per-Tenant": métricas desglosadas por tenant_id, comparación entre tenants
+  - Dashboard "Infrastructure": pool de conexiones BD, queue depth, Redis hit rate, MinIO latencia
+  - Dashboard "Alerts": historial de alertas, SLA breaches, certificados por vencer
+  - Exportar dashboards como JSON en `infra/grafana/dashboards/`
+  - Documentar setup de Grafana + Prometheus en `DEPLOYMENT.md`
+
+### Sprint 19: Load Testing y Sizing (Semana 7-8)
+
+- [ ] **T-086** Scripts de load testing
+  - Crear scripts k6 o Gatling en `tests/load/`:
+    - Escenario 1: 1 tenant, 100 facturas/min durante 10 min
+    - Escenario 2: 5 tenants simultáneos, 50 facturas/min cada uno durante 10 min
+    - Escenario 3: Pico de carga: 10 tenants, 200 facturas/min total durante 5 min
+    - Escenario 4: Consulta masiva: 1000 GET /invoices con filtros variados
+  - Medir: latencia P50/P95/P99, throughput, error rate, recursos (CPU/RAM/conexiones)
+  - Generar reporte con resultados baseline (antes de tuning vs después)
+
+- [ ] **T-087** Benchmark de throughput por tipo de documento
+  - Medir tiempo end-to-end (CREATED → NOTIFIED) para cada tipo de documento
+  - Identificar cuello de botella por tipo: factura vs retención vs guía de remisión
+  - Medir tiempos individuales: firma (~Xms), envío SRI (~Xms), autorización (~Xms), RIDE (~Xms), email (~Xms)
+  - Documentar resultados en `docs/PERFORMANCE.md`
+  - Establecer baselines para regresiones futuras
+
+- [ ] **T-088** Guía de sizing y capacidad
+  - Documentar en `docs/SIZING.md`:
+    - Fórmulas: conexiones BD = f(tenants, concurrencia), RAM = f(tenants, caché, PDFs en vuelo)
+    - Perfil "Small" (1-5 tenants, <500 docs/día): 2 vCPU, 2GB RAM, pool=10
+    - Perfil "Medium" (5-20 tenants, <5000 docs/día): 4 vCPU, 4GB RAM, pool=30
+    - Perfil "Large" (20-50 tenants, <20000 docs/día): 8 vCPU, 8GB RAM, pool=50
+    - Requisitos de PostgreSQL, RabbitMQ, Redis, MinIO por perfil
+  - Incluir diagrama de despliegue (Mermaid) con componentes y flujos de red
+
+# Sprint 20: SDK y Documentación para Integradores (Semana 8)
+
+- [ ] **T-089** SDK básico (opcional)
+  - Cliente Java (para integradores Quarkus/Spring)
+  - Cliente Node.js (npm package)
 
 ---
 

@@ -12,6 +12,7 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
@@ -55,6 +56,9 @@ public class AuthorizeConsumer {
 
     @Inject
     ObjectMapper objectMapper;
+
+    @Inject
+    DocumentMetrics documentMetrics;
 
     @Inject
     InFlightTracker tracker;
@@ -101,7 +105,10 @@ public class AuthorizeConsumer {
 
                 // SOAP call (blocking, outside transaction)
                 try {
+                    var timer = documentMetrics.sriAuthorizationTimer(event.tenantSchemaName());
+                    var sample = io.micrometer.core.instrument.Timer.start();
                     var response = sriAuthorizationClient.authorize(input.accessKey, sriEnv);
+                    sample.stop(timer);
                     handleResponse(event, response);
                 } catch (CircuitBreakerOpenException ex) {
                     handleInfraError(event,
@@ -138,6 +145,7 @@ public class AuthorizeConsumer {
                 if (response.authorizationDate() != null) {
                     doc.authorizationDate = Instant.now();
                 }
+                documentMetrics.recordAuthorized(event.tenantSchemaName());
                 // TODO: T-016 — Store authorized XML in MinIO
                 log.infof("AuthorizeConsumer: document %s authorized, authNum=%s",
                         doc.id, doc.authorizationNumber);
@@ -150,6 +158,8 @@ public class AuthorizeConsumer {
                 doc.transitionTo(targetStatus);
                 doc.lastErrorCode = SendConsumer.extractFirstErrorCode(response.messages());
                 doc.lastErrorMessage = SendConsumer.extractErrorSummary(response.messages());
+                documentMetrics.recordRejected(event.tenantSchemaName(),
+                        doc.lastErrorCode != null ? doc.lastErrorCode : "SRI_REJECTED");
                 log.warnf("AuthorizeConsumer: document %s %s: %s",
                         doc.id, targetStatus, doc.lastErrorMessage);
 

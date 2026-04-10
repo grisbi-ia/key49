@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.0] - 2026-04-10
+
+### Agregado
+
+- **Métricas dimensionadas por tenant** (T-077): tag `tenant` en todas las métricas de negocio para desglose por cliente
+- `DocumentMetrics` rediseñado: conserva contadores globales backward-compatible y añade métodos tenant-dimensionados
+- Contadores con tag tenant: `key49.documents.created{tenant, type}`, `key49.documents.authorized{tenant}`, `key49.documents.failed{tenant, reason}`
+- Timers SRI con tag tenant: `key49.sri.latency{tenant, operation=reception|authorization}`
+- Contadores de notificación: `key49.email.sent{tenant}`, `key49.email.failed{tenant}`, `key49.webhook.dispatched{tenant}`
+- Instrumentación en consumers: `SendConsumer` (timer recepción + rejected), `AuthorizeConsumer` (timer autorización + authorized + rejected), `DlqConsumer` (failed), `NotifyConsumer` (email sent/failed + webhook dispatched)
+- Instrumentación en 7 servicios de creación de documentos: `InvoiceService`, `CreditNoteService`, `DebitNoteService`, `WithholdingService`, `PurchaseClearanceService`, `WaybillService`, `RawDocumentService`
+- Métricas solo se registran para creaciones reales (no retornos idempotentes)
+- Deprecated: `sriReceptionTimer()` y `sriAuthorizationTimer()` sin tenant (mantienen backward-compat)
+- Tests: `DocumentMetricsTest` (23 tests — contadores globales, tenant-dimensionados, timers SRI, notificación, aislamiento entre tenants)
+
 ## [0.24.3] - 2026-04-10
 
 ### Agregado
