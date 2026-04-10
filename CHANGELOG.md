@@ -5,6 +5,23 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.6] - 2026-04-10
+
+### Agregado
+
+- **Notificaciones de estado del sistema por tenant** (T-083): `GET /v1/system/status`
+- Endpoint unificado que agrega health checks de SRI (Recepción/Autorización), MinIO, PostgreSQL y RabbitMQ
+- Respuesta con `overall` (operational/outage) y detalle por componente
+- `SystemStatusMonitor`: job programado cada 2 min que detecta transiciones de estado del SRI
+- Webhook `system.incident` cuando un servicio SRI pasa de UP a DOWN (broadcast a todos los tenants)
+- Webhook `system.resolved` cuando un servicio SRI se recupera (DOWN a UP)
+- Webhook `certificate.expired` diario a tenants con certificado vencido (complementa `certificate.expiring`)
+- Método `broadcastMaintenance()` para notificar ventanas de mantenimiento (`system.maintenance`)
+- HMAC-SHA256 en todos los webhooks del sistema
+- 9 tests unitarios (SystemStatusResourceTest): toComponentStatus, resolveOverall, ComponentStatus record
+- 17 tests unitarios (SystemStatusMonitorTest): checkComponent, escapeJson, extractError, computeHmac, buildCertExpiredPayload, resetState
+- 8 tests E2E (SystemStatusEndToEndTest): status completo, componentes individuales, autenticación, content-type
+
 ## [0.25.5] - 2026-04-10
 
 ### Agregado

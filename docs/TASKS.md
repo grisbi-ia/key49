@@ -730,7 +730,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Header `Content-Disposition: attachment; filename=key49-export-2025-01-31.csv`
   - Test: exportar 100 documentos, verificar formato CSV válido
 
-- [ ] **T-083** Notificaciones de estado del sistema por tenant
+- [x] **T-083** Notificaciones de estado del sistema por tenant ✅ v0.25.6
   - Webhook `system.maintenance` antes de ventanas de mantenimiento programado
   - Webhook `system.incident` si el SRI está caído (basado en circuit breaker, T-065)
   - Webhook `certificate.expired` (además del existente `certificate.expiring`)
