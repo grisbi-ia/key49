@@ -505,6 +505,293 @@ El objetivo es garantizar que los XML generados por cada builder cumplen al 100%
 
 ---
 
+## Fase 7: Producción Multi-Tenant de Alto Rendimiento (8 semanas)
+
+Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas, NeoNet, etc.) en un solo servidor. Esta fase prepara la plataforma para soportar carga concurrente de decenas de tenants con SLAs de producción: latencia predecible, aislamiento de recursos, resiliencia ante fallos externos (SRI, SMTP, MinIO) y observabilidad granular por tenant.
+
+### Sprint 11: Tuning de Pools y Concurrencia (Semana 1)
+
+- [x] **T-058** Configurar pool de conexiones PostgreSQL ✓
+  - Definir `quarkus.datasource.jdbc.min-size` y `quarkus.datasource.jdbc.max-size` (recomendado: `max-size = (num_tenants × 2) + 10`, tope ~50)
+  - Configurar `quarkus.datasource.jdbc.acquisition-timeout` (ej: 5s)
+  - Configurar `quarkus.datasource.jdbc.idle-removal-interval` para liberar conexiones ociosas
+  - Configurar `quarkus.datasource.jdbc.max-lifetime` para reciclar conexiones viejas
+  - Validar con `quarkus.datasource.jdbc.validation-query-sql=SELECT 1`
+  - Variables de entorno: `KEY49_DB_POOL_MIN`, `KEY49_DB_POOL_MAX`
+  - Métrica Micrometer: `agroal.active.count`, `agroal.awaiting.count` expuestas en `/q/metrics`
+  - Test: verificar que el pool se inicializa con los valores configurados
+
+- [ ] **T-059** Configurar worker threads de Quarkus
+  - Quarkus usa virtual threads (ya habilitado), pero verificar `quarkus.thread-pool.max-threads` para platform threads residuales
+  - Configurar `quarkus.vertx.event-loops-pool-size` acorde a cores disponibles
+  - Variable de entorno: `KEY49_THREAD_POOL_MAX`
+  - Documentar en `DEPLOYMENT.md` la relación entre virtual threads y pool sizing
+  - Test: load test local con 50 requests concurrentes, verificar que no hay thread starvation
+
+- [ ] **T-060** Configurar prefetch y concurrencia de consumers RabbitMQ
+  - Añadir `mp.messaging.incoming.doc-sign-in.rabbitmq.prefetch=10` (y cada consumer)
+  - Evaluar concurrencia: `mp.messaging.incoming.*.concurrency=N` si SmallRye lo soporta, o múltiples instancias del consumer
+  - Prefetch diferenciado: sign=10, send=5 (SRI lento), authorize=5, notify=10
+  - Variables de entorno: `KEY49_RABBITMQ_PREFETCH_SIGN`, `KEY49_RABBITMQ_PREFETCH_SEND`, etc.
+  - Documentar impacto: prefetch alto = más throughput pero más memoria; bajo = menos presión sobre SRI
+  - Test: publicar 100 mensajes, verificar procesamiento paralelo con prefetch > 1
+
+- [ ] **T-061** Optimizar Outbox Poller para alto throughput
+  - Hacer configurable: `key49.outbox.batch-size` (default 50 → probar 200) y `key49.outbox.poll-interval` (default 500ms → probar 200ms)
+  - Implementar polling adaptativo: intervalo corto cuando hay eventos, largo cuando está vacío
+  - Agregar métrica: `key49.outbox.events.polled` (counter), `key49.outbox.poll.duration` (timer)
+  - Evaluar SELECT ... FOR UPDATE SKIP LOCKED para concurrencia de pollers (futuro multi-instancia)
+  - Test: insertar 500 eventos outbox, medir tiempo hasta que todos se publican
+
+### Sprint 12: Caché con Redis (Semana 2-3)
+
+- [ ] **T-062** Caché de API keys en Redis
+  - Actualmente cada request HTTP ejecuta `SELECT` a BD para validar API key → cuello de botella
+  - Implementar caché en Redis con TTL configurable (default 5 min): `key49:apikey:{hash}` → `{tenant_id, key_id, status}`
+  - Usar Quarkus Cache con `@CacheResult` o `RedisAPI` directo
+  - Invalidar caché al revocar/crear API key (`@CacheInvalidate` o DEL explícito)
+  - Variable de entorno: `KEY49_API_KEY_CACHE_TTL_SECONDS=300`
+  - Fallback: si Redis no disponible, consultar BD directamente (degradación graceful)
+  - Test: verificar cache hit (no SQL), cache miss (SQL + populate), invalidación al revocar
+
+- [ ] **T-063** Caché de metadatos de tenant
+  - Cachear `Tenant` (schema_name, certificate metadata, trade_name, etc.) en Redis
+  - Key: `key49:tenant:{tenant_id}` → JSON del tenant (sin certificado binario)
+  - TTL: 10 minutos (los tenants cambian raramente)
+  - Invalidar al actualizar perfil o certificado
+  - Beneficio: evita JOIN/SELECT a `public.tenants` en cada operación del pipeline
+  - Test: crear tenant, verificar cache populate, actualizar tenant, verificar invalidación
+
+- [ ] **T-064** Caché de certificados .p12 en memoria
+  - Los consumers descifran el .p12 de BD en cada firma → costoso (BouncyCastle + AES)
+  - Implementar caché local (Caffeine o ConcurrentHashMap con TTL) de `PrivateKey + X509Certificate` ya parseados
+  - Key: `tenant_id`, TTL: 30 minutos, max entries: 100
+  - Invalidar al subir nuevo certificado
+  - Beneficio: evitar descifrado AES + parsing PKCS12 repetido (~50ms por operación)
+  - Test: firmar 2 documentos seguidos, verificar que solo el primero parsea el .p12
+
+### Sprint 13: Resiliencia y Tolerancia a Fallos (Semana 3-4)
+
+- [ ] **T-065** Circuit Breaker para SRI SOAP
+  - Aplicar `@CircuitBreaker` (MicroProfile Fault Tolerance) a `SriReceptionClient` y `SriAuthorizationClient`
+  - Parámetros: `requestVolumeThreshold=10`, `failureRatio=0.5`, `delay=30s`, `successThreshold=3`
+  - Cuando el circuito está abierto: retornar error rápido sin esperar timeout del SRI (fail-fast)
+  - Los mensajes van a retry queue con backoff, no se pierden
+  - Métrica: `ft.circuitbreaker.state` (open/closed/half-open) exportada a Prometheus
+  - Combinar con `@Timeout` existente (reception=3s, authorization=5s)
+  - Test: simular 10 fallos seguidos del SRI, verificar que el circuito se abre
+  - Test: verificar que tras delay el circuito pasa a half-open y se recupera
+
+- [ ] **T-066** Timeouts y Circuit Breaker para MinIO
+  - `MinioClient` no tiene timeouts configurados → puede bloquear un consumer indefinidamente
+  - Configurar `MinioClient.builder().connectTimeout(5, SECONDS).writeTimeout(30, SECONDS).readTimeout(15, SECONDS)`
+  - Variables: `KEY49_STORAGE_CONNECT_TIMEOUT_S`, `KEY49_STORAGE_WRITE_TIMEOUT_S`, `KEY49_STORAGE_READ_TIMEOUT_S`
+  - Evaluar Circuit Breaker si MinIO está caído: `@CircuitBreaker` o wrapper manual
+  - Beneficio: si MinIO cae, los consumers fallan rápido y van a retry, sin bloquear threads
+  - Test: simular timeout de MinIO, verificar que el consumer falla y reintenta
+
+- [ ] **T-067** Graceful shutdown con drenaje de consumers
+  - Verificar que `quarkus.shutdown.timeout=30s` permite que consumers en vuelo terminen
+  - Implementar hook `@Observes ShutdownEvent` que loguee consumers activos
+  - Verificar que mensajes no-acked vuelven a la cola tras shutdown (RabbitMQ basic.nack con requeue)
+  - Documentar procedimiento de deploy sin pérdida de mensajes: stop consumers → drain → deploy → start
+  - Test: enviar mensaje a consumer, iniciar shutdown, verificar que el mensaje se procesa o se re-encola
+
+- [ ] **T-068** Backpressure y monitoreo de profundidad de cola
+  - La alerta `queue-depth-max=1000` ya existe (T-037), pero no hay acción automática
+  - Implementar health check que revise profundidad de todas las colas vía API de RabbitMQ management
+  - Si profundidad > threshold: marcar readiness=false → el balanceador deja de enviar tráfico
+  - Exponer métricas: `key49.queue.depth{queue=sign}`, `key49.queue.depth{queue=send}`, etc.
+  - Variable: `KEY49_QUEUE_DEPTH_CRITICAL=5000` (readiness=false), `KEY49_QUEUE_DEPTH_WARNING=1000` (alerta)
+  - Test: verificar que health check reporta DOWN cuando queue depth excede threshold
+
+### Sprint 14: Base de Datos para Escala Multi-Tenant (Semana 4-5)
+
+- [ ] **T-069** Evaluar e implementar PgBouncer como connection pooler
+  - Con N tenants, cada uno usando `SET search_path`, el pool de Agroal puede no ser suficiente
+  - Desplegar PgBouncer en modo `transaction` delante de PostgreSQL
+  - Configurar: `max_client_conn=200`, `default_pool_size=25`, `reserve_pool_size=5`
+  - Ajustar Quarkus para conectar a PgBouncer en lugar de PostgreSQL directo
+  - Documentar en `DEPLOYMENT.md` y `docker-compose.yml`
+  - Test: verificar que multi-tenant funciona con PgBouncer (search_path se mantiene por transacción)
+
+- [ ] **T-070** Particionamiento de tabla `documents` por fecha
+  - La tabla `documents` crecerá rápidamente (~1000 docs/día por tenant grande)
+  - Implementar particionamiento por rango mensual: `documents_2025_01`, `documents_2025_02`, ...
+  - Script SQL: `ALTER TABLE documents ... PARTITION BY RANGE (created_at)`
+  - Crear script de mantenimiento que crea particiones futuras (cron mensual)
+  - Beneficio: queries con filtro de fecha son O(partición) en lugar de O(tabla completa)
+  - Agregar a `db/migrations/tenant/` con documentación
+  - Test: verificar que queries con filtro de fecha usan partition pruning (EXPLAIN ANALYZE)
+
+- [ ] **T-071** Mantenimiento automatizado de PostgreSQL
+  - Script `db/maintenance.sh`: VACUUM ANALYZE en todas las tablas de todos los esquemas tenant
+  - Configurar `autovacuum_vacuum_scale_factor=0.05` (más agresivo que default 0.2) para tabla `documents`
+  - Monitorear bloat con `pgstattuple` o estimación de dead tuples
+  - Crear índice `CONCURRENTLY` script para reindexación sin downtime
+  - Documentar procedimiento en `DB-ADMIN.md`
+
+- [ ] **T-072** Monitoreo de queries y optimización
+  - Habilitar `pg_stat_statements` en PostgreSQL
+  - Script para extraer top 10 queries más lentas y más frecuentes
+  - Revisar plan de ejecución de queries del pipeline (sign, send, authorize, notify consumer)
+  - Verificar que los índices existentes cubren los patrones de acceso multi-tenant
+  - Agregar índice parcial: `CREATE INDEX idx_documents_pending ON documents (status) WHERE status IN ('CREATED','SIGNED','SENT','RECEIVED')` (solo docs activos)
+  - Documentar hallazgos en `DB-ADMIN.md`
+
+### Sprint 15: Seguridad y Hardening (Semana 5-6)
+
+- [ ] **T-073** Auditoría de seguridad OWASP Top 10
+  - Revisar cada endpoint REST contra:
+    - Injection (SQL/NoSQL/LDAP): verificar que todas las queries usan parámetros bindeados (Hibernate/Panache)
+    - Broken Authentication: verificar validación de API key, session handling del portal
+    - Broken Access Control: verificar aislamiento de tenant (un tenant no puede ver datos de otro)
+    - Security Misconfiguration: revisar headers HTTP, CORS en producción, error messages
+    - XSS: verificar escaping en templates Qute del portal
+  - Herramienta: ejecutar OWASP ZAP o similar contra API en ambiente de pruebas
+  - Documentar hallazgos y remediaciones en `docs/SECURITY.md`
+
+- [ ] **T-074** Rate limiting granular por endpoint
+  - El rate limiter actual es global por tenant (requests/minuto)
+  - Implementar límites por endpoint: POST /invoices (más restrictivo), GET /invoices (más permisivo)
+  - Configurar por tenant: tenants premium con límites más altos
+  - Tabla `public.tenant_rate_limits` o campo en `tenants`: `rate_limit_per_minute`, `rate_limit_burst`
+  - Métrica: `key49.rate_limit.rejected{tenant=X, endpoint=Y}` (counter)
+  - Test: verificar que un tenant con límite bajo es rechazado, uno con límite alto no
+
+- [ ] **T-075** Audit log de operaciones sensitivas
+  - Registrar en tabla `public.audit_log`:
+    - Login/logout del portal
+    - Creación/revocación de API keys
+    - Upload de certificado .p12
+    - Cambio de configuración de tenant
+    - Anulación de documento (VOID)
+  - Campos: `audit_log_id`, `tenant_id`, `actor` (api_key o session), `action`, `resource`, `resource_id`, `ip_address`, `details` (JSONB), `created_at`
+  - Script SQL en `db/migrations/public/`
+  - Endpoint admin: `GET /admin/audit-log` con filtros (tenant, action, date range)
+  - Test: realizar operación sensitiva, verificar registro en audit_log
+
+- [ ] **T-076** Rotación de certificados .p12 sin downtime
+  - Actualmente subir un nuevo certificado reemplaza el anterior inmediatamente
+  - Implementar "certificado pendiente": subir nuevo cert con `status=PENDING`, validar, activar
+  - Endpoint: `POST /tenant/certificate/rotate` → sube nuevo, `POST /tenant/certificate/activate` → activa
+  - Invalidar caché de certificado (.p12 en memoria, T-064) al activar
+  - Ventana de gracia: durante rotación, documentos en vuelo terminan con cert viejo
+  - Test: subir cert nuevo, verificar que docs en vuelo usan cert anterior, activar, verificar nuevo
+
+### Sprint 16: Observabilidad Avanzada (Semana 6-7)
+
+- [ ] **T-077** Métricas dimensionadas por tenant
+  - Agregar tag `tenant_id` a todas las métricas de negocio:
+    - `key49.documents.created{tenant=X, type=INVOICE}` (counter)
+    - `key49.documents.authorized{tenant=X}` (counter)
+    - `key49.documents.failed{tenant=X, reason=SRI_REJECTED}` (counter)
+    - `key49.sri.latency{tenant=X, operation=reception}` (timer)
+    - `key49.email.sent{tenant=X}` (counter)
+  - Beneficio: identificar qué tenant genera más carga, más errores, o más latencia
+  - Precaución: cardinalidad alta → limitar a tenants activos, usar tag solo en métricas clave
+  - Test: emitir documento, verificar que métricas tienen tag tenant_id correcto
+
+- [ ] **T-078** Alertas SLA y métricas de negocio
+  - Definir SLAs por tenant (configurable):
+    - Tiempo máximo de autorización: 5 minutos desde creación
+    - Tasa de error máxima: 2% por hora
+    - Disponibilidad del pipeline: 99.5%
+  - Alerta cuando SLA es violado: `key49.sla.breach{tenant=X, type=authorization_latency}`
+  - Implementar check periódico (cada 5 min): buscar docs CREATED hace > 5 min que no estén AUTHORIZED
+  - Notificar vía webhook y email al equipo de operaciones
+  - Test: crear documento y no procesarlo, verificar que alerta SLA se dispara tras threshold
+
+- [ ] **T-079** Structured logging con contexto de tenant
+  - Agregar `tenant_id` y `document_id` al MDC (Mapped Diagnostic Context) en cada operación
+  - Formato de log: `[tenant=T, doc=D, trace=T] message`
+  - Configurar `quarkus.log.console.format` con campos MDC
+  - Beneficio: filtrar logs por tenant en producción (`grep tenant=yalobox`)
+  - Verificar que MDC se propaga en virtual threads (Quarkus context propagation)
+  - Test: procesar documento, verificar que todos los logs del flujo tienen tenant_id
+
+- [ ] **T-080** Grafana dashboards (complementa T-038)
+  - Dashboard "Overview": documentos por estado (gauge), throughput global (rate), latencia P50/P95/P99
+  - Dashboard "Per-Tenant": métricas desglosadas por tenant_id, comparación entre tenants
+  - Dashboard "Infrastructure": pool de conexiones BD, queue depth, Redis hit rate, MinIO latencia
+  - Dashboard "Alerts": historial de alertas, SLA breaches, certificados por vencer
+  - Exportar dashboards como JSON en `infra/grafana/dashboards/`
+  - Documentar setup de Grafana + Prometheus en `DEPLOYMENT.md`
+
+### Sprint 17: Load Testing y Sizing (Semana 7-8)
+
+- [ ] **T-081** Scripts de load testing
+  - Crear scripts k6 o Gatling en `tests/load/`:
+    - Escenario 1: 1 tenant, 100 facturas/min durante 10 min
+    - Escenario 2: 5 tenants simultáneos, 50 facturas/min cada uno durante 10 min
+    - Escenario 3: Pico de carga: 10 tenants, 200 facturas/min total durante 5 min
+    - Escenario 4: Consulta masiva: 1000 GET /invoices con filtros variados
+  - Medir: latencia P50/P95/P99, throughput, error rate, recursos (CPU/RAM/conexiones)
+  - Generar reporte con resultados baseline (antes de tuning vs después)
+
+- [ ] **T-082** Benchmark de throughput por tipo de documento
+  - Medir tiempo end-to-end (CREATED → NOTIFIED) para cada tipo de documento
+  - Identificar cuello de botella por tipo: factura vs retención vs guía de remisión
+  - Medir tiempos individuales: firma (~Xms), envío SRI (~Xms), autorización (~Xms), RIDE (~Xms), email (~Xms)
+  - Documentar resultados en `docs/PERFORMANCE.md`
+  - Establecer baselines para regresiones futuras
+
+- [ ] **T-083** Guía de sizing y capacidad
+  - Documentar en `docs/SIZING.md`:
+    - Fórmulas: conexiones BD = f(tenants, concurrencia), RAM = f(tenants, caché, PDFs en vuelo)
+    - Perfil "Small" (1-5 tenants, <500 docs/día): 2 vCPU, 2GB RAM, pool=10
+    - Perfil "Medium" (5-20 tenants, <5000 docs/día): 4 vCPU, 4GB RAM, pool=30
+    - Perfil "Large" (20-50 tenants, <20000 docs/día): 8 vCPU, 8GB RAM, pool=50
+    - Requisitos de PostgreSQL, RabbitMQ, Redis, MinIO por perfil
+  - Incluir diagrama de despliegue (Mermaid) con componentes y flujos de red
+
+- [ ] **T-084** Docker production image optimizado
+  - Multi-stage Dockerfile: build con Maven → runtime con JRE mínimo
+  - Evaluar Quarkus native image (GraalVM) para reducir startup y memoria
+  - Configurar JVM flags para producción: `-XX:MaxRAMPercentage=75`, `-XX:+UseG1GC`
+  - Health check en Dockerfile: `HEALTHCHECK CMD curl -f http://localhost:8080/q/health/ready`
+  - Publicar imagen en registry (Docker Hub o GHCR)
+  - Documentar en `DEPLOYMENT.md`
+
+### Sprint 18: Funcionalidades de Valor para Producción (Semana 8)
+
+- [ ] **T-085** Retry manual desde portal web
+  - Botón "Reintentar" en documentos con estado FAILED o REJECTED en la vista de detalle
+  - Endpoint: `POST /portal/documents/{id}/retry`
+  - Validar que el documento está en estado terminal (FAILED) antes de reintentar
+  - Resetear `retry_count=0`, transicionar a CREATED, republicar en cola de firma
+  - Solo disponible para documentos con `issue_date = hoy` (emisión mismo día)
+  - Log: registrar quién y cuándo reintentó (audit trail)
+  - Test: documento FAILED, hacer retry desde portal, verificar que entra al pipeline
+
+- [ ] **T-086** Dashboard de métricas del tenant en portal
+  - Nueva página `/portal/dashboard` con resumen visual para el tenant:
+    - Total de documentos por estado (cards: Autorizados ✓, En proceso ⏳, Fallidos ✗)
+    - Gráfico de barras: documentos emitidos por día (últimos 30 días)
+    - Último documento emitido con estado actual
+    - Estado del certificado (vigente, días para vencer, vencido)
+  - Server-side con Qute + Pico CSS (sin JavaScript de gráficas, usar barras CSS)
+  - Datos: queries agregadas a la tabla `documents` del esquema del tenant
+  - Test: verificar que los contadores coinciden con datos reales
+
+- [ ] **T-087** API de consulta masiva y exportación CSV
+  - `GET /v1/documents/export?format=csv&from=2025-01-01&to=2025-01-31&status=AUTHORIZED`
+  - Streaming response (no cargar todo en memoria): usar `StreamingOutput` o `Multi<String>`
+  - Campos CSV: access_key, document_type, sequence, recipient, total, status, authorized_at
+  - Límite: máximo 10,000 registros por request (paginación con cursor si se excede)
+  - Header `Content-Disposition: attachment; filename=key49-export-2025-01-31.csv`
+  - Test: exportar 100 documentos, verificar formato CSV válido
+
+- [ ] **T-088** Notificaciones de estado del sistema por tenant
+  - Webhook `system.maintenance` antes de ventanas de mantenimiento programado
+  - Webhook `system.incident` si el SRI está caído (basado en circuit breaker, T-065)
+  - Webhook `certificate.expired` (además del existente `certificate.expiring`)
+  - Endpoint: `GET /v1/system/status` → estado actual del SRI, MinIO, colas
+  - Beneficio: los integradores pueden pausar envíos cuando el sistema reporta problemas
+  - Test: simular SRI caído, verificar que webhook system.incident se dispara
+
+---
+
 ## Criterios de Aceptación Generales
 
 1. Cada task debe tener tests unitarios (>80% coverage del módulo)

@@ -5,6 +5,14 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.20.0] - 2026-04-10
+
+### Agregado
+
+- **Pool de conexiones PostgreSQL** (T-058): configuración completa de Agroal con `min-size=5`, `max-size=50`, `acquisition-timeout=5s`, `idle-removal-interval=2m`, `max-lifetime=30m`, `validation-query-sql=SELECT 1` y `new-connection-sql=SET application_name = 'key49'`. Todas las propiedades parametrizadas con variables de entorno (`KEY49_DB_POOL_MIN`, `KEY49_DB_POOL_MAX`, etc.)
+- `DatasourcePoolHealthCheck`: health check de readiness que verifica conectividad al pool y reporta métricas Agroal (max_size, min_size, active_count, available_count, awaiting_count)
+- `DatasourcePoolHealthCheckTest`: 5 tests de integración verificando health check UP, métricas del pool, configuración de tamaño, awaiting en idle y acquisition-timeout
+
 ## [0.19.1] - 2026-04-09
 
 ### Corregido
