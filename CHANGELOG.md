@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.5] - 2026-04-10
+
+### Agregado
+
+- **API de consulta masiva y exportación CSV** (T-082): `GET /v1/documents/export`
+- Streaming response con `StreamingOutput` para descargas grandes sin cargar todo en memoria
+- Consultas en lotes de 500 documentos con HQL paginado
+- Límite de 10,000 registros por exportación con validación previa (count-first)
+- Filtros: `from`/`to` (obligatorios), `status`, `document_type`, `recipient_id`
+- Campos CSV: access_key, document_type, establishment, issue_point, sequence_number, recipient_id, recipient_name, total_amount, status, issue_date, authorization_date
+- Headers: `Content-Disposition` con nombre de archivo dinámico, `X-Export-Count`
+- Escapado CSV robusto: comillas dobles, comas, saltos de línea
+- 11 tests unitarios (DocumentExportTest): escapeCsv, toCsvRow, constante MAX
+- 10 tests E2E (DocumentExportEndToEndTest): exportar, filtrar, caracteres especiales, validación
+
 ## [0.25.4] - 2026-04-10
 
 ### Agregado

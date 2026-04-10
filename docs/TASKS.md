@@ -722,7 +722,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Datos: queries agregadas a la tabla `documents` del esquema del tenant
   - Test: verificar que los contadores coinciden con datos reales
 
-- [ ] **T-082** API de consulta masiva y exportación CSV
+- [x] **T-082** API de consulta masiva y exportación CSV ✅ v0.25.5
   - `GET /v1/documents/export?format=csv&from=2025-01-01&to=2025-01-31&status=AUTHORIZED`
   - Streaming response (no cargar todo en memoria): usar `StreamingOutput` o `Multi<String>`
   - Campos CSV: access_key, document_type, sequence, recipient, total, status, authorized_at
