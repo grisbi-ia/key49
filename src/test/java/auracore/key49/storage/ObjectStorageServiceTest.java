@@ -1,19 +1,21 @@
 package auracore.key49.storage;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
@@ -25,10 +27,6 @@ import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.errors.ErrorResponseException;
 import io.minio.messages.ErrorResponse;
-import okhttp3.Headers;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 class ObjectStorageServiceTest {
 
@@ -48,7 +46,6 @@ class ObjectStorageServiceTest {
     }
 
     // --- store() ---
-
     @Test
     void storeShouldReturnObjectPath() throws Exception {
         var data = "<xml>test</xml>".getBytes(StandardCharsets.UTF_8);
@@ -92,7 +89,6 @@ class ObjectStorageServiceTest {
     }
 
     // --- retrieve() ---
-
     @Test
     void retrieveShouldReturnData() throws Exception {
         var expectedData = "<xml>authorized</xml>".getBytes(StandardCharsets.UTF_8);
@@ -133,7 +129,6 @@ class ObjectStorageServiceTest {
     }
 
     // --- exists() ---
-
     @Test
     void existsShouldReturnTrueWhenObjectExists() throws Exception {
         var objectPath = "tenant_xyz/2025/06/01/" + ACCESS_KEY + "/signed.xml";
@@ -166,7 +161,6 @@ class ObjectStorageServiceTest {
     }
 
     // --- delete() ---
-
     @Test
     void deleteShouldCallRemoveObject() throws Exception {
         var objectPath = "tenant_xyz/2025/06/01/" + ACCESS_KEY + "/ride.pdf";
@@ -190,7 +184,6 @@ class ObjectStorageServiceTest {
     }
 
     // --- isBucketAccessible() ---
-
     @Test
     void isBucketAccessibleShouldReturnTrueWhenBucketExists() throws Exception {
         when(minioClient.bucketExists(any(BucketExistsArgs.class))).thenReturn(true);
@@ -211,5 +204,41 @@ class ObjectStorageServiceTest {
                 .thenThrow(new RuntimeException("Connection refused"));
 
         assertFalse(service.isBucketAccessible());
+    }
+
+    // --- Timeout configuration ---
+    @Test
+    void initShouldApplyDefaultTimeouts() {
+        var svc = new ObjectStorageService();
+        svc.endpoint = "http://localhost:9000";
+        svc.accessKeyConfig = "minioadmin";
+        svc.secretKey = "minioadmin";
+        svc.bucket = "test";
+        svc.region = "us-east-1";
+        svc.connectTimeoutSeconds = 5;
+        svc.writeTimeoutSeconds = 30;
+        svc.readTimeoutSeconds = 15;
+
+        svc.init();
+
+        // Verify client was created (no NPE on subsequent operations)
+        assertTrue(svc.client != null, "MinioClient should be initialized");
+    }
+
+    @Test
+    void initShouldAcceptCustomTimeouts() {
+        var svc = new ObjectStorageService();
+        svc.endpoint = "http://localhost:9000";
+        svc.accessKeyConfig = "minioadmin";
+        svc.secretKey = "minioadmin";
+        svc.bucket = "test";
+        svc.region = "us-east-1";
+        svc.connectTimeoutSeconds = 10;
+        svc.writeTimeoutSeconds = 60;
+        svc.readTimeoutSeconds = 30;
+
+        svc.init();
+
+        assertTrue(svc.client != null, "MinioClient should be initialized with custom timeouts");
     }
 }

@@ -582,7 +582,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Test: simular 10 fallos seguidos del SRI, verificar que el circuito se abre
   - Test: verificar que tras delay el circuito pasa a half-open y se recupera
 
-- [ ] **T-066** Timeouts y Circuit Breaker para MinIO
+- [x] **T-066** Timeouts y Circuit Breaker para MinIO
   - `MinioClient` no tiene timeouts configurados → puede bloquear un consumer indefinidamente
   - Configurar `MinioClient.builder().connectTimeout(5, SECONDS).writeTimeout(30, SECONDS).readTimeout(15, SECONDS)`
   - Variables: `KEY49_STORAGE_CONNECT_TIMEOUT_S`, `KEY49_STORAGE_WRITE_TIMEOUT_S`, `KEY49_STORAGE_READ_TIMEOUT_S`

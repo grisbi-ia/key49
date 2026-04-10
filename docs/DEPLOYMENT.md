@@ -179,6 +179,9 @@ Para desarrollo, los valores por defecto en `application.properties` son suficie
 | `KEY49_STORAGE_SECRET_KEY`               | `minioadmin`                        | Secret key de MinIO                            |
 | `KEY49_STORAGE_BUCKET`                   | `key49-documents`                   | Nombre del bucket                              |
 | `KEY49_STORAGE_REGION`                   | `us-east-1`                         | Región S3                                      |
+| `KEY49_STORAGE_CONNECT_TIMEOUT_S`        | `5`                                 | Timeout conexión MinIO (s)                     |
+| `KEY49_STORAGE_WRITE_TIMEOUT_S`          | `30`                                | Timeout escritura MinIO (s)                    |
+| `KEY49_STORAGE_READ_TIMEOUT_S`           | `15`                                | Timeout lectura MinIO (s)                      |
 | `KEY49_TIMEZONE`                         | `America/Guayaquil`                 | Zona horaria (UTC-5)                           |
 | `KEY49_SRI_ENVIRONMENT`                  | `test`                              | Ambiente SRI: `test` o `production`            |
 | `KEY49_SRI_RECEPTION_TIMEOUT_MS`         | `3000`                              | Timeout de recepción SOAP (ms)                 |
@@ -376,6 +379,26 @@ Los endpoints SOAP del SRI son configurables vía variables de entorno. Por defe
 - `ft_circuitbreaker_calls_total{method="send", circuitBreakerResult="..."}` — llamadas por resultado (success, failure, circuitBreakerOpen)
 - `ft_circuitbreaker_state_total{method="send", state="..."}` — tiempo acumulado en cada estado (open, closed, halfOpen)
 - `ft_circuitbreaker_opened_total{method="send"}` — veces que se abrió el circuito
+
+### Timeouts y Circuit Breaker para MinIO
+
+`ObjectStorageService` configura timeouts en el `MinioClient` (OkHttp subyacente) para evitar que consumers se bloqueen indefinidamente si MinIO está caído o lento.
+
+**Timeouts:**
+
+| Variable                          | Default | Descripción                           |
+| --------------------------------- | ------- | ------------------------------------- |
+| `KEY49_STORAGE_CONNECT_TIMEOUT_S` | `5`     | Timeout para establecer conexión (s)  |
+| `KEY49_STORAGE_WRITE_TIMEOUT_S`   | `30`    | Timeout para escritura de objetos (s) |
+| `KEY49_STORAGE_READ_TIMEOUT_S`    | `15`    | Timeout para lectura de objetos (s)   |
+
+**Circuit Breaker:**
+
+Los métodos `store()` y `retrieve()` aplican `@CircuitBreaker` con los mismos parámetros que los clientes SRI: `requestVolumeThreshold=10, failureRatio=0.5, delay=30s, successThreshold=3`.
+
+- Cuando el circuito está **abierto**, `CircuitBreakerOpenException` se lanza inmediatamente.
+- En `NotifyConsumer`, el almacenamiento en MinIO es **no-bloqueante**: el `catch(Exception)` existente captura la excepción CB y la registra como warning. El documento sigue transitando a NOTIFIED.
+- En los endpoints REST de descarga (XML/RIDE), el `StorageExceptionMapper` convierte la excepción en **HTTP 503 Service Unavailable**.
 
 ---
 

@@ -1,5 +1,13 @@
 package auracore.key49.storage;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.time.LocalDate;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.CircuitBreaker;
+import org.jboss.logging.Logger;
+
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
@@ -9,20 +17,18 @@ import io.minio.StatObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.time.LocalDate;
 
 /**
- * Servicio de almacenamiento de artefactos de documentos electrónicos en MinIO (S3-compatible).
+ * Servicio de almacenamiento de artefactos de documentos electrónicos en MinIO
+ * (S3-compatible).
  *
- * <p>Almacena XML (sin firmar, firmado, autorizado) y RIDE (PDF) con la estructura:
+ * <p>
+ * Almacena XML (sin firmar, firmado, autorizado) y RIDE (PDF) con la
+ * estructura:
  * {@code {tenant_id}/{year}/{month}/{doc_type}/{access_key}/{filename}}</p>
  *
- * <p>Política de retención: 7 años (configurada a nivel de bucket en MinIO).</p>
+ * <p>
+ * Política de retención: 7 años (configurada a nivel de bucket en MinIO).</p>
  */
 @ApplicationScoped
 public class ObjectStorageService {
@@ -44,6 +50,15 @@ public class ObjectStorageService {
     @ConfigProperty(name = "key49.storage.region", defaultValue = "us-east-1")
     String region;
 
+    @ConfigProperty(name = "key49.storage.connect-timeout-seconds", defaultValue = "5")
+    long connectTimeoutSeconds;
+
+    @ConfigProperty(name = "key49.storage.write-timeout-seconds", defaultValue = "30")
+    long writeTimeoutSeconds;
+
+    @ConfigProperty(name = "key49.storage.read-timeout-seconds", defaultValue = "15")
+    long readTimeoutSeconds;
+
     MinioClient client;
 
     @PostConstruct
@@ -53,7 +68,12 @@ public class ObjectStorageService {
                 .credentials(accessKeyConfig, secretKey)
                 .region(region)
                 .build();
-        log.infof("MinIO storage initialized: endpoint=%s, bucket=%s", endpoint, bucket);
+        client.setTimeout(
+                connectTimeoutSeconds * 1000,
+                writeTimeoutSeconds * 1000,
+                readTimeoutSeconds * 1000);
+        log.infof("MinIO storage initialized: endpoint=%s, bucket=%s, timeouts(connect=%ds, write=%ds, read=%ds)",
+                endpoint, bucket, connectTimeoutSeconds, writeTimeoutSeconds, readTimeoutSeconds);
     }
 
     /**
@@ -67,21 +87,27 @@ public class ObjectStorageService {
     /**
      * Constructor CDI por defecto.
      */
-    public ObjectStorageService() {}
+    public ObjectStorageService() {
+    }
 
     /**
      * Almacena un artefacto de documento en MinIO.
      *
-     * @param tenantId    identificador del tenant
-     * @param issueDate   fecha de emisión del documento
+     * @param tenantId identificador del tenant
+     * @param issueDate fecha de emisión del documento
      * @param docTypeCode código SRI del tipo de documento
-     * @param accessKey   clave de acceso de 49 dígitos
-     * @param artifact    tipo de artefacto
-     * @param data        contenido del artefacto
+     * @param accessKey clave de acceso de 49 dígitos
+     * @param artifact tipo de artefacto
+     * @param data contenido del artefacto
      * @return ruta del objeto almacenado en MinIO
      */
+    @CircuitBreaker(
+            requestVolumeThreshold = 10,
+            failureRatio = 0.5,
+            delay = 30000,
+            successThreshold = 3)
     public String store(String tenantId, LocalDate issueDate, String docTypeCode,
-                        String accessKey, DocumentArtifact artifact, byte[] data) {
+            String accessKey, DocumentArtifact artifact, byte[] data) {
         var objectPath = StoragePath.build(tenantId, issueDate, docTypeCode, accessKey, artifact);
 
         try (var stream = new ByteArrayInputStream(data)) {
@@ -106,6 +132,11 @@ public class ObjectStorageService {
      * @param objectPath ruta del objeto en MinIO
      * @return contenido del artefacto
      */
+    @CircuitBreaker(
+            requestVolumeThreshold = 10,
+            failureRatio = 0.5,
+            delay = 30000,
+            successThreshold = 3)
     public byte[] retrieve(String objectPath) {
         try (InputStream stream = client.getObject(GetObjectArgs.builder()
                 .bucket(bucket)

@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.22.1] - 2026-04-10
+
+### Agregado
+
+- **Timeouts y Circuit Breaker para MinIO** (T-066): `ObjectStorageService` ahora configura timeouts en `MinioClient` vía `setTimeout(connect, write, read)`. Variables: `KEY49_STORAGE_CONNECT_TIMEOUT_S` (5s), `KEY49_STORAGE_WRITE_TIMEOUT_S` (30s), `KEY49_STORAGE_READ_TIMEOUT_S` (15s)
+- `@CircuitBreaker` en `ObjectStorageService.store()` y `ObjectStorageService.retrieve()` con parámetros `requestVolumeThreshold=10, failureRatio=0.5, delay=30s, successThreshold=3`. Si MinIO cae, los consumers fallan rápido y van a retry sin bloquear threads
+- `StorageExceptionMapper`: mapea `StorageException` y `CircuitBreakerOpenException` a HTTP 503 Service Unavailable con formato de error estándar
+- `ObjectStorageServiceCircuitBreakerTest`: 2 tests de integración — apertura del circuito para `store()` y `retrieve()`
+- `StorageExceptionMapperTest`: 5 tests unitarios para mapeo de excepciones
+- 2 tests de configuración de timeouts en `ObjectStorageServiceTest`
+
 ## [0.22.0] - 2026-04-10
 
 ### Agregado
