@@ -5,6 +5,13 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.20.2] - 2026-04-10
+
+### Agregado
+
+- **Prefetch diferenciado para consumers RabbitMQ** (T-060): configuración `rabbitmq-prefetch` por canal — sign=10, send=5, authorize=5, notify=10, dlq=5. Valores parametrizados con variables de entorno (`KEY49_RABBITMQ_PREFETCH_SIGN`, `_SEND`, `_AUTHORIZE`, `_NOTIFY`, `_DLQ`). Documentación en DEPLOYMENT.md con tabla de justificación y recomendaciones de tuning
+- `RabbitMqPrefetchConfigTest`: 7 tests verificando valores por defecto, relación entre prefetch de consumers SRI vs CPU-bound, y positividad de todos los valores
+
 ## [0.20.1] - 2026-04-10
 
 ### Agregado

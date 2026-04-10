@@ -169,6 +169,11 @@ Para desarrollo, los valores por defecto en `application.properties` son suficie
 | `KEY49_RABBITMQ_PORT`                 | `5672`                              | Puerto de RabbitMQ                  |
 | `KEY49_RABBITMQ_USER`                 | `guest`                             | Usuario de RabbitMQ                 |
 | `KEY49_RABBITMQ_PASSWORD`             | `guest`                             | Contraseña de RabbitMQ              |
+| `KEY49_RABBITMQ_PREFETCH_SIGN`        | `10`                                | Prefetch del consumer de firma      |
+| `KEY49_RABBITMQ_PREFETCH_SEND`        | `5`                                 | Prefetch del consumer de envío SRI  |
+| `KEY49_RABBITMQ_PREFETCH_AUTHORIZE`   | `5`                                 | Prefetch del consumer de autorización |
+| `KEY49_RABBITMQ_PREFETCH_NOTIFY`      | `10`                                | Prefetch del consumer de notificación |
+| `KEY49_RABBITMQ_PREFETCH_DLQ`         | `5`                                 | Prefetch del consumer DLQ           |
 | `KEY49_STORAGE_ENDPOINT`              | `http://localhost:9000`             | Endpoint de MinIO/S3                |
 | `KEY49_STORAGE_ACCESS_KEY`            | `minioadmin`                        | Access key de MinIO                 |
 | `KEY49_STORAGE_SECRET_KEY`            | `minioadmin`                        | Secret key de MinIO                 |
@@ -233,6 +238,24 @@ Key49 ejecuta con **virtual threads habilitados** (`quarkus.virtual-threads.enab
 - `agroal.active.count` — conexiones activas en el pool
 - `agroal.awaiting.count` — requests esperando conexión (alerta si > 0 sostenido)
 - `agroal.max.used.count` — pico de conexiones usadas (ajustar `max-size` si se acerca al tope)
+
+### Prefetch de Consumers RabbitMQ
+
+El **prefetch** controla cuántos mensajes un consumer puede tener en vuelo (no confirmados) simultáneamente. Valores diferenciados por canal optimizan el rendimiento según la latencia de cada operación:
+
+| Consumer      | Variable                         | Default | Justificación                                      |
+| ------------- | -------------------------------- | ------- | -------------------------------------------------- |
+| Firma (sign)  | `KEY49_RABBITMQ_PREFETCH_SIGN`   | `10`    | CPU-bound (XML + XAdES), se beneficia de buffering  |
+| Envío (send)  | `KEY49_RABBITMQ_PREFETCH_SEND`   | `5`     | SOAP al SRI es lento (~2-5s), limitar para no saturar |
+| Autorización  | `KEY49_RABBITMQ_PREFETCH_AUTHORIZE` | `5`  | SOAP al SRI, misma razón que envío                  |
+| Notificación  | `KEY49_RABBITMQ_PREFETCH_NOTIFY` | `10`    | Email + webhook son relativamente rápidos           |
+| DLQ           | `KEY49_RABBITMQ_PREFETCH_DLQ`    | `5`     | Procesamiento de errores, sin urgencia              |
+
+**Recomendaciones:**
+
+- Si el SRI responde lento (>5s promedio), reducir `PREFETCH_SEND` y `PREFETCH_AUTHORIZE` a `2-3`.
+- Si se necesitan más throughput en firma/notificación, subir hasta `20`.
+- Monitorear `rabbitmq_queue_messages_unacked` para detectar consumers saturados.
 
 ---
 

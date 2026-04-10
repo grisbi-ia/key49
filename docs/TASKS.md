@@ -528,7 +528,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Documentar en `DEPLOYMENT.md` la relación entre virtual threads y pool sizing
   - Test: load test local con 50 requests concurrentes, verificar que no hay thread starvation
 
-- [ ] **T-060** Configurar prefetch y concurrencia de consumers RabbitMQ
+- [x] **T-060** Configurar prefetch y concurrencia de consumers RabbitMQ
   - Añadir `mp.messaging.incoming.doc-sign-in.rabbitmq.prefetch=10` (y cada consumer)
   - Evaluar concurrencia: `mp.messaging.incoming.*.concurrency=N` si SmallRye lo soporta, o múltiples instancias del consumer
   - Prefetch diferenciado: sign=10, send=5 (SRI lento), authorize=5, notify=10
