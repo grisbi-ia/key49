@@ -26,7 +26,7 @@ services:
   # En PRODUCCIÓN: cambiar pgbouncer.ini para apuntar al host de PostgreSQL real
   # y des-comentar depends_on si PostgreSQL corre como servicio Docker.
   pgbouncer:
-    image: edoburu/pgbouncer:1.23.1-p2
+    image: edoburu/pgbouncer:latest
     container_name: key49-pgbouncer
     # depends_on:          # Des-comentar en producción si PostgreSQL es servicio Docker
     #   postgres:

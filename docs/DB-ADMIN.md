@@ -14,7 +14,8 @@ Operaciones comunes de administración de PostgreSQL para Key49.
 6. [Outbox y colas](#outbox-y-colas)
 7. [Webhooks](#webhooks)
 8. [Monitoreo y diagnóstico](#monitoreo-y-diagnóstico)
-9. [Mantenimiento](#mantenimiento)
+9. [Particionamiento de documents](#particionamiento-de-documents)
+10. [Mantenimiento](#mantenimiento)
 
 ---
 
@@ -645,6 +646,100 @@ FROM audit_log
 ORDER BY created_at DESC
 LIMIT 20;
 ```
+
+---
+
+## Particionamiento de documents
+
+La tabla `documents` está particionada por rango mensual sobre `issue_date` (desde V005).
+
+### Verificar que la tabla está particionada
+
+```sql
+SET search_path TO tenant_demo;
+
+-- Debe mostrar relkind = 'p' (partitioned)
+SELECT c.relkind, c.relname
+FROM pg_class c
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE c.relname = 'documents' AND n.nspname = 'tenant_demo';
+```
+
+### Listar particiones existentes
+
+```sql
+SET search_path TO tenant_demo;
+
+SELECT child.relname AS partition_name,
+       pg_get_expr(child.relpartbound, child.oid) AS range
+FROM pg_inherits i
+JOIN pg_class parent ON i.inhparent = parent.oid
+JOIN pg_class child ON i.inhrelid = child.oid
+WHERE parent.relname = 'documents'
+ORDER BY child.relname;
+```
+
+### Crear particiones futuras manualmente
+
+```sql
+SET search_path TO tenant_demo;
+
+-- Ejemplo: crear partición para julio 2026
+CREATE TABLE documents_2026_07 PARTITION OF documents
+    FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+```
+
+### Crear particiones automáticamente (cron)
+
+```bash
+# Crea particiones para los próximos 3 meses en todos los tenants activos
+export PGPASSWORD=1234abcd
+db/maintenance/create_monthly_partitions.sh 3
+
+# Cron: 1ro de cada mes a las 02:00
+# 0 2 1 * * /opt/key49/db/maintenance/create_monthly_partitions.sh 3 >> /var/log/key49/partitions.log 2>&1
+```
+
+### Verificar partition pruning
+
+```sql
+SET search_path TO tenant_demo;
+
+-- Debe mostrar solo la partición del mes consultar (ej: documents_2026_04)
+EXPLAIN SELECT * FROM documents
+WHERE issue_date >= '2026-04-01' AND issue_date < '2026-05-01';
+
+-- Con tipo de documento (patrón principal de las APIs)
+EXPLAIN SELECT * FROM documents
+WHERE document_type = '01'
+  AND issue_date >= '2026-04-01' AND issue_date < '2026-05-01'
+ORDER BY issue_date DESC;
+```
+
+### Archivar particiones antiguas
+
+```sql
+SET search_path TO tenant_demo;
+
+-- Desprender la partición (los datos quedan en la tabla independiente)
+ALTER TABLE documents DETACH PARTITION documents_2025_01;
+
+-- Exportar y eliminar
+pg_dump ... --table=tenant_demo.documents_2025_01 -f archive_2025_01.sql
+DROP TABLE documents_2025_01;
+```
+
+### Migrar tenant existente a particionamiento
+
+```bash
+# Ejecutar V005 en un esquema de tenant existente
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
+  -c "SET search_path TO tenant_demo;" \
+  -f db/migrations/tenant/V005__partition_documents.sql
+```
+
+> **Importante**: V005 reescribe la tabla completa. Ejecutar en ventana de mantenimiento.
+> Respalde el esquema antes de ejecutar.
 
 ---
 

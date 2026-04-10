@@ -300,7 +300,8 @@ db/migrations/
 │   ├── V001__create_documents.sql
 │   ├── V002__create_outbox.sql
 │   ├── V003__create_webhook_deliveries.sql
-│   └── V004__create_audit_log.sql
+│   ├── V004__create_audit_log.sql
+│   └── V005__partition_documents.sql
 └── README.md                   # Instrucciones de ejecución para el DBA
 ```
 
@@ -323,6 +324,53 @@ SET search_path TO tenant_abc123;
 \i db/migrations/tenant/V002__create_outbox.sql
 \i db/migrations/tenant/V003__create_webhook_deliveries.sql
 \i db/migrations/tenant/V004__create_audit_log.sql
+\i db/migrations/tenant/V005__partition_documents.sql
+```
+
+> **Nota**: V005 convierte la tabla `documents` en particionada por `issue_date` (rango mensual).
+> Crea automáticamente las particiones mensuales del año actual.
+> Ejecutar después de V001-V004.
+
+### Particionamiento de la tabla `documents`
+
+La tabla `documents` está particionada por rango mensual sobre `issue_date`:
+
+```
+documents (padre, relkind='p')
+├── documents_2026_01   [2026-01-01, 2026-02-01)
+├── documents_2026_02   [2026-02-01, 2026-03-01)
+├── ...
+├── documents_2026_12   [2026-12-01, 2027-01-01)
+└── documents_default   (datos fuera de rangos definidos)
+```
+
+**¿Por qué `issue_date` y no `created_at`?**
+
+Todas las queries de listado filtran por `issue_date` (no `created_at`). El partition pruning solo funciona cuando la clave de partición aparece en el `WHERE`. Como `issue_date` se valida para ser la fecha actual (Regla 15), `issue_date ≈ created_at`.
+
+**Impacto en constraints:**
+
+| Constraint            | Antes (V001)                        | Después (V005)                            |
+| --------------------- | ----------------------------------- | ----------------------------------------- |
+| PK                    | `(document_id)`                     | `(document_id, issue_date)`               |
+| UNIQUE access_key     | `(access_key)`                      | `(access_key, issue_date)`                |
+| UNIQUE idempotency    | `(idempotency_key)`                 | `(idempotency_key, issue_date)`           |
+| UNIQUE number         | `(type, est, pt, seq)`              | `(type, est, pt, seq, issue_date)`        |
+| FK webhook_deliveries | `REFERENCES documents(document_id)` | Eliminada (integridad en capa aplicación) |
+
+La inclusión de `issue_date` en las constraints UNIQUE es un requisito de PostgreSQL para tablas particionadas. La unicidad global se mantiene en la práctica porque `access_key` contiene la fecha embebida, `idempotency_key` es por request, y `sequence_number` es secuencial.
+
+**Compatibilidad con JPA:**
+
+- La entidad `Document.java` NO requiere cambios (`@Id` sigue en `document_id`)
+- Hibernate genera `WHERE document_id = ?` que PostgreSQL resuelve correctamente vía indexes locales en cada partición
+- `UUID` garantiza unicidad global sin necesidad de la clave compuesta en el WHERE
+
+**Mantenimiento de particiones:**
+
+```bash
+# Crear particiones futuras (ejecutar mensualmente via cron)
+db/maintenance/create_monthly_partitions.sh 3   # próximos 3 meses
 ```
 
 ### Aplicar migraciones a esquemas existentes

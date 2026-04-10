@@ -615,7 +615,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Documentar en `DEPLOYMENT.md` y `docker-compose.yml`
   - Test: verificar que multi-tenant funciona con PgBouncer (search_path se mantiene por transacción)
 
-- [ ] **T-070** Particionamiento de tabla `documents` por fecha
+- [x] **T-070** Particionamiento de tabla `documents` por fecha
   - La tabla `documents` crecerá rápidamente (~1000 docs/día por tenant grande)
   - Implementar particionamiento por rango mensual: `documents_2025_01`, `documents_2025_02`, ...
   - Script SQL: `ALTER TABLE documents ... PARTITION BY RANGE (created_at)`

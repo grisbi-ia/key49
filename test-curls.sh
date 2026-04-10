@@ -29,7 +29,7 @@ factura() {
     -d '{
       "establishment": "001",
       "issue_point": "999",
-      "sequence_number": "000000007",
+      "sequence_number": "000000008",
       "issue_date": "'"$TODAY"'",
       "recipient": {
         "id_type": "04",

@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.23.1] - 2026-04-10
+
+### Agregado
+
+- **Particionamiento de tabla `documents`** (T-070): script de migración `V005__partition_documents.sql` que convierte la tabla en particionada por rango mensual sobre `issue_date`
+- Script de mantenimiento `db/maintenance/create_monthly_partitions.sh` para crear particiones futuras vía cron
+- Partition pruning en queries con filtro de fecha: PostgreSQL escanea solo la partición del mes consultado
+- Índice nuevo `idx_documents_created_at` para queries de monitoreo por timestamp
+- 8 tests de integración que verifican: enrutamiento a particiones, partition pruning con EXPLAIN, lookups por PK sin `issue_date` en WHERE, partición default, y operaciones CRUD
+- Sección "Particionamiento de documents" en `DB-ADMIN.md` con guía operativa completa
+- Documentación de particionamiento en `DATABASE.md` con tabla de impacto en constraints
+
+### Cambiado
+
+- PK de `documents` pasa de `(document_id)` a `(document_id, issue_date)` — requerido por PostgreSQL para la clave de partición
+- UNIQUE constraints incluyen `issue_date` — unicidad práctica se mantiene por diseño de access_key/idempotency_key
+- FK de `webhook_deliveries` → `documents` eliminada — integridad referencial se mantiene en capa de aplicación
+
 ## [0.23.0] - 2026-04-10
 
 ### Agregado
