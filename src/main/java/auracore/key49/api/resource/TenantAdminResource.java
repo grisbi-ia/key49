@@ -255,12 +255,138 @@ public class TenantAdminResource {
 
         var certResponse = new CertificateStatusResponse(
                 tenant.certificateSubject, tenant.certificateSerial,
+                tenant.certificateExpiration, null, valid, daysUntilExp,
+                buildPendingCert(tenant));
+        var body = ApiResponse.of(certResponse, requestId);
+        return Response.ok()
+                .header("X-Request-Id", requestId)
+                .entity(body)
+                .build();
+    }
+
+    /**
+     * POST /v1/admin/tenants/:id/certificate/rotate — Sube certificado
+     * pendiente sin reemplazar el activo.
+     */
+    @POST
+    @Path("/{id}/certificate/rotate")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public Response rotateCertificate(
+            @PathParam("id") UUID id,
+            @RestForm("certificate") FileUpload certificate,
+            @RestForm("password") String password,
+            @Context HttpServerRequest httpRequest) {
+
+        String requestId = generateRequestId();
+
+        if (certificate == null) {
+            return errorResponse(requestId, "VALIDATION_ERROR",
+                    "Certificate file is required", 400);
+        }
+        if (password == null || password.isBlank()) {
+            return errorResponse(requestId, "VALIDATION_ERROR",
+                    "Certificate password is required", 400);
+        }
+
+        byte[] p12Bytes;
+        try {
+            p12Bytes = Files.readAllBytes(certificate.filePath());
+        } catch (IOException e) {
+            return errorResponse(requestId, "VALIDATION_ERROR",
+                    "Failed to read certificate file", 400);
+        }
+
+        var passwordChars = password.toCharArray();
+        CertificateMetadataExtractor.CertificateMetadata metadata;
+        try {
+            metadata = CertificateMetadataExtractor.extract(p12Bytes, passwordChars);
+        } catch (auracore.key49.signer.SigningException e) {
+            log.warnf("Invalid certificate rotation for tenant %s: %s", id, e.getMessage());
+            return errorResponse(requestId, "INVALID_CERTIFICATE",
+                    "Invalid certificate: " + e.getMessage(), 422);
+        }
+
+        if (!metadata.valid()) {
+            return errorResponse(requestId, "CERTIFICATE_EXPIRED",
+                    "Certificate is expired (expired at " + metadata.expiresAt() + ")", 422);
+        }
+
+        var masterKey = CertificateEncryptor.decodeMasterKey(
+                masterKeyBase64.orElseThrow(()
+                        -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
+        var encryptedP12 = CertificateEncryptor.encrypt(p12Bytes, masterKey);
+        var encryptedPassword = CertificateEncryptor.encryptPassword(passwordChars, masterKey);
+
+        tenantService.rotateCertificate(
+                id, encryptedP12, encryptedPassword,
+                metadata.subject(), metadata.expiresAt(), metadata.serial());
+
+        auditService.record(id, "admin", "certificate.rotated", "certificate",
+                id, AuditService.resolveIp(httpRequest),
+                """
+                {"subject":"%s","expires_at":"%s"}""".formatted(
+                        metadata.subject(), metadata.expiresAt()));
+
+        var certResponse = new CertificateStatusResponse(
+                metadata.subject(), metadata.serial(),
+                metadata.expiresAt(), metadata.issuer(),
+                metadata.valid(), metadata.daysUntilExpiration());
+        var body = ApiResponse.of(certResponse, requestId);
+        return Response.ok()
+                .header("X-Request-Id", requestId)
+                .entity(body)
+                .build();
+    }
+
+    /**
+     * POST /v1/admin/tenants/:id/certificate/activate — Activa el certificado
+     * pendiente y reemplaza el activo.
+     */
+    @POST
+    @Path("/{id}/certificate/activate")
+    public Response activateCertificate(
+            @PathParam("id") UUID id,
+            @Context HttpServerRequest httpRequest) {
+
+        String requestId = generateRequestId();
+        var tenant = tenantService.activateCertificate(id);
+
+        auditService.record(id, "admin", "certificate.activated", "certificate",
+                id, AuditService.resolveIp(httpRequest),
+                """
+                {"subject":"%s","expires_at":"%s"}""".formatted(
+                        tenant.certificateSubject, tenant.certificateExpiration));
+
+        boolean valid = tenant.certificateExpiration != null
+                && tenant.certificateExpiration.isAfter(java.time.Instant.now());
+        long daysUntilExp = tenant.certificateExpiration != null
+                ? java.time.Duration.between(java.time.Instant.now(), tenant.certificateExpiration).toDays()
+                : 0;
+
+        var certResponse = new CertificateStatusResponse(
+                tenant.certificateSubject, tenant.certificateSerial,
                 tenant.certificateExpiration, null, valid, daysUntilExp);
         var body = ApiResponse.of(certResponse, requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)
                 .entity(body)
                 .build();
+    }
+
+    private static CertificateStatusResponse.PendingCertificate buildPendingCert(
+            auracore.key49.core.model.Tenant tenant) {
+        if (tenant.pendingCertificateP12 == null) {
+            return null;
+        }
+        boolean valid = tenant.pendingCertificateExpiration != null
+                && tenant.pendingCertificateExpiration.isAfter(java.time.Instant.now());
+        long days = tenant.pendingCertificateExpiration != null
+                ? java.time.Duration.between(java.time.Instant.now(),
+                        tenant.pendingCertificateExpiration).toDays()
+                : 0;
+        return new CertificateStatusResponse.PendingCertificate(
+                tenant.pendingCertificateSubject, tenant.pendingCertificateSerial,
+                tenant.pendingCertificateExpiration, valid, days);
     }
 
     private static String generateRequestId() {

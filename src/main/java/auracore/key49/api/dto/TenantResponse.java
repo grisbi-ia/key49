@@ -43,22 +43,28 @@ public record TenantResponse(
             String serial,
             Instant expiresAt,
             boolean configured,
-            boolean valid) {
+            boolean valid,
+            boolean pendingRotation) {
 
+        public CertificateSummary(String subject, String serial,
+                Instant expiresAt, boolean configured, boolean valid) {
+            this(subject, serial, expiresAt, configured, valid, false);
+        }
     }
 
     /**
      * Convierte un Tenant entity a TenantResponse (lista/resumen).
      */
     public static TenantResponse fromEntity(Tenant t) {
-        CertificateSummary cert = null;
+        CertificateSummary cert;
+        boolean pendingRotation = t.pendingCertificateP12 != null;
         if (t.certificateP12 != null && t.certificateP12.length > 0) {
             boolean valid = t.certificateExpiration != null && t.certificateExpiration.isAfter(Instant.now());
             cert = new CertificateSummary(
                     t.certificateSubject, t.certificateSerial,
-                    t.certificateExpiration, true, valid);
+                    t.certificateExpiration, true, valid, pendingRotation);
         } else {
-            cert = new CertificateSummary(null, null, null, false, false);
+            cert = new CertificateSummary(null, null, null, false, false, pendingRotation);
         }
 
         return new TenantResponse(

@@ -115,6 +115,50 @@ class TenantDtoTest {
         }
 
         @Test
+        @DisplayName("sin rotación pendiente — pendingRotation=false")
+        void noPendingRotation() {
+            var tenant = createTestTenant();
+            tenant.certificateP12 = new byte[]{1, 2, 3};
+            tenant.certificateSubject = "CN=Test";
+            tenant.certificateSerial = "ABC";
+            tenant.certificateExpiration = Instant.now().plusSeconds(86400);
+            tenant.pendingCertificateP12 = null;
+
+            var response = TenantResponse.fromEntity(tenant);
+            assertFalse(response.certificate().pendingRotation());
+        }
+
+        @Test
+        @DisplayName("con rotación pendiente — pendingRotation=true")
+        void withPendingRotation() {
+            var tenant = createTestTenant();
+            tenant.certificateP12 = new byte[]{1, 2, 3};
+            tenant.certificateSubject = "CN=Active";
+            tenant.certificateSerial = "ACT123";
+            tenant.certificateExpiration = Instant.now().plusSeconds(86400);
+            tenant.pendingCertificateP12 = new byte[]{4, 5, 6};
+            tenant.pendingCertificateSubject = "CN=Pending";
+            tenant.pendingCertificateSerial = "PEN456";
+            tenant.pendingCertificateExpiration = Instant.now().plusSeconds(86400 * 365);
+
+            var response = TenantResponse.fromEntity(tenant);
+            assertTrue(response.certificate().pendingRotation());
+            assertEquals("CN=Active", response.certificate().subject());
+        }
+
+        @Test
+        @DisplayName("sin certificado con rotación pendiente — pendingRotation=true, configured=false")
+        void noCertButPendingRotation() {
+            var tenant = createTestTenant();
+            tenant.certificateP12 = null;
+            tenant.pendingCertificateP12 = new byte[]{4, 5, 6};
+
+            var response = TenantResponse.fromEntity(tenant);
+            assertFalse(response.certificate().configured());
+            assertTrue(response.certificate().pendingRotation());
+        }
+
+        @Test
         @DisplayName("incluye timestamps")
         void includesTimestamps() {
             var tenant = createTestTenant();
@@ -235,6 +279,63 @@ class TenantDtoTest {
 
             var json = mapper.writeValueAsString(response);
             assertFalse(json.contains("\"issuer\""));
+        }
+
+        @Test
+        @DisplayName("serializa con certificado pendiente")
+        void serializesWithPendingCert() throws Exception {
+            var exp = Instant.parse("2027-06-15T00:00:00Z");
+            var pendingExp = Instant.parse("2028-06-15T00:00:00Z");
+            var pending = new CertificateStatusResponse.PendingCertificate(
+                    "CN=Pending", "PEN789", pendingExp, true, 730);
+            var response = new CertificateStatusResponse(
+                    "CN=Active", "ACT123", exp, "CN=CA", true, 365, pending);
+
+            var json = mapper.writeValueAsString(response);
+            assertTrue(json.contains("\"subject\":\"CN=Active\""));
+            assertTrue(json.contains("\"pending_certificate\""));
+            assertTrue(json.contains("\"CN=Pending\""));
+            assertTrue(json.contains("\"PEN789\""));
+        }
+
+        @Test
+        @DisplayName("omite pending_certificate cuando es null")
+        void omitsPendingCertWhenNull() throws Exception {
+            var response = new CertificateStatusResponse(
+                    "CN=Test", "ABC123", Instant.now(), null, true, 100);
+
+            var json = mapper.writeValueAsString(response);
+            assertFalse(json.contains("pending_certificate"));
+        }
+
+        @Test
+        @DisplayName("constructor de 6 args establece pending null")
+        void sixArgConstructorSetsPendingNull() {
+            var response = new CertificateStatusResponse(
+                    "CN=Test", "ABC123", Instant.now(), null, true, 100);
+            assertNull(response.pendingCertificate());
+        }
+
+        @Test
+        @DisplayName("PendingCertificate preserva campos")
+        void pendingCertificatePreservesFields() {
+            var exp = Instant.parse("2028-01-01T00:00:00Z");
+            var pending = new CertificateStatusResponse.PendingCertificate(
+                    "CN=New Cert", "SER001", exp, true, 500);
+
+            assertEquals("CN=New Cert", pending.subject());
+            assertEquals("SER001", pending.serial());
+            assertEquals(exp, pending.expiresAt());
+            assertTrue(pending.valid());
+            assertEquals(500, pending.daysUntilExpiration());
+        }
+
+        @Test
+        @DisplayName("CertificateSummary backward-compat constructor sin pendingRotation")
+        void certSummaryBackwardCompat() {
+            var summary = new TenantResponse.CertificateSummary(
+                    "CN=Test", "SER", Instant.now(), true, true);
+            assertFalse(summary.pendingRotation());
         }
     }
 }

@@ -14,6 +14,21 @@ public record CertificateStatusResponse(
         Instant expiresAt,
         String issuer,
         boolean valid,
-        long daysUntilExpiration) {
+        long daysUntilExpiration,
+        PendingCertificate pendingCertificate) {
 
+    public CertificateStatusResponse(String subject, String serial,
+            Instant expiresAt, String issuer, boolean valid, long daysUntilExpiration) {
+        this(subject, serial, expiresAt, issuer, valid, daysUntilExpiration, null);
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record PendingCertificate(
+            String subject,
+            String serial,
+            Instant expiresAt,
+            boolean valid,
+            long daysUntilExpiration) {
+
+    }
 }

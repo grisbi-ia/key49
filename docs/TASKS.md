@@ -673,7 +673,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Endpoint admin: `GET /admin/audit-log` con filtros (tenant, action, date range)
   - Test: realizar operación sensitiva, verificar registro en audit_log
 
-- [ ] **T-076** Rotación de certificados .p12 sin downtime
+- [x] **T-076** Rotación de certificados .p12 sin downtime ✅ `v0.24.3`
   - Actualmente subir un nuevo certificado reemplaza el anterior inmediatamente
   - Implementar "certificado pendiente": subir nuevo cert con `status=PENDING`, validar, activar
   - Endpoint: `POST /tenant/certificate/rotate` → sube nuevo, `POST /tenant/certificate/activate` → activa

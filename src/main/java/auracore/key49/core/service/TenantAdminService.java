@@ -180,6 +180,61 @@ public class TenantAdminService {
         return tenant;
     }
 
+    // ── Rotar certificado (sin downtime) ──
+    @Transactional
+    public Tenant rotateCertificate(UUID id, byte[] encryptedP12, byte[] encryptedPassword,
+            String subject, Instant expiration, String serial) {
+        Tenant tenant = tenantRepository.findById(id);
+        if (tenant == null) {
+            throw new TenantException("TENANT_NOT_FOUND",
+                    "Tenant not found: " + id, 404);
+        }
+
+        tenant.pendingCertificateP12 = encryptedP12;
+        tenant.pendingCertificatePasswordEnc = encryptedPassword;
+        tenant.pendingCertificateSubject = subject;
+        tenant.pendingCertificateExpiration = expiration;
+        tenant.pendingCertificateSerial = serial;
+        tenant.updatedAt = Instant.now();
+
+        Log.infof("Certificate rotation started | tenantId=%s pending_subject=%s expires=%s",
+                id, subject, expiration);
+        return tenant;
+    }
+
+    // ── Activar certificado pendiente ──
+    @Transactional
+    public Tenant activateCertificate(UUID id) {
+        Tenant tenant = tenantRepository.findById(id);
+        if (tenant == null) {
+            throw new TenantException("TENANT_NOT_FOUND",
+                    "Tenant not found: " + id, 404);
+        }
+        if (tenant.pendingCertificateP12 == null) {
+            throw new TenantException("NO_PENDING_CERTIFICATE",
+                    "No pending certificate to activate for tenant: " + id, 422);
+        }
+
+        tenant.certificateP12 = tenant.pendingCertificateP12;
+        tenant.certificatePasswordEnc = tenant.pendingCertificatePasswordEnc;
+        tenant.certificateSubject = tenant.pendingCertificateSubject;
+        tenant.certificateExpiration = tenant.pendingCertificateExpiration;
+        tenant.certificateSerial = tenant.pendingCertificateSerial;
+
+        tenant.pendingCertificateP12 = null;
+        tenant.pendingCertificatePasswordEnc = null;
+        tenant.pendingCertificateSubject = null;
+        tenant.pendingCertificateExpiration = null;
+        tenant.pendingCertificateSerial = null;
+        tenant.updatedAt = Instant.now();
+
+        Log.infof("Certificate activated | tenantId=%s subject=%s expires=%s",
+                id, tenant.certificateSubject, tenant.certificateExpiration);
+        tenantCacheService.invalidate(id, tenant.schemaName);
+        certificateCacheService.invalidate(id);
+        return tenant;
+    }
+
     // ── Validaciones ──
     private void validateCreateData(CreateTenantData data) {
         if (data.ruc() == null || !SriValidator.isValidRuc(data.ruc())) {

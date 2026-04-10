@@ -5,6 +5,25 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.24.3] - 2026-04-10
+
+### Agregado
+
+- **Rotación de certificados .p12 sin downtime** (T-076): permite subir un certificado pendiente sin reemplazar el activo, y activarlo cuando se desee
+- Migración `V005__add_pending_certificate.sql`: 5 columnas `pending_certificate_*` en tabla `tenants` (p12, password_enc, subject, expiration, serial)
+- Campos `pending_certificate_*` en entidad `Tenant` para almacenar certificado pendiente de activación
+- `TenantAdminService.rotateCertificate()`: almacena certificado en campos pending sin modificar el activo ni invalidar caché
+- `TenantAdminService.activateCertificate()`: mueve pending→activo atómicamente, limpia pending, invalida caché de tenant y certificado
+- Endpoints admin: `POST /v1/admin/tenants/:id/certificate/rotate`, `POST /v1/admin/tenants/:id/certificate/activate`
+- Endpoints self-service: `POST /v1/tenant/certificate/rotate`, `POST /v1/tenant/certificate/activate`
+- `CertificateStatusResponse.PendingCertificate`: nested record con subject, serial, expiresAt, valid, daysUntilExpiration
+- Endpoint `GET /certificate/status` actualizado para incluir info del certificado pendiente cuando existe
+- `TenantResponse.CertificateSummary.pendingRotation`: indica si hay rotación pendiente
+- Acciones de auditoría: `certificate.rotated`, `certificate.activated`
+- Error `NO_PENDING_CERTIFICATE` (422) al intentar activar sin certificado pendiente
+- Ventana de gracia inherente: documentos en vuelo continúan firmándose con certificado activo hasta activación
+- Tests: `CertificateRotationTest` (4 tests lógica de campos pending), `TenantDtoTest` ampliado (8 tests nuevos para pendingRotation y PendingCertificate)
+
 ## [0.24.2] - 2026-04-10
 
 ### Agregado

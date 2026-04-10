@@ -69,6 +69,21 @@ public class Tenant extends PanacheEntityBase {
     @Column(name = "certificate_serial", length = 100)
     public String certificateSerial;
 
+    @Column(name = "pending_certificate_p12")
+    public byte[] pendingCertificateP12;
+
+    @Column(name = "pending_certificate_password_enc")
+    public byte[] pendingCertificatePasswordEnc;
+
+    @Column(name = "pending_certificate_subject", length = 500)
+    public String pendingCertificateSubject;
+
+    @Column(name = "pending_certificate_expiration")
+    public Instant pendingCertificateExpiration;
+
+    @Column(name = "pending_certificate_serial", length = 100)
+    public String pendingCertificateSerial;
+
     @Column(name = "webhook_url", length = 500)
     public String webhookUrl;
 
