@@ -624,7 +624,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Agregar a `db/migrations/tenant/` con documentación
   - Test: verificar que queries con filtro de fecha usan partition pruning (EXPLAIN ANALYZE)
 
-- [ ] **T-071** Mantenimiento automatizado de PostgreSQL
+- [x] **T-071** Mantenimiento automatizado de PostgreSQL
   - Script `db/maintenance.sh`: VACUUM ANALYZE en todas las tablas de todos los esquemas tenant
   - Configurar `autovacuum_vacuum_scale_factor=0.05` (más agresivo que default 0.2) para tabla `documents`
   - Monitorear bloat con `pgstattuple` o estimación de dead tuples

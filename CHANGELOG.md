@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.23.2] - 2026-04-10
+
+### Agregado
+
+- **Mantenimiento automatizado de PostgreSQL** (T-071): suite completa de scripts de mantenimiento en `db/maintenance/`
+- Script `vacuum_analyze.sh`: VACUUM ANALYZE en todos los esquemas tenant + public, con soporte para VACUUM FULL y esquema individual
+- Script `tune_autovacuum.sh`: configura `autovacuum_vacuum_scale_factor=0.05` en tabla documents (y particiones) para vacuum más agresivo
+- Script `monitor_bloat.sh`: reporta dead tuples, tamaños de tabla/índice, actividad autovacuum, y tablas que necesitan vacuum
+- Script `reindex_concurrently.sh`: reconstruye índices sin downtime usando REINDEX CONCURRENTLY
+- Crontab recomendado para producción documentado en `DB-ADMIN.md`
+- Sección "Mantenimiento automatizado" en `DB-ADMIN.md` con guía operativa de cada script
+- 8 tests de integración en `PostgresMaintenanceTest` que verifican: VACUUM ANALYZE, autovacuum tuning, dead tuples tracking, REINDEX CONCURRENTLY, table sizes, y validez de índices
+
 ## [0.23.1] - 2026-04-10
 
 ### Agregado

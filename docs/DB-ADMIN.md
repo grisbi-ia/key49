@@ -15,7 +15,8 @@ Operaciones comunes de administración de PostgreSQL para Key49.
 7. [Webhooks](#webhooks)
 8. [Monitoreo y diagnóstico](#monitoreo-y-diagnóstico)
 9. [Particionamiento de documents](#particionamiento-de-documents)
-10. [Mantenimiento](#mantenimiento)
+10. [Mantenimiento automatizado](#mantenimiento-automatizado)
+11. [Mantenimiento manual](#mantenimiento-manual)
 
 ---
 
@@ -743,7 +744,180 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
 
 ---
 
-## Mantenimiento
+## Mantenimiento automatizado
+
+Los scripts de mantenimiento están en `db/maintenance/`.
+
+### Scripts disponibles
+
+| Script                         | Propósito                             | Frecuencia recomendada   |
+| ------------------------------ | ------------------------------------- | ------------------------ |
+| `vacuum_analyze.sh`            | VACUUM ANALYZE en todos los esquemas  | Diario (03:00)           |
+| `tune_autovacuum.sh`           | Ajustar parámetros autovacuum         | Una vez + nuevos tenants |
+| `monitor_bloat.sh`             | Reportar dead tuples y bloat          | Semanal (dom 04:00)      |
+| `reindex_concurrently.sh`      | Reconstruir índices sin downtime      | Mensual (1er dom)        |
+| `create_monthly_partitions.sh` | Crear particiones futuras (documents) | Mensual (1ro 02:00)      |
+
+### VACUUM ANALYZE
+
+Ejecuta `VACUUM ANALYZE` en todas las tablas de todos los esquemas activos (incluyendo `public`).
+
+```bash
+# Todos los esquemas
+export PGPASSWORD=1234abcd
+db/maintenance/vacuum_analyze.sh
+
+# Un solo esquema
+db/maintenance/vacuum_analyze.sh --schema tenant_demo
+
+# VACUUM FULL (requiere downtime — adquiere lock exclusivo)
+db/maintenance/vacuum_analyze.sh --full
+```
+
+Cron (diario a las 03:00):
+
+```cron
+0 3 * * * /opt/key49/db/maintenance/vacuum_analyze.sh >> /var/log/key49/vacuum.log 2>&1
+```
+
+### Tuning de autovacuum para documents
+
+La tabla `documents` tiene alta tasa de escritura (INSERT + múltiples UPDATE por estado).
+Configuramos autovacuum más agresivo:
+
+| Parámetro                         | Default | Key49     | Efecto                                    |
+| --------------------------------- | ------- | --------- | ----------------------------------------- |
+| `autovacuum_vacuum_scale_factor`  | 0.20    | **0.05**  | Vacuum al 5% de dead tuples (no al 20%)   |
+| `autovacuum_analyze_scale_factor` | 0.10    | **0.05**  | Re-analizar estadísticas al 5% de cambios |
+| `autovacuum_vacuum_cost_delay`    | 2 ms    | **10 ms** | Throttle leve para no competir con I/O    |
+
+```bash
+# Aplicar a todos los tenants activos
+export PGPASSWORD=1234abcd
+db/maintenance/tune_autovacuum.sh
+
+# Un solo tenant
+db/maintenance/tune_autovacuum.sh tenant_demo
+```
+
+> **Importante**: Ejecutar al crear un nuevo tenant y después de aplicar V005 (particionamiento).
+> Los parámetros se aplican por tabla — las particiones heredan del padre.
+
+Verificar configuración actual:
+
+```sql
+SELECT n.nspname AS schema, c.relname AS table_name,
+       array_to_string(c.reloptions, ', ') AS options
+FROM pg_class c
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE c.relname LIKE 'documents%'
+  AND c.reloptions IS NOT NULL
+ORDER BY n.nspname, c.relname;
+```
+
+### Monitoreo de bloat y dead tuples
+
+Genera un reporte de dead tuples, tamaños de tabla/índice, y actividad de autovacuum.
+
+```bash
+# Todas los esquemas
+export PGPASSWORD=1234abcd
+db/maintenance/monitor_bloat.sh
+
+# Solo tablas con > 10000 dead tuples
+db/maintenance/monitor_bloat.sh --threshold 10000
+
+# Un esquema específico
+db/maintenance/monitor_bloat.sh --schema tenant_demo
+```
+
+El reporte incluye 4 secciones:
+
+1. **Dead Tuples Report** — dead tuples por tabla, con `last_vacuum` / `last_autovacuum`
+2. **Estimated Table Bloat** — tamaño tabla vs. tamaño índices
+3. **Autovacuum Activity (24h)** — conteo de vacuum/analyze automáticos recientes
+4. **Tables Needing Vacuum** — tablas donde dead > 5% de live tuples
+
+Cron (semanal, domingo 04:00):
+
+```cron
+0 4 * * 0 /opt/key49/db/maintenance/monitor_bloat.sh >> /var/log/key49/bloat.log 2>&1
+```
+
+#### Consulta manual de dead tuples
+
+```sql
+SELECT
+    schemaname AS schema,
+    relname AS tabla,
+    n_live_tup AS vivas,
+    n_dead_tup AS muertas,
+    CASE WHEN n_live_tup > 0
+        THEN ROUND(n_dead_tup::NUMERIC / n_live_tup * 100, 2)
+        ELSE 0
+    END AS pct_muertas,
+    last_autovacuum
+FROM pg_stat_user_tables
+WHERE schemaname LIKE 'tenant_%'
+  AND n_dead_tup > n_live_tup * 0.05
+ORDER BY n_dead_tup DESC;
+```
+
+### Reindexación sin downtime
+
+`REINDEX CONCURRENTLY` reconstruye índices sin bloquear lecturas ni escrituras.
+
+```bash
+# Todos los índices de todos los esquemas
+export PGPASSWORD=1234abcd
+db/maintenance/reindex_concurrently.sh
+
+# Solo un esquema
+db/maintenance/reindex_concurrently.sh --schema tenant_demo
+
+# Solo índices de la tabla documents
+db/maintenance/reindex_concurrently.sh --table documents
+```
+
+Cron (1er domingo de cada mes a las 04:00):
+
+```cron
+0 4 1-7 * 0 /opt/key49/db/maintenance/reindex_concurrently.sh >> /var/log/key49/reindex.log 2>&1
+```
+
+> **Nota**: `REINDEX CONCURRENTLY` no puede ejecutarse dentro de una transacción.
+> El script ejecuta cada `REINDEX` como statement individual.
+
+### Crontab recomendado (producción)
+
+```cron
+# Key49 — Mantenimiento PostgreSQL
+# Particiones: 1ro de cada mes a las 02:00
+0 2 1 * * /opt/key49/db/maintenance/create_monthly_partitions.sh 3 >> /var/log/key49/partitions.log 2>&1
+
+# VACUUM ANALYZE: diario a las 03:00
+0 3 * * * /opt/key49/db/maintenance/vacuum_analyze.sh >> /var/log/key49/vacuum.log 2>&1
+
+# Monitor bloat: domingo a las 04:00
+0 4 * * 0 /opt/key49/db/maintenance/monitor_bloat.sh >> /var/log/key49/bloat.log 2>&1
+
+# Reindex: 1er domingo de cada mes a las 05:00
+0 5 1-7 * 0 /opt/key49/db/maintenance/reindex_concurrently.sh >> /var/log/key49/reindex.log 2>&1
+```
+
+Variables de entorno requeridas por los scripts:
+
+```bash
+export KEY49_DB_HOST=localhost
+export KEY49_DB_PORT=5433
+export KEY49_DB_NAME=key49
+export KEY49_DB_USER=postgres
+export PGPASSWORD=<password_seguro>
+```
+
+---
+
+## Mantenimiento manual
 
 ### Limpieza del outbox (eventos publicados con más de 7 días)
 
