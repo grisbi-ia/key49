@@ -712,8 +712,8 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Log: registrar quién y cuándo reintentó (audit trail)
   - Test: documento FAILED, hacer retry desde portal, verificar que entra al pipeline
 
-- [ ] **T-081** Dashboard de métricas del tenant en portal
-  - Nueva página `/portal/dashboard` con resumen visual para el tenant:
+- [x] **T-081** Dashboard de métricas del tenant en portal ✅ `v0.25.4`
+  - Nueva página `/portal/metrics` con resumen visual para el tenant:
     - Total de documentos por estado (cards: Autorizados ✓, En proceso ⏳, Fallidos ✗)
     - Gráfico de barras: documentos emitidos por día (últimos 30 días)
     - Último documento emitido con estado actual

@@ -1,10 +1,12 @@
 package auracore.key49.api.portal;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +18,7 @@ import org.jboss.logging.Logger;
 
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
+import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.service.AuditService;
@@ -28,6 +31,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.FormParam;
@@ -73,6 +77,10 @@ public class PortalResource {
     Template detail;
 
     @Inject
+    @Location("portal/metrics")
+    Template metrics;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -86,6 +94,9 @@ public class PortalResource {
 
     @Inject
     DocumentEventProducer eventProducer;
+
+    @Inject
+    EntityManager entityManager;
 
     @ConfigProperty(name = "key49.portal.secure-cookie", defaultValue = "false")
     boolean secureCookie;
@@ -340,6 +351,109 @@ public class PortalResource {
                         "attachment; filename=\"%s.pdf\"".formatted(
                                 doc.accessKey != null ? doc.accessKey : doc.id))
                 .build();
+    }
+
+    // ── Metrics dashboard ──
+    @GET
+    @Path("/metrics")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance metricsPage() {
+        var session = getSession();
+
+        // 1. Document counts by status group
+        var statusCounts = tcm.withTenantSession(session.schemaName(), em -> {
+            @SuppressWarnings("unchecked")
+            var rows = (List<Object[]>) em.createNativeQuery(
+                    "SELECT status, count(*) FROM documents GROUP BY status").getResultList();
+            long authorized = 0, inProcess = 0, failed = 0, total = 0;
+            for (var row : rows) {
+                var status = (String) row[0];
+                var count = ((Number) row[1]).longValue();
+                total += count;
+                switch (status) {
+                    case "AUTHORIZED", "NOTIFIED" ->
+                        authorized += count;
+                    case "REJECTED", "FAILED" ->
+                        failed += count;
+                    default ->
+                        inProcess += count;
+                }
+            }
+            return Map.of("authorized", authorized, "inProcess", inProcess,
+                    "failed", failed, "total", total);
+        });
+
+        // 2. Documents per day (last 30 days)
+        var dailyData = tcm.withTenantSession(session.schemaName(), em -> {
+            @SuppressWarnings("unchecked")
+            var rows = (List<Object[]>) em.createNativeQuery("""
+                    SELECT issue_date, count(*) FROM documents
+                    WHERE issue_date >= (current_date - interval '29 days')
+                    GROUP BY issue_date ORDER BY issue_date""").getResultList();
+            var entries = new ArrayList<DailyCount>();
+            long maxCount = 1;
+            for (var row : rows) {
+                var date = row[0] instanceof java.sql.Date sd ? sd.toLocalDate() : (LocalDate) row[0];
+                var count = ((Number) row[1]).longValue();
+                entries.add(new DailyCount(date, count, 0));
+                if (count > maxCount) {
+                    maxCount = count;
+                }
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                var e = entries.get(i);
+                entries.set(i, new DailyCount(e.date, e.count,
+                        (int) (e.count * 100 / maxCount)));
+            }
+            return entries;
+        });
+
+        // 3. Last document
+        var lastDoc = tcm.withTenantSession(session.schemaName(), em -> {
+            var list = em.createQuery(
+                    "FROM Document d ORDER BY d.createdAt DESC", Document.class)
+                    .setMaxResults(1)
+                    .getResultList();
+            return list.isEmpty() ? null : list.getFirst();
+        });
+
+        // 4. Certificate status
+        var tenant = entityManager.find(Tenant.class, session.tenantId());
+        String certStatus;
+        long certDaysLeft = -1;
+        if (tenant == null || tenant.certificateExpiration == null) {
+            certStatus = "none";
+        } else {
+            certDaysLeft = Duration.between(Instant.now(), tenant.certificateExpiration).toDays();
+            if (certDaysLeft < 0) {
+                certStatus = "expired";
+            } else if (certDaysLeft <= 30) {
+                certStatus = "expiring";
+            } else {
+                certStatus = "valid";
+            }
+        }
+
+        return metrics.data("session", session)
+                .data("authorized", statusCounts.get("authorized"))
+                .data("inProcess", statusCounts.get("inProcess"))
+                .data("failed", statusCounts.get("failed"))
+                .data("total", statusCounts.get("total"))
+                .data("dailyData", dailyData)
+                .data("lastDoc", lastDoc)
+                .data("lastDocStatusLabel", lastDoc != null ? statusLabel(lastDoc.status) : null)
+                .data("lastDocStatusClass", lastDoc != null ? statusClass(lastDoc.status) : null)
+                .data("lastDocTypeLabel", lastDoc != null ? documentTypeLabel(lastDoc.documentType) : null)
+                .data("certStatus", certStatus)
+                .data("certDaysLeft", certDaysLeft)
+                .data("certExpiration", tenant != null ? tenant.certificateExpiration : null)
+                .data("formatDate", DISPLAY_DATE)
+                .data("formatDateTime", DISPLAY_DATETIME)
+                .data("ecZone", Key49Constants.EC_ZONE);
+    }
+
+    record DailyCount(LocalDate date, long count, int pct) {
+
     }
 
     // ── Helpers ──

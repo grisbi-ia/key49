@@ -1,0 +1,164 @@
+{#include portal/layout}
+{#title}Métricas{/title}
+{#body}
+<h3>Métricas</h3>
+
+<div class="grid">
+    <article class="metric-card">
+        <header style="background:#2ecc40;color:#fff;padding:0.5rem 1rem">Autorizados ✓</header>
+        <p class="metric-value">{authorized}</p>
+    </article>
+    <article class="metric-card">
+        <header style="background:#adb5bd;color:#fff;padding:0.5rem 1rem">En proceso ⏳</header>
+        <p class="metric-value">{inProcess}</p>
+    </article>
+    <article class="metric-card">
+        <header style="background:#ff4136;color:#fff;padding:0.5rem 1rem">Fallidos ✗</header>
+        <p class="metric-value">{failed}</p>
+    </article>
+    <article class="metric-card">
+        <header style="padding:0.5rem 1rem">Total</header>
+        <p class="metric-value">{total}</p>
+    </article>
+</div>
+
+<article>
+    <header>Documentos emitidos por día (últimos 30 días)</header>
+    {#if dailyData.isEmpty}
+    <p>Sin datos en los últimos 30 días.</p>
+    {#else}
+    <div class="bar-chart">
+        {#for d in dailyData}
+        <div class="bar-row">
+            <span class="bar-label">{d.date}</span>
+            <div class="bar-track">
+                <div class="bar-fill" style="width:{d.pct}%"></div>
+            </div>
+            <span class="bar-count">{d.count}</span>
+        </div>
+        {/for}
+    </div>
+    {/if}
+</article>
+
+<div class="grid">
+    <article>
+        <header>Último documento emitido</header>
+        {#if lastDoc}
+        <table>
+            <tr>
+                <td>Tipo</td>
+                <td>{lastDocTypeLabel}</td>
+            </tr>
+            <tr>
+                <td>Serie</td>
+                <td class="doc-number">{lastDoc.establishment}-{lastDoc.issuePoint}-{lastDoc.sequenceNumber}</td>
+            </tr>
+            <tr>
+                <td>Receptor</td>
+                <td>{lastDoc.recipientName}</td>
+            </tr>
+            <tr>
+                <td>Total</td>
+                <td class="amount">${lastDoc.totalAmount}</td>
+            </tr>
+            <tr>
+                <td>Estado</td>
+                <td><mark class="{lastDocStatusClass}">{lastDocStatusLabel}</mark></td>
+            </tr>
+            <tr>
+                <td>Fecha</td>
+                <td>{lastDoc.issueDate}</td>
+            </tr>
+        </table>
+        <a href="/portal/documents/{lastDoc.id}">Ver detalle →</a>
+        {#else}
+        <p>No hay documentos emitidos.</p>
+        {/if}
+    </article>
+
+    <article>
+        <header>Estado del certificado</header>
+        {#if certStatus == 'none'}
+        <p><mark class="status-pending">Sin certificado</mark></p>
+        <p>No se ha cargado un certificado de firma electrónica.</p>
+        {#else if certStatus == 'expired'}
+        <p><mark class="status-error">Vencido</mark></p>
+        <p>El certificado venció hace {0 - certDaysLeft} día{#if (0 - certDaysLeft) != 1}s{/if}.</p>
+        {#if certExpiration}
+        <p><small>Venció: {formatDateTime.format(certExpiration.atZone(ecZone))}</small></p>
+        {/if}
+        {#else if certStatus == 'expiring'}
+        <p><mark class="status-warn">Por vencer</mark></p>
+        <p>Quedan <strong>{certDaysLeft}</strong> día{#if certDaysLeft != 1}s{/if} para el vencimiento.</p>
+        {#if certExpiration}
+        <p><small>Vence: {formatDateTime.format(certExpiration.atZone(ecZone))}</small></p>
+        {/if}
+        {#else}
+        <p><mark class="status-ok">Vigente</mark></p>
+        <p>Válido por <strong>{certDaysLeft}</strong> día{#if certDaysLeft != 1}s{/if} más.</p>
+        {#if certExpiration}
+        <p><small>Vence: {formatDateTime.format(certExpiration.atZone(ecZone))}</small></p>
+        {/if}
+        {/if}
+    </article>
+</div>
+
+<style>
+    .metric-card {
+        text-align: center;
+        padding: 0;
+    }
+
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 1rem 0;
+        font-family: monospace;
+    }
+
+    .bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-height: 25rem;
+        overflow-y: auto;
+    }
+
+    .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .bar-label {
+        width: 6rem;
+        font-size: 0.75rem;
+        text-align: right;
+        flex-shrink: 0;
+        color: var(--pico-muted-color);
+    }
+
+    .bar-track {
+        flex: 1;
+        background: var(--pico-muted-border-color);
+        border-radius: 3px;
+        height: 1.2rem;
+    }
+
+    .bar-fill {
+        background: #0069d9;
+        height: 100%;
+        border-radius: 3px;
+        min-width: 2px;
+    }
+
+    .bar-count {
+        width: 2.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: right;
+    }
+</style>
+{/body}
+{/include}

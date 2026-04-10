@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.4] - 2026-04-10
+
+### Agregado
+
+- **Dashboard de métricas del tenant en portal** (T-081): nueva página `/portal/metrics`
+- Cards de resumen: Autorizados, En proceso, Fallidos, Total
+- Gráfico de barras CSS: documentos emitidos por día (últimos 30 días)
+- Último documento emitido con enlace a detalle y badge de estado
+- Estado del certificado de firma: vigente/por vencer/vencido/sin certificado
+- Navegación actualizada en layout con enlaces a Documentos y Métricas
+- 6 tests E2E (PortalEndToEndTest): métricas, contadores, certificado, gráfico, nav, autenticación
+- 10 tests unitarios (PortalMetricsTest): DailyCount record, lógica de estado de certificado
+
 ## [0.25.3] - 2026-04-10
 
 ### Agregado

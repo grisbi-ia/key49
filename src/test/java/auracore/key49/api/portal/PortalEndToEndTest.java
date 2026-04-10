@@ -50,14 +50,17 @@ class PortalEndToEndTest {
             try (var ps = conn.prepareStatement("""
                     INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                         required_accounting, micro_enterprise_regime, environment,
-                        emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status, created_at, updated_at)
-                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 100, 10000, 10000, 'active', now(), now())""")) {
+                        emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status,
+                        certificate_expiration, created_at, updated_at)
+                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 100, 10000, 10000, 'active',
+                        ?::timestamptz, now(), now())""")) {
                 ps.setObject(1, tenantId.toString());
                 ps.setString(2, "0990000000001");
                 ps.setString(3, "Portal Test Corp S.A.");
                 ps.setString(4, "Portal Test");
                 ps.setString(5, "Guayaquil");
                 ps.setString(6, TENANT_SCHEMA);
+                ps.setString(7, java.time.Instant.now().plus(java.time.Duration.ofDays(90)).toString());
                 ps.executeUpdate();
             }
 
@@ -485,6 +488,90 @@ class PortalEndToEndTest {
                 .redirects().follow(false)
                 .when()
                 .post("/portal/documents/" + failedDocTodayId + "/retry")
+                .then()
+                .statusCode(303)
+                .header("Location", containsString("/portal/login"));
+    }
+
+    // ── Metrics tests ──
+    @Test
+    @Order(6)
+    void shouldRenderMetricsPage() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/metrics")
+                .then()
+                .statusCode(200)
+                .contentType(containsString("text/html"))
+                .body(containsString("Métricas"))
+                .body(containsString("Autorizados"))
+                .body(containsString("En proceso"))
+                .body(containsString("Fallidos"))
+                .body(containsString("Total"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldShowCorrectStatusCounts() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/metrics")
+                .then()
+                .statusCode(200)
+                // Verify last document section and chart section are present
+                .body(containsString("Último documento emitido"))
+                .body(containsString("Ver detalle"))
+                .body(containsString("Documentos emitidos por día"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldShowCertificateStatus() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/metrics")
+                .then()
+                .statusCode(200)
+                .body(containsString("Estado del certificado"))
+                .body(containsString("Vigente"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldShowDailyChart() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/metrics")
+                .then()
+                .statusCode(200)
+                .body(containsString("Documentos emitidos por día"))
+                .body(containsString("bar-fill"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldShowNavLinksOnMetrics() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/metrics")
+                .then()
+                .statusCode(200)
+                .body(containsString("Documentos"))
+                .body(containsString("Métricas"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldRequireSessionForMetrics() {
+        RestAssured.given()
+                .redirects().follow(false)
+                .when()
+                .get("/portal/metrics")
                 .then()
                 .statusCode(303)
                 .header("Location", containsString("/portal/login"));
