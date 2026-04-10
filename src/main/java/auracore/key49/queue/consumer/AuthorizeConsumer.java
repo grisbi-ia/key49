@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.eclipse.microprofile.faulttolerance.exceptions.CircuitBreakerOpenException;
+import org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
@@ -96,6 +98,12 @@ public class AuthorizeConsumer {
             try {
                 var response = sriAuthorizationClient.authorize(input.accessKey, sriEnv);
                 handleResponse(event, response);
+            } catch (CircuitBreakerOpenException ex) {
+                handleInfraError(event,
+                        new SriException("SRI circuit breaker open, fail-fast", ex));
+            } catch (TimeoutException ex) {
+                handleInfraError(event,
+                        new SriException("SRI authorization timeout exceeded", ex));
             } catch (SriException ex) {
                 handleInfraError(event, ex);
             }

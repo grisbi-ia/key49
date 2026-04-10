@@ -14,6 +14,7 @@ import org.jboss.logging.Logger;
 
 import auracore.key49.sri.config.SriEndpoints;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
  * Health check de liveness para el servicio SOAP de Autorización del SRI.
@@ -32,9 +33,12 @@ public class SriAuthorizationHealthCheck implements HealthCheck {
     @ConfigProperty(name = "key49.sri.environment", defaultValue = "test")
     String environment;
 
+    @Inject
+    SriEndpoints sriEndpoints;
+
     @Override
     public HealthCheckResponse call() {
-        var url = SriEndpoints.authorizationUrl(
+        var url = sriEndpoints.authorizationUrl(
                 auracore.key49.core.model.enums.SriEnvironment.valueOf(environment.toUpperCase()));
         try {
             var client = HttpClient.newBuilder()

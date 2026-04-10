@@ -159,55 +159,59 @@ O desde la consola web de MinIO en `http://localhost:9001`.
 
 Para desarrollo, los valores por defecto en `application.properties` son suficientes. Solo se necesita configurar la conexión a PostgreSQL si difiere del default.
 
-| Variable                              | Default                             | Descripción                                    |
-| ------------------------------------- | ----------------------------------- | ---------------------------------------------- |
-| `KEY49_DB_USER`                       | `postgres`                          | Usuario PostgreSQL                             |
-| `KEY49_DB_PASSWORD`                   | `1234abcd`                          | Contraseña PostgreSQL                          |
-| `KEY49_DB_REACTIVE_URL`               | `postgresql://localhost:5433/key49` | URL de conexión reactiva                       |
-| `KEY49_REDIS_URL`                     | `redis://localhost:6379`            | URL de Redis                                   |
-| `KEY49_RABBITMQ_HOST`                 | `localhost`                         | Host de RabbitMQ                               |
-| `KEY49_RABBITMQ_PORT`                 | `5672`                              | Puerto de RabbitMQ                             |
-| `KEY49_RABBITMQ_USER`                 | `guest`                             | Usuario de RabbitMQ                            |
-| `KEY49_RABBITMQ_PASSWORD`             | `guest`                             | Contraseña de RabbitMQ                         |
-| `KEY49_RABBITMQ_PREFETCH_SIGN`        | `10`                                | Prefetch del consumer de firma                 |
-| `KEY49_RABBITMQ_PREFETCH_SEND`        | `5`                                 | Prefetch del consumer de envío SRI             |
-| `KEY49_RABBITMQ_PREFETCH_AUTHORIZE`   | `5`                                 | Prefetch del consumer de autorización          |
-| `KEY49_RABBITMQ_PREFETCH_NOTIFY`      | `10`                                | Prefetch del consumer de notificación          |
-| `KEY49_RABBITMQ_PREFETCH_DLQ`         | `5`                                 | Prefetch del consumer DLQ                      |
-| `KEY49_STORAGE_ENDPOINT`              | `http://localhost:9000`             | Endpoint de MinIO/S3                           |
-| `KEY49_STORAGE_ACCESS_KEY`            | `minioadmin`                        | Access key de MinIO                            |
-| `KEY49_STORAGE_SECRET_KEY`            | `minioadmin`                        | Secret key de MinIO                            |
-| `KEY49_STORAGE_BUCKET`                | `key49-documents`                   | Nombre del bucket                              |
-| `KEY49_STORAGE_REGION`                | `us-east-1`                         | Región S3                                      |
-| `KEY49_TIMEZONE`                      | `America/Guayaquil`                 | Zona horaria (UTC-5)                           |
-| `KEY49_SRI_ENVIRONMENT`               | `test`                              | Ambiente SRI: `test` o `production`            |
-| `KEY49_SRI_RECEPTION_TIMEOUT_MS`      | `3000`                              | Timeout de recepción SOAP (ms)                 |
-| `KEY49_SRI_AUTHORIZATION_TIMEOUT_MS`  | `5000`                              | Timeout de autorización SOAP (ms)              |
-| `KEY49_SRI_MAX_RETRIES`               | `6`                                 | Máximo de reintentos SRI                       |
-| `KEY49_EMAIL_FROM`                    | `facturacion@key49.ec`              | Email remitente                                |
-| `KEY49_EMAIL_ENABLED`                 | `true`                              | Habilitar envío de emails                      |
-| `KEY49_SMTP_HOST`                     | `localhost`                         | Servidor SMTP                                  |
-| `KEY49_SMTP_PORT`                     | `1025`                              | Puerto SMTP                                    |
-| `KEY49_SMTP_USER`                     | (vacío)                             | Usuario SMTP                                   |
-| `KEY49_SMTP_PASSWORD`                 | (vacío)                             | Contraseña SMTP                                |
-| `KEY49_SMTP_START_TLS`                | `DISABLED`                          | StartTLS para SMTP                             |
-| `KEY49_SMTP_SSL`                      | `false`                             | SSL para SMTP                                  |
-| `KEY49_WEBHOOK_ENABLED`               | `true`                              | Habilitar webhooks                             |
-| `KEY49_WEBHOOK_CONNECT_TIMEOUT_MS`    | `5000`                              | Timeout de conexión webhook (ms)               |
-| `KEY49_WEBHOOK_READ_TIMEOUT_MS`       | `10000`                             | Timeout de lectura webhook (ms)                |
-| `KEY49_OUTBOX_POLL_INTERVAL`          | `500ms`                             | Intervalo del outbox poller                    |
-| `KEY49_OUTBOX_BATCH_SIZE`             | `50`                                | Tamaño del batch del outbox                    |
-| `KEY49_RETRY_POLL_INTERVAL`           | `5s`                                | Intervalo del retry poller                     |
-| `KEY49_API_KEY_CACHE_TTL_SECONDS`     | `300`                               | TTL del caché de API keys en Redis (s)         |
-| `KEY49_TENANT_CACHE_TTL_SECONDS`      | `600`                               | TTL del caché de tenants en Redis (s)          |
-| `KEY49_CERT_CACHE_TTL_MINUTES`        | `30`                                | TTL del caché de certificados en memoria (min) |
-| `KEY49_CERT_CACHE_MAX_ENTRIES`        | `100`                               | Máximo de certificados en caché                |
-| `KEY49_DB_POOL_MIN`                   | `5`                                 | Conexiones mínimas del pool Agroal             |
-| `KEY49_DB_POOL_MAX`                   | `50`                                | Conexiones máximas del pool Agroal             |
-| `KEY49_DB_POOL_ACQUISITION_TIMEOUT`   | `5S`                                | Timeout para obtener conexión                  |
-| `KEY49_DB_POOL_IDLE_REMOVAL_INTERVAL` | `2M`                                | Intervalo de limpieza de ociosas               |
-| `KEY49_DB_POOL_MAX_LIFETIME`          | `30M`                               | Vida máxima de una conexión                    |
-| `KEY49_THREAD_POOL_MAX`               | `50`                                | Platform threads máximos (fallback)            |
+| Variable                                 | Default                             | Descripción                                    |
+| ---------------------------------------- | ----------------------------------- | ---------------------------------------------- |
+| `KEY49_DB_USER`                          | `postgres`                          | Usuario PostgreSQL                             |
+| `KEY49_DB_PASSWORD`                      | `1234abcd`                          | Contraseña PostgreSQL                          |
+| `KEY49_DB_REACTIVE_URL`                  | `postgresql://localhost:5433/key49` | URL de conexión reactiva                       |
+| `KEY49_REDIS_URL`                        | `redis://localhost:6379`            | URL de Redis                                   |
+| `KEY49_RABBITMQ_HOST`                    | `localhost`                         | Host de RabbitMQ                               |
+| `KEY49_RABBITMQ_PORT`                    | `5672`                              | Puerto de RabbitMQ                             |
+| `KEY49_RABBITMQ_USER`                    | `guest`                             | Usuario de RabbitMQ                            |
+| `KEY49_RABBITMQ_PASSWORD`                | `guest`                             | Contraseña de RabbitMQ                         |
+| `KEY49_RABBITMQ_PREFETCH_SIGN`           | `10`                                | Prefetch del consumer de firma                 |
+| `KEY49_RABBITMQ_PREFETCH_SEND`           | `5`                                 | Prefetch del consumer de envío SRI             |
+| `KEY49_RABBITMQ_PREFETCH_AUTHORIZE`      | `5`                                 | Prefetch del consumer de autorización          |
+| `KEY49_RABBITMQ_PREFETCH_NOTIFY`         | `10`                                | Prefetch del consumer de notificación          |
+| `KEY49_RABBITMQ_PREFETCH_DLQ`            | `5`                                 | Prefetch del consumer DLQ                      |
+| `KEY49_STORAGE_ENDPOINT`                 | `http://localhost:9000`             | Endpoint de MinIO/S3                           |
+| `KEY49_STORAGE_ACCESS_KEY`               | `minioadmin`                        | Access key de MinIO                            |
+| `KEY49_STORAGE_SECRET_KEY`               | `minioadmin`                        | Secret key de MinIO                            |
+| `KEY49_STORAGE_BUCKET`                   | `key49-documents`                   | Nombre del bucket                              |
+| `KEY49_STORAGE_REGION`                   | `us-east-1`                         | Región S3                                      |
+| `KEY49_TIMEZONE`                         | `America/Guayaquil`                 | Zona horaria (UTC-5)                           |
+| `KEY49_SRI_ENVIRONMENT`                  | `test`                              | Ambiente SRI: `test` o `production`            |
+| `KEY49_SRI_RECEPTION_TIMEOUT_MS`         | `3000`                              | Timeout de recepción SOAP (ms)                 |
+| `KEY49_SRI_AUTHORIZATION_TIMEOUT_MS`     | `5000`                              | Timeout de autorización SOAP (ms)              |
+| `KEY49_SRI_URL_TEST_RECEPTION`           | (URL celcer)                        | URL SOAP recepción (test)                      |
+| `KEY49_SRI_URL_TEST_AUTHORIZATION`       | (URL celcer)                        | URL SOAP autorización (test)                   |
+| `KEY49_SRI_URL_PRODUCTION_RECEPTION`     | (URL cel)                           | URL SOAP recepción (producción)                |
+| `KEY49_SRI_URL_PRODUCTION_AUTHORIZATION` | (URL cel)                           | URL SOAP autorización (producción)             |
+| `KEY49_SRI_MAX_RETRIES`                  | `6`                                 | Máximo de reintentos SRI                       |
+| `KEY49_EMAIL_FROM`                       | `facturacion@key49.ec`              | Email remitente                                |
+| `KEY49_EMAIL_ENABLED`                    | `true`                              | Habilitar envío de emails                      |
+| `KEY49_SMTP_HOST`                        | `localhost`                         | Servidor SMTP                                  |
+| `KEY49_SMTP_PORT`                        | `1025`                              | Puerto SMTP                                    |
+| `KEY49_SMTP_USER`                        | (vacío)                             | Usuario SMTP                                   |
+| `KEY49_SMTP_PASSWORD`                    | (vacío)                             | Contraseña SMTP                                |
+| `KEY49_SMTP_START_TLS`                   | `DISABLED`                          | StartTLS para SMTP                             |
+| `KEY49_SMTP_SSL`                         | `false`                             | SSL para SMTP                                  |
+| `KEY49_WEBHOOK_ENABLED`                  | `true`                              | Habilitar webhooks                             |
+| `KEY49_WEBHOOK_CONNECT_TIMEOUT_MS`       | `5000`                              | Timeout de conexión webhook (ms)               |
+| `KEY49_WEBHOOK_READ_TIMEOUT_MS`          | `10000`                             | Timeout de lectura webhook (ms)                |
+| `KEY49_OUTBOX_POLL_INTERVAL`             | `500ms`                             | Intervalo del outbox poller                    |
+| `KEY49_OUTBOX_BATCH_SIZE`                | `50`                                | Tamaño del batch del outbox                    |
+| `KEY49_RETRY_POLL_INTERVAL`              | `5s`                                | Intervalo del retry poller                     |
+| `KEY49_API_KEY_CACHE_TTL_SECONDS`        | `300`                               | TTL del caché de API keys en Redis (s)         |
+| `KEY49_TENANT_CACHE_TTL_SECONDS`         | `600`                               | TTL del caché de tenants en Redis (s)          |
+| `KEY49_CERT_CACHE_TTL_MINUTES`           | `30`                                | TTL del caché de certificados en memoria (min) |
+| `KEY49_CERT_CACHE_MAX_ENTRIES`           | `100`                               | Máximo de certificados en caché                |
+| `KEY49_DB_POOL_MIN`                      | `5`                                 | Conexiones mínimas del pool Agroal             |
+| `KEY49_DB_POOL_MAX`                      | `50`                                | Conexiones máximas del pool Agroal             |
+| `KEY49_DB_POOL_ACQUISITION_TIMEOUT`      | `5S`                                | Timeout para obtener conexión                  |
+| `KEY49_DB_POOL_IDLE_REMOVAL_INTERVAL`    | `2M`                                | Intervalo de limpieza de ociosas               |
+| `KEY49_DB_POOL_MAX_LIFETIME`             | `30M`                               | Vida máxima de una conexión                    |
+| `KEY49_THREAD_POOL_MAX`                  | `50`                                | Platform threads máximos (fallback)            |
 
 ### Producción
 
@@ -331,6 +335,47 @@ El `SignConsumer` descifra el certificado .p12 y parsea el PKCS12 KeyStore en ca
 
 - En entornos con muchos tenants activos, incrementar `KEY49_CERT_CACHE_MAX_ENTRIES`.
 - Para renovación rápida de certificados, reducir `KEY49_CERT_CACHE_TTL_MINUTES`.
+
+### Circuit Breaker para SRI SOAP
+
+Los clientes SOAP `SriReceptionClient` y `SriAuthorizationClient` implementan Circuit Breaker (MicroProfile Fault Tolerance) para evitar cascadas de fallos cuando el SRI está caído.
+
+**Parámetros del Circuit Breaker:**
+
+| Parámetro                | Valor | Descripción                                          |
+| ------------------------ | ----- | ---------------------------------------------------- |
+| `requestVolumeThreshold` | `10`  | Mínimo de llamadas antes de evaluar el circuito      |
+| `failureRatio`           | `0.5` | 50% de fallos abre el circuito                       |
+| `delay`                  | `30s` | Tiempo en estado _open_ antes de pasar a _half-open_ |
+| `successThreshold`       | `3`   | Llamadas exitosas para cerrar el circuito            |
+
+**Timeouts (Fault Tolerance `@Timeout`):**
+
+| Cliente           | Timeout |
+| ----------------- | ------- |
+| Recepción SOAP    | 3s      |
+| Autorización SOAP | 5s      |
+
+**Comportamiento:**
+
+- Cuando el circuito está **abierto**, las llamadas fallan inmediatamente con `CircuitBreakerOpenException` → el documento va a RETRY con backoff exponencial (no se pierde).
+- Cuando expira el `delay`, el circuito pasa a **half-open** y permite `successThreshold` llamadas de prueba.
+- Si las llamadas de prueba tienen éxito, el circuito se **cierra** y se reanuda el flujo normal.
+
+**URLs del SRI configurables:**
+
+Los endpoints SOAP del SRI son configurables vía variables de entorno. Por defecto apuntan a los endpoints oficiales del SRI:
+
+- `KEY49_SRI_URL_TEST_RECEPTION` → `https://celcer.sri.gob.ec/.../RecepcionComprobantesOffline?wsdl`
+- `KEY49_SRI_URL_TEST_AUTHORIZATION` → `https://celcer.sri.gob.ec/.../AutorizacionComprobantesOffline?wsdl`
+- `KEY49_SRI_URL_PRODUCTION_RECEPTION` → `https://cel.sri.gob.ec/.../RecepcionComprobantesOffline?wsdl`
+- `KEY49_SRI_URL_PRODUCTION_AUTHORIZATION` → `https://cel.sri.gob.ec/.../AutorizacionComprobantesOffline?wsdl`
+
+**Métricas Prometheus:**
+
+- `ft_circuitbreaker_calls_total{method="send", circuitBreakerResult="..."}` — llamadas por resultado (success, failure, circuitBreakerOpen)
+- `ft_circuitbreaker_state_total{method="send", state="..."}` — tiempo acumulado en cada estado (open, closed, halfOpen)
+- `ft_circuitbreaker_opened_total{method="send"}` — veces que se abrió el circuito
 
 ---
 

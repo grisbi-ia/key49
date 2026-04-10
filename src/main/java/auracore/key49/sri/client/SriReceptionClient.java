@@ -18,14 +18,17 @@ import auracore.key49.sri.model.SriReceptionResponse;
 import auracore.key49.sri.parser.SriReceptionResponseParser;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
  * Cliente SOAP para el servicio de Recepción de Comprobantes del SRI.
  *
- * <p>Envía el XML firmado (codificado en Base64) al endpoint SOAP
+ * <p>
+ * Envía el XML firmado (codificado en Base64) al endpoint SOAP
  * {@code validarComprobante} y parsea la respuesta (RECIBIDA / DEVUELTA).
  *
- * <p>Incorpora circuit breaker y timeout para resilencia ante fallos del SRI.
+ * <p>
+ * Incorpora circuit breaker y timeout para resilencia ante fallos del SRI.
  */
 @ApplicationScoped
 public class SriReceptionClient {
@@ -39,6 +42,9 @@ public class SriReceptionClient {
 
     private final HttpClient httpClient;
 
+    @Inject
+    SriEndpoints sriEndpoints;
+
     public SriReceptionClient() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
@@ -46,26 +52,28 @@ public class SriReceptionClient {
     }
 
     // Constructor para tests (inyección de HttpClient)
-    SriReceptionClient(HttpClient httpClient) {
+    SriReceptionClient(HttpClient httpClient, SriEndpoints sriEndpoints) {
         this.httpClient = httpClient;
+        this.sriEndpoints = sriEndpoints;
     }
 
     /**
      * Envía un comprobante XML firmado al servicio de Recepción del SRI.
      *
-     * @param signedXml   XML firmado del comprobante (String)
+     * @param signedXml XML firmado del comprobante (String)
      * @param environment ambiente del SRI (TEST o PRODUCTION)
      * @return respuesta del SRI con estado y mensajes
-     * @throws SriException si la comunicación falla o la respuesta no puede ser parseada
+     * @throws SriException si la comunicación falla o la respuesta no puede ser
+     * parseada
      */
     @Blocking
     @CircuitBreaker(
-            requestVolumeThreshold = 5,
-            failureRatio = 1.0,
+            requestVolumeThreshold = 10,
+            failureRatio = 0.5,
             delay = 30000,
-            successThreshold = 2
+            successThreshold = 3
     )
-    @Timeout(8000)
+    @Timeout(3000)
     public SriReceptionResponse send(String signedXml, SriEnvironment environment) {
         if (signedXml == null || signedXml.isBlank()) {
             throw new SriException("Signed XML must not be null or blank");
@@ -74,7 +82,7 @@ public class SriReceptionClient {
             throw new SriException("SRI environment must not be null");
         }
 
-        var url = SriEndpoints.receptionUrl(environment);
+        var url = sriEndpoints.receptionUrl(environment);
         var base64Xml = Base64.getEncoder().encodeToString(
                 signedXml.getBytes(StandardCharsets.UTF_8));
         var soapEnvelope = buildSoapEnvelope(base64Xml);

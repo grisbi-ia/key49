@@ -3,7 +3,11 @@ package auracore.key49.admin.health;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import auracore.key49.core.model.enums.SriEnvironment;
+import auracore.key49.sri.config.SriEndpoints;
 
 /**
  * Tests unitarios para SriReceptionHealthCheck y SriAuthorizationHealthCheck.
@@ -14,15 +18,41 @@ import org.junit.jupiter.api.Test;
  */
 class SriHealthCheckTest {
 
+    private SriEndpoints sriEndpoints;
+
+    @BeforeEach
+    void setup() {
+        sriEndpoints = new SriEndpoints() {
+            @Override
+            public String receptionUrl(SriEnvironment env) {
+                return switch (env) {
+                    case TEST ->
+                        "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl";
+                    case PRODUCTION ->
+                        "https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl";
+                };
+            }
+
+            @Override
+            public String authorizationUrl(SriEnvironment env) {
+                return switch (env) {
+                    case TEST ->
+                        "https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl";
+                    case PRODUCTION ->
+                        "https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl";
+                };
+            }
+        };
+    }
+
     @Test
     void receptionHealthCheckShouldReturnDownOnConnectionError() {
         var healthCheck = new SriReceptionHealthCheck();
         healthCheck.environment = "test";
+        healthCheck.sriEndpoints = sriEndpoints;
 
-        // Use an invalid URL to force connection error
         var response = healthCheck.call();
 
-        // Will be DOWN because HEAD to real SRI may timeout in test
         assertNotNull(response);
         assertEquals("SRI Recepción", response.getName());
         assertTrue(response.getData().isPresent());
@@ -32,6 +62,7 @@ class SriHealthCheckTest {
     void authorizationHealthCheckShouldReturnDownOnConnectionError() {
         var healthCheck = new SriAuthorizationHealthCheck();
         healthCheck.environment = "test";
+        healthCheck.sriEndpoints = sriEndpoints;
 
         var response = healthCheck.call();
 
@@ -44,6 +75,7 @@ class SriHealthCheckTest {
     void receptionHealthCheckShouldIncludeUrl() {
         var healthCheck = new SriReceptionHealthCheck();
         healthCheck.environment = "test";
+        healthCheck.sriEndpoints = sriEndpoints;
 
         var response = healthCheck.call();
 
@@ -56,6 +88,7 @@ class SriHealthCheckTest {
     void authorizationHealthCheckShouldIncludeUrl() {
         var healthCheck = new SriAuthorizationHealthCheck();
         healthCheck.environment = "test";
+        healthCheck.sriEndpoints = sriEndpoints;
 
         var response = healthCheck.call();
 

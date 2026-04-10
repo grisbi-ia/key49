@@ -17,14 +17,17 @@ import auracore.key49.sri.model.SriAuthorizationResponse;
 import auracore.key49.sri.parser.SriAuthorizationResponseParser;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
  * Cliente SOAP para el servicio de Autorización de Comprobantes del SRI.
  *
- * <p>Consulta el estado de autorización de un comprobante a través de su
- * clave de acceso (49 dígitos) en el endpoint SOAP {@code autorizacionComprobante}.
+ * <p>
+ * Consulta el estado de autorización de un comprobante a través de su clave de
+ * acceso (49 dígitos) en el endpoint SOAP {@code autorizacionComprobante}.
  *
- * <p>Incorpora circuit breaker y timeout para resilencia ante fallos del SRI.
+ * <p>
+ * Incorpora circuit breaker y timeout para resilencia ante fallos del SRI.
  */
 @ApplicationScoped
 public class SriAuthorizationClient {
@@ -38,6 +41,9 @@ public class SriAuthorizationClient {
 
     private final HttpClient httpClient;
 
+    @Inject
+    SriEndpoints sriEndpoints;
+
     public SriAuthorizationClient() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
@@ -45,26 +51,29 @@ public class SriAuthorizationClient {
     }
 
     // Constructor para tests (inyección de HttpClient)
-    SriAuthorizationClient(HttpClient httpClient) {
+    SriAuthorizationClient(HttpClient httpClient, SriEndpoints sriEndpoints) {
         this.httpClient = httpClient;
+        this.sriEndpoints = sriEndpoints;
     }
 
     /**
      * Consulta el estado de autorización de un comprobante en el SRI.
      *
-     * @param accessKey   clave de acceso de 49 dígitos
+     * @param accessKey clave de acceso de 49 dígitos
      * @param environment ambiente del SRI (TEST o PRODUCTION)
-     * @return respuesta del SRI con estado de autorización, XML autorizado y mensajes
-     * @throws SriException si la comunicación falla o la respuesta no puede ser parseada
+     * @return respuesta del SRI con estado de autorización, XML autorizado y
+     * mensajes
+     * @throws SriException si la comunicación falla o la respuesta no puede ser
+     * parseada
      */
     @Blocking
     @CircuitBreaker(
-            requestVolumeThreshold = 5,
-            failureRatio = 1.0,
+            requestVolumeThreshold = 10,
+            failureRatio = 0.5,
             delay = 30000,
-            successThreshold = 2
+            successThreshold = 3
     )
-    @Timeout(8000)
+    @Timeout(5000)
     public SriAuthorizationResponse authorize(String accessKey, SriEnvironment environment) {
         if (accessKey == null || accessKey.isBlank()) {
             throw new SriException("Access key must not be null or blank");
@@ -76,7 +85,7 @@ public class SriAuthorizationClient {
             throw new SriException("SRI environment must not be null");
         }
 
-        var url = SriEndpoints.authorizationUrl(environment);
+        var url = sriEndpoints.authorizationUrl(environment);
         var soapEnvelope = buildSoapEnvelope(accessKey);
 
         try {

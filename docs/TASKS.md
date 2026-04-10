@@ -572,7 +572,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 13: Resiliencia y Tolerancia a Fallos (Semana 3-4)
 
-- [ ] **T-065** Circuit Breaker para SRI SOAP
+- [x] **T-065** Circuit Breaker para SRI SOAP
   - Aplicar `@CircuitBreaker` (MicroProfile Fault Tolerance) a `SriReceptionClient` y `SriAuthorizationClient`
   - Parámetros: `requestVolumeThreshold=10`, `failureRatio=0.5`, `delay=30s`, `successThreshold=3`
   - Cuando el circuito está abierto: retornar error rápido sin esperar timeout del SRI (fail-fast)

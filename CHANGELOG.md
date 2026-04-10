@@ -5,6 +5,22 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.22.0] - 2026-04-10
+
+### Agregado
+
+- **Circuit Breaker para SRI SOAP** (T-065): `@CircuitBreaker` y `@Timeout` en `SriReceptionClient` y `SriAuthorizationClient` con parámetros `requestVolumeThreshold=10, failureRatio=0.5, delay=30s, successThreshold=3`. Timeouts: recepción 3s, autorización 5s
+- `SriEndpoints` refactorizado de clase estática a bean CDI `@ApplicationScoped` con URLs configurables vía `KEY49_SRI_URL_TEST_RECEPTION`, `KEY49_SRI_URL_TEST_AUTHORIZATION`, `KEY49_SRI_URL_PRODUCTION_RECEPTION`, `KEY49_SRI_URL_PRODUCTION_AUTHORIZATION`
+- `SendConsumer` y `AuthorizeConsumer`: captura explícita de `CircuitBreakerOpenException` y `TimeoutException` — los documentos van a RETRY (no FAILED) cuando el circuit breaker está abierto o hay timeout de Fault Tolerance
+- `SriReceptionHealthCheck` y `SriAuthorizationHealthCheck` migrados a inyección CDI de `SriEndpoints`
+- `MockSriServerResource`: recurso de test con mock HTTP server para simular respuestas del SRI
+- `SriReceptionCircuitBreakerTest`: 2 tests de integración — apertura del circuito tras 10 fallos, recuperación tras delay
+- Métricas Fault Tolerance exportadas automáticamente a Prometheus: `ft.circuitbreaker.calls.total`, `ft.circuitbreaker.state.total`, `ft.circuitbreaker.opened.total`
+
+### Corregido
+
+- Bug crítico: `CircuitBreakerOpenException` y `TimeoutException` (MicroProfile FT) no eran capturadas por los consumers, causando transición incorrecta a FAILED en lugar de RETRY
+
 ## [0.21.2] - 2026-04-10
 
 ### Agregado
