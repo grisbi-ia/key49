@@ -89,3 +89,4 @@ class MdcFilterTest {
         assertNull(MDC.get(MdcContext.DOCUMENT_KEY));
     }
 }
+  

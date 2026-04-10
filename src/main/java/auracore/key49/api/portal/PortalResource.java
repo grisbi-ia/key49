@@ -1,6 +1,7 @@
 package auracore.key49.api.portal;
 
 import java.net.URI;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +20,8 @@ import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.service.AuditService;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import auracore.key49.queue.event.DocumentEvent;
+import auracore.key49.queue.producer.DocumentEventProducer;
 import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.qute.Location;
 import io.vertx.core.http.HttpServerRequest;
@@ -80,6 +83,9 @@ public class PortalResource {
 
     @Inject
     ObjectStorageService storageService;
+
+    @Inject
+    DocumentEventProducer eventProducer;
 
     @ConfigProperty(name = "key49.portal.secure-cookie", defaultValue = "false")
     boolean secureCookie;
@@ -199,7 +205,8 @@ public class PortalResource {
     @GET
     @Path("/documents/{id}")
     @Produces(MediaType.TEXT_HTML)
-    public TemplateInstance documentDetail(@PathParam("id") UUID id) {
+    public TemplateInstance documentDetail(@PathParam("id") UUID id,
+            @QueryParam("retry") String retryResult) {
         var session = getSession();
 
         var doc = tcm.withTenantSession(session.schemaName(), em
@@ -209,18 +216,68 @@ public class PortalResource {
         if (doc == null) {
             return detail.data("session", session)
                     .data("doc", null)
-                    .data("error", "Documento no encontrado");
+                    .data("error", "Documento no encontrado")
+                    .data("retryResult", null)
+                    .data("todayEc", null);
         }
         return detail.data("session", session)
                 .data("doc", doc)
                 .data("error", null)
+                .data("retryResult", retryResult)
                 .data("docTypeLabel", documentTypeLabel(doc.documentType))
                 .data("statusLabel", statusLabel(doc.status))
                 .data("statusClass", statusClass(doc.status))
                 .data("timeline", buildTimeline(doc))
                 .data("formatDate", DISPLAY_DATE)
                 .data("formatDateTime", DISPLAY_DATETIME)
-                .data("ecZone", Key49Constants.EC_ZONE);
+                .data("ecZone", Key49Constants.EC_ZONE)
+                .data("todayEc", LocalDate.now(Key49Constants.EC_ZONE));
+    }
+
+    // ── Retry manual ──
+    @POST
+    @Path("/documents/{id}/retry")
+    public Response retryDocument(@PathParam("id") UUID id,
+            @Context HttpServerRequest httpRequest) {
+        var session = getSession();
+        var detailUri = URI.create("/portal/documents/" + id);
+
+        var doc = tcm.withTenantSession(session.schemaName(), em
+                -> em.find(Document.class, id)
+        );
+
+        if (doc == null) {
+            return Response.seeOther(detailUri).build();
+        }
+
+        if (doc.status != DocumentStatus.FAILED) {
+            log.warnf("Retry rejected: document %s is in status %s, expected FAILED", id, doc.status);
+            return Response.seeOther(URI.create(detailUri + "?retry=invalid_status")).build();
+        }
+
+        var today = LocalDate.now(Key49Constants.EC_ZONE);
+        if (!doc.issueDate.equals(today)) {
+            log.warnf("Retry rejected: document %s issue_date %s != today %s", id, doc.issueDate, today);
+            return Response.seeOther(URI.create(detailUri + "?retry=invalid_date")).build();
+        }
+
+        tcm.withTenantTransaction(session.schemaName(), em -> {
+            var managed = em.find(Document.class, id);
+            managed.transitionTo(DocumentStatus.CREATED);
+            managed.retryCount = 0;
+            managed.nextRetryAt = null;
+            managed.updatedAt = Instant.now();
+            return null;
+        });
+
+        eventProducer.sendToSign(DocumentEvent.of(id, session.schemaName(), "SIGN"));
+
+        auditService.record(session.tenantId(), "portal", "portal.retry",
+                "document", id, AuditService.resolveIp(httpRequest), null);
+
+        log.infof("Manual retry initiated: documentId=%s, tenant=%s", id, session.schemaName());
+
+        return Response.seeOther(URI.create(detailUri + "?retry=ok")).build();
     }
 
     // ── HTMX partial: status badge refresh ──

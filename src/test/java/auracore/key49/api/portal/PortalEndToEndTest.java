@@ -35,6 +35,8 @@ class PortalEndToEndTest {
     private String rawApiKey;
     private UUID tenantId;
     private UUID documentId;
+    private UUID failedDocTodayId;
+    private UUID failedDocYesterdayId;
     private String sessionCookie;
 
     @BeforeAll
@@ -170,6 +172,42 @@ class PortalEndToEndTest {
                         ?, 'CREATED', now(), now())""".formatted(TENANT_SCHEMA))) {
                 ps.setObject(1, UUID.randomUUID().toString());
                 ps.setObject(2, LocalDate.now());
+                ps.executeUpdate();
+            }
+
+            // Insert FAILED document with today's date (retryable)
+            failedDocTodayId = UUID.randomUUID();
+            try (var ps = conn.prepareStatement("""
+                    INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                        sequence_number, access_key, recipient_id_type, recipient_id, recipient_name,
+                        subtotal_before_tax, vat_amount, total_amount,
+                        issue_date, status, retry_count, last_error_code, last_error_message,
+                        created_at, updated_at)
+                    VALUES (?::uuid, '01', '001', '001', '000000003',
+                        '0604202501099000000000100100100000000031234567813', '04', '0990000000001',
+                        'Failed Today S.A.', 50.00, 7.50, 57.50,
+                        ?, 'FAILED', 3, '99', 'Connection refused',
+                        now(), now())""".formatted(TENANT_SCHEMA))) {
+                ps.setObject(1, failedDocTodayId.toString());
+                ps.setObject(2, LocalDate.now());
+                ps.executeUpdate();
+            }
+
+            // Insert FAILED document with yesterday's date (not retryable)
+            failedDocYesterdayId = UUID.randomUUID();
+            try (var ps = conn.prepareStatement("""
+                    INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                        sequence_number, access_key, recipient_id_type, recipient_id, recipient_name,
+                        subtotal_before_tax, vat_amount, total_amount,
+                        issue_date, status, retry_count, last_error_code, last_error_message,
+                        created_at, updated_at)
+                    VALUES (?::uuid, '01', '001', '001', '000000004',
+                        '0604202501099000000000100100100000000041234567814', '04', '0990000000001',
+                        'Failed Yesterday S.A.', 80.00, 12.00, 92.00,
+                        ?, 'FAILED', 5, '500', 'SRI timeout',
+                        now(), now())""".formatted(TENANT_SCHEMA))) {
+                ps.setObject(1, failedDocYesterdayId.toString());
+                ps.setObject(2, LocalDate.now().minusDays(1));
                 ps.executeUpdate();
             }
         }
@@ -368,6 +406,85 @@ class PortalEndToEndTest {
                 .redirects().follow(false)
                 .when()
                 .get("/portal/")
+                .then()
+                .statusCode(303)
+                .header("Location", containsString("/portal/login"));
+    }
+
+    // ── Retry tests ──
+    @Test
+    @Order(6)
+    void shouldShowRetryButtonForFailedDocumentToday() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/documents/" + failedDocTodayId)
+                .then()
+                .statusCode(200)
+                .body(containsString("Reintentar"))
+                .body(containsString("Fallido"))
+                .body(containsString("Connection refused"));
+    }
+
+    @Test
+    @Order(6)
+    void shouldNotShowRetryButtonForFailedDocumentYesterday() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/documents/" + failedDocYesterdayId)
+                .then()
+                .statusCode(200)
+                .body(containsString("Fallido"))
+                .body(not(containsString("Reintentar")));
+    }
+
+    @Test
+    @Order(6)
+    void shouldNotShowRetryButtonForAuthorizedDocument() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/documents/" + documentId)
+                .then()
+                .statusCode(200)
+                .body(containsString("Autorizado"))
+                .body(not(containsString("Reintentar")));
+    }
+
+    @Test
+    @Order(7)
+    void shouldRejectRetryForNonFailedDocument() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .redirects().follow(false)
+                .when()
+                .post("/portal/documents/" + documentId + "/retry")
+                .then()
+                .statusCode(303)
+                .header("Location", containsString("retry=invalid_status"));
+    }
+
+    @Test
+    @Order(7)
+    void shouldRejectRetryForFailedDocumentWithPastDate() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .redirects().follow(false)
+                .when()
+                .post("/portal/documents/" + failedDocYesterdayId + "/retry")
+                .then()
+                .statusCode(303)
+                .header("Location", containsString("retry=invalid_date"));
+    }
+
+    @Test
+    @Order(7)
+    void shouldRequireSessionForRetry() {
+        RestAssured.given()
+                .redirects().follow(false)
+                .when()
+                .post("/portal/documents/" + failedDocTodayId + "/retry")
                 .then()
                 .statusCode(303)
                 .header("Location", containsString("/portal/login"));

@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.3] - 2026-04-10
+
+### Agregado
+
+- **Retry manual desde portal web** (T-080): botón "Reintentar" en documentos FAILED con fecha de hoy
+- `POST /portal/documents/{id}/retry`: endpoint que valida estado FAILED + fecha emisión = hoy, resetea retry_count a 0, transiciona a CREATED y republica en cola de firma
+- Mensajes de feedback en vista de detalle: éxito, estado inválido, fecha inválida
+- Registro de auditoría (`portal.retry`) con actor, IP y documento
+- 13 tests unitarios (PortalRetryTest): transiciones de estado, validación de fecha, elegibilidad
+- 6 tests E2E (PortalEndToEndTest): botón visible/oculto según estado y fecha, rechazo por estado/fecha, autenticación requerida
+
 ## [0.25.2] - 2026-04-10
 
 ### Agregado

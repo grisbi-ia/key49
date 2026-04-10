@@ -13,13 +13,16 @@ import org.jboss.resteasy.reactive.server.ServerResponseFilter;
 /**
  * Filtro que establece campos MDC (tenant, documentId) para structured logging.
  *
- * <p>Priority 25: se ejecuta después de todos los filtros de autenticación
+ * <p>
+ * Priority 25: se ejecuta después de todos los filtros de autenticación
  * (ApiKeyAuthFilter=10, PortalAuthFilter=15, AdminAuth/RateLimit=20) para que
  * el contexto del tenant ya esté disponible.</p>
  *
- * <p>Limpia el MDC en la respuesta para evitar fugas entre requests
- * (especialmente en virtual threads reutilizados).</p>
+ * <p>
+ * Limpia el MDC en la respuesta para evitar fugas entre requests (especialmente
+ * en virtual threads reutilizados).</p>
  */
+
 @ApplicationScoped
 public class MdcFilter {
 

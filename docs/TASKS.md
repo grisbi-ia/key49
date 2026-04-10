@@ -703,7 +703,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 17: Funcionalidades de Valor para Producción (Semana 8)
 
-- [ ] **T-080** Retry manual desde portal web
+- [x] **T-080** Retry manual desde portal web ✅ `v0.25.3`
   - Botón "Reintentar" en documentos con estado FAILED o REJECTED en la vista de detalle
   - Endpoint: `POST /portal/documents/{id}/retry`
   - Validar que el documento está en estado terminal (FAILED) antes de reintentar

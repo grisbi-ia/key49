@@ -3,6 +3,20 @@
 {#body}
 <a href="/portal/">← Volver a documentos</a>
 
+{#if retryResult == 'ok'}
+<article style="background:var(--pico-ins-color);padding:0.75rem;margin-bottom:1rem">
+    <p style="margin:0">✓ El documento fue reenviado al pipeline de procesamiento.</p>
+</article>
+{#else if retryResult == 'invalid_status'}
+<article style="background:var(--pico-del-color);padding:0.75rem;margin-bottom:1rem">
+    <p style="margin:0">El documento no está en estado Fallido y no puede reintentarse.</p>
+</article>
+{#else if retryResult == 'invalid_date'}
+<article style="background:var(--pico-del-color);padding:0.75rem;margin-bottom:1rem">
+    <p style="margin:0">Solo se pueden reintentar documentos con fecha de emisión del día actual.</p>
+</article>
+{/if}
+
 {#if error}
 <article>
     <p role="alert">{error}</p>
@@ -162,6 +176,16 @@
         {/if}
     </article>
 </div>
+
+{#if doc.status.name == 'FAILED' && doc.issueDate.equals(todayEc)}
+<article>
+    <header>Acciones</header>
+    <p style="margin-bottom:0.75rem">Este documento falló durante el procesamiento. Puede reintentarse si la fecha de emisión es hoy.</p>
+    <form method="post" action="/portal/documents/{doc.id}/retry">
+        <button type="submit" class="outline">Reintentar</button>
+    </form>
+</article>
+{/if}
 
 {#if doc.status.name == 'AUTHORIZED' || doc.status.name == 'NOTIFIED' || doc.status.name == 'VOIDED'}
 <article>
