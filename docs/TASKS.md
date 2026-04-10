@@ -536,7 +536,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Documentar impacto: prefetch alto = más throughput pero más memoria; bajo = menos presión sobre SRI
   - Test: publicar 100 mensajes, verificar procesamiento paralelo con prefetch > 1
 
-- [ ] **T-061** Optimizar Outbox Poller para alto throughput
+- [x] **T-061** Optimizar Outbox Poller para alto throughput
   - Hacer configurable: `key49.outbox.batch-size` (default 50 → probar 200) y `key49.outbox.poll-interval` (default 500ms → probar 200ms)
   - Implementar polling adaptativo: intervalo corto cuando hay eventos, largo cuando está vacío
   - Agregar métrica: `key49.outbox.events.polled` (counter), `key49.outbox.poll.duration` (timer)

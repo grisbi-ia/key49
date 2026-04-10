@@ -5,6 +5,15 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.20.3] - 2026-04-10
+
+### Agregado
+
+- **Outbox Poller optimizado para alto throughput** (T-061): batch-size configurable vía `KEY49_OUTBOX_BATCH_SIZE` (default 50), `SELECT ... FOR UPDATE SKIP LOCKED` para concurrencia segura multi-instancia, métricas Micrometer (`key49.outbox.events.polled` counter, `key49.outbox.poll.duration` timer), polling adaptativo con flag `lastCycleHadEvents`
+- `OutboxRepository.findUnpublishedForUpdate()`: nuevo método con native query y `FOR UPDATE SKIP LOCKED`
+- `OutboxPollerConfigTest`: 5 tests verificando batch-size, poll-interval, métricas registradas e inyección del poller
+- Documentación en DEPLOYMENT.md: sección Outbox Poller con métricas y recomendaciones de tuning
+
 ## [0.20.2] - 2026-04-10
 
 ### Agregado

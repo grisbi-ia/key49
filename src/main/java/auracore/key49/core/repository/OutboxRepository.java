@@ -7,12 +7,17 @@ import java.util.UUID;
 import auracore.key49.core.model.OutboxEvent;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 /**
  * Repositorio para operaciones sobre la tabla outbox del tenant activo.
  */
 @ApplicationScoped
 public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID> {
+
+    @Inject
+    EntityManager em;
 
     /**
      * Obtiene eventos no publicados en orden FIFO.
@@ -23,6 +28,21 @@ public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID
         return find("published = false ORDER BY createdAt ASC")
                 .page(0, limit)
                 .list();
+    }
+
+    /**
+     * Obtiene eventos no publicados con bloqueo FOR UPDATE SKIP LOCKED.
+     * Permite concurrencia segura entre múltiples instancias del poller.
+     *
+     * @param limit máximo de eventos a retornar
+     */
+    @SuppressWarnings("unchecked")
+    public List<OutboxEvent> findUnpublishedForUpdate(int limit) {
+        return em.createNativeQuery(
+                        "SELECT * FROM outbox WHERE published = false ORDER BY created_at ASC LIMIT :limit FOR UPDATE SKIP LOCKED",
+                        OutboxEvent.class)
+                .setParameter("limit", limit)
+                .getResultList();
     }
 
     /**

@@ -1,17 +1,16 @@
 package auracore.key49.queue.config;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
- * Verifica que el prefetch de cada consumer RabbitMQ esté configurado
- * con los valores diferenciados según la latencia de cada operación.
+ * Verifica que el prefetch de cada consumer RabbitMQ esté configurado con los
+ * valores diferenciados según la latencia de cada operación.
  */
 @QuarkusTest
 class RabbitMqPrefetchConfigTest {
