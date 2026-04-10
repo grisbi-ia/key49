@@ -554,7 +554,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Fallback: si Redis no disponible, consultar BD directamente (degradación graceful)
   - Test: verificar cache hit (no SQL), cache miss (SQL + populate), invalidación al revocar
 
-- [ ] **T-063** Caché de metadatos de tenant
+- [x] **T-063** Caché de metadatos de tenant
   - Cachear `Tenant` (schema_name, certificate metadata, trade_name, etc.) en Redis
   - Key: `key49:tenant:{tenant_id}` → JSON del tenant (sin certificado binario)
   - TTL: 10 minutos (los tenants cambian raramente)

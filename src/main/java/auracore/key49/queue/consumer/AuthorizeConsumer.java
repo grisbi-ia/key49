@@ -14,7 +14,7 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.retry.RetryDelayCalculator;
@@ -43,7 +43,7 @@ public class AuthorizeConsumer {
     ConsumerErrorHandler errorHandler;
 
     @Inject
-    TenantRepository tenantRepository;
+    TenantCacheService tenantCacheService;
 
     @Inject
     TenantConnectionManager connectionManager;
@@ -63,7 +63,7 @@ public class AuthorizeConsumer {
                 event.documentId(), event.tenantSchemaName());
 
         try {
-            var tenant = tenantRepository.findBySchemaName(event.tenantSchemaName());
+            var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
             if (tenant == null) {
                 log.errorf("AuthorizeConsumer: tenant not found: %s", event.tenantSchemaName());
                 return;

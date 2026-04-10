@@ -10,7 +10,7 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
-import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.email.EmailData;
 import auracore.key49.notify.email.EmailService;
@@ -43,7 +43,7 @@ public class NotifyConsumer {
     TenantConnectionManager connectionManager;
 
     @Inject
-    TenantRepository tenantRepository;
+    TenantCacheService tenantCacheService;
 
     @Inject
     WebhookDispatcher webhookDispatcher;
@@ -66,7 +66,7 @@ public class NotifyConsumer {
                 event.documentId(), event.tenantSchemaName());
 
         try {
-            var tenant = tenantRepository.findBySchemaName(event.tenantSchemaName());
+            var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
             if (tenant == null) {
                 log.warnf("NotifyConsumer: tenant not found: %s", event.tenantSchemaName());
                 return;

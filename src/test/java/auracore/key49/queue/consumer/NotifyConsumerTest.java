@@ -29,7 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.email.EmailData;
 import auracore.key49.notify.email.EmailSendException;
@@ -68,7 +68,7 @@ class NotifyConsumerTest {
     TenantConnectionManager connectionManager;
 
     @Mock
-    TenantRepository tenantRepository;
+    TenantCacheService tenantCacheService;
 
     @Mock
     WebhookDispatcher webhookDispatcher;
@@ -292,7 +292,7 @@ class NotifyConsumerTest {
         @Test
         @DisplayName("tenant inexistente no genera excepción")
         void shouldHandleNonExistentTenant() {
-            when(tenantRepository.findBySchemaName("tenant_unknown")).thenReturn(null);
+            when(tenantCacheService.findBySchemaName("tenant_unknown")).thenReturn(null);
 
             var event = new JsonObject()
                     .put("document_id", docId.toString())
@@ -309,7 +309,7 @@ class NotifyConsumerTest {
         @Test
         @DisplayName("documento inexistente no genera excepción")
         void shouldHandleNonExistentDocument() {
-            when(tenantRepository.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
+            when(tenantCacheService.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
             setupConnectionManager(null);
 
             notifyConsumer.process(buildEvent(docId));
@@ -322,7 +322,7 @@ class NotifyConsumerTest {
         void shouldSkipAlreadyNotifiedDocument() {
             doc.status = DocumentStatus.NOTIFIED;
 
-            when(tenantRepository.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
+            when(tenantCacheService.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
             setupConnectionManager(doc);
 
             notifyConsumer.process(buildEvent(docId));
@@ -351,7 +351,7 @@ class NotifyConsumerTest {
 
     // ── Mock setup helpers ──
     private void setupMocks() {
-        when(tenantRepository.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
+        when(tenantCacheService.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
         setupConnectionManager(doc);
     }
 

@@ -8,7 +8,7 @@ import org.jboss.logging.Logger;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.webhook.WebhookDispatcher;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -31,7 +31,7 @@ public class ConsumerErrorHandler {
     TenantConnectionManager connectionManager;
 
     @Inject
-    TenantRepository tenantRepository;
+    TenantCacheService tenantCacheService;
 
     @Inject
     WebhookDispatcher webhookDispatcher;
@@ -83,7 +83,7 @@ public class ConsumerErrorHandler {
 
     private void dispatchFailureWebhook(String tenantSchemaName, Document doc, EntityManager em) {
         try {
-            var tenant = tenantRepository.findBySchemaName(tenantSchemaName);
+            var tenant = tenantCacheService.findBySchemaName(tenantSchemaName);
             if (tenant == null || tenant.webhookUrl == null || tenant.webhookUrl.isBlank()) {
                 return;
             }

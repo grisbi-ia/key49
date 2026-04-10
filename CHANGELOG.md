@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.21.1] - 2026-04-10
+
+### Agregado
+
+- **Caché de metadatos de tenant en Redis** (T-063): `TenantCacheService` con cache Redis (hash `key49:tenant:{uuid}` + índice `key49:tenant:schema:{name}`) y TTL configurable vía `KEY49_TENANT_CACHE_TTL_SECONDS` (default 600s = 10 min). Excluye certificado binario del cache
+- Consumers `SendConsumer`, `AuthorizeConsumer`, `NotifyConsumer` y `ConsumerErrorHandler` migrados de `TenantRepository.findBySchemaName()` a `TenantCacheService.findBySchemaName()`
+- `MetricsService` migrado de `TenantRepository.findById()` a `TenantCacheService.findById()`
+- Invalidación automática en `TenantAdminService.update()` y `uploadCertificate()`
+- Fallback graceful a BD si Redis no está disponible
+- `TenantCacheServiceTest`: 6 tests de integración — serialización, deserialización, invalidación, TTL, campos nullable, re-populate
+- Documentación en DEPLOYMENT.md: sección "Caché de Metadatos de Tenant en Redis"
+
 ## [0.21.0] - 2026-04-10
 
 ### Agregado

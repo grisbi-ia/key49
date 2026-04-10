@@ -22,6 +22,9 @@ public class TenantAdminService {
     @Inject
     TenantRepository tenantRepository;
 
+    @Inject
+    TenantCacheService tenantCacheService;
+
     // ── Crear tenant ──
     @Transactional
     public Tenant create(CreateTenantData data) {
@@ -139,6 +142,7 @@ public class TenantAdminService {
         tenant.updatedAt = Instant.now();
 
         Log.infof("Updated tenant | id=%s ruc=%s", id, tenant.ruc);
+        tenantCacheService.invalidate(id, tenant.schemaName);
         return tenant;
     }
 
@@ -161,6 +165,7 @@ public class TenantAdminService {
 
         Log.infof("Certificate uploaded | tenantId=%s subject=%s expires=%s",
                 id, subject, expiration);
+        tenantCacheService.invalidate(id, tenant.schemaName);
         return tenant;
     }
 
@@ -201,6 +206,7 @@ public class TenantAdminService {
             String withholdingAgent,
             String environment,
             String schemaName) {
+
     }
 
     public record UpdateTenantData(
@@ -218,9 +224,11 @@ public class TenantAdminService {
             String emailSenderName,
             String replyEmail,
             String status) {
+
     }
 
     public record TenantListResult(java.util.List<Tenant> items, long total) {
+
     }
 
     /**

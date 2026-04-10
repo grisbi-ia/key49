@@ -199,6 +199,7 @@ Para desarrollo, los valores por defecto en `application.properties` son suficie
 | `KEY49_OUTBOX_BATCH_SIZE`             | `50`                                | Tamaño del batch del outbox            |
 | `KEY49_RETRY_POLL_INTERVAL`           | `5s`                                | Intervalo del retry poller             |
 | `KEY49_API_KEY_CACHE_TTL_SECONDS`     | `300`                               | TTL del caché de API keys en Redis (s) |
+| `KEY49_TENANT_CACHE_TTL_SECONDS`      | `600`                               | TTL del caché de tenants en Redis (s)  |
 | `KEY49_DB_POOL_MIN`                   | `5`                                 | Conexiones mínimas del pool Agroal     |
 | `KEY49_DB_POOL_MAX`                   | `50`                                | Conexiones máximas del pool Agroal     |
 | `KEY49_DB_POOL_ACQUISITION_TIMEOUT`   | `5S`                                | Timeout para obtener conexión          |
@@ -292,6 +293,24 @@ Cada request HTTP autentica la API key. Para evitar una consulta SQL por request
 
 - Al revocar una key, la invalidación es inmediata. Sin embargo, si Redis falla justo después de revocar, la key cacheada podría seguir activa hasta que expire el TTL.
 - Para entornos de alta seguridad, reducir `KEY49_API_KEY_CACHE_TTL_SECONDS` a 60s.
+
+### Caché de Metadatos de Tenant en Redis
+
+Los consumers de RabbitMQ y otros servicios consultan datos del tenant (environment, webhook, email, etc.) en cada operación. Para evitar queries repetitivos a `public.tenants`, los metadatos se cachean en Redis.
+
+- **Key principal**: `key49:tenant:{uuid}` → hash con todos los campos del tenant (sin certificado binario)
+- **Índice secundario**: `key49:tenant:schema:{schema_name}` → string con el `tenant_id` (para lookups por esquema)
+- **TTL**: `KEY49_TENANT_CACHE_TTL_SECONDS` (default 600s = 10 minutos)
+- **Invalidación automática**: al actualizar el perfil o subir un certificado, se eliminan ambas keys de Redis
+- **Fallback**: si Redis no está disponible, se consulta PostgreSQL directamente
+- **Exclusiones**: `certificate_p12` y `certificate_password_enc` NO se almacenan en Redis (datos binarios sensibles)
+
+**Componentes que usan el caché:**
+
+- `SendConsumer`, `AuthorizeConsumer`, `NotifyConsumer` — lookup por `schema_name`
+- `ConsumerErrorHandler` — lookup por `schema_name` para dispatch de webhooks
+- `MetricsService` — lookup por `tenant_id`
+- `SignConsumer` — NO usa caché (necesita certificado binario, optimizado en T-064)
 
 ---
 

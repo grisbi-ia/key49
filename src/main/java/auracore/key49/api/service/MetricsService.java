@@ -12,7 +12,7 @@ import auracore.key49.api.dto.MetricsSummaryResponse;
 import auracore.key49.api.dto.MetricsSummaryResponse.PeriodSnapshot;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.core.tenant.TenantContext;
 import io.quarkus.logging.Log;
@@ -34,7 +34,7 @@ public class MetricsService {
     TenantConnectionManager tcm;
 
     @Inject
-    TenantRepository tenantRepository;
+    TenantCacheService tenantCacheService;
 
     public MetricsSummaryResponse getSummary() {
         var schemaName = tenantContext.getSchemaName();
@@ -54,7 +54,7 @@ public class MetricsService {
         });
 
         // Query tenant info from public schema
-        var tenant = tenantRepository.findById(tenantId);
+        var tenant = tenantCacheService.findById(tenantId);
         long certDays = -1;
         if (tenant != null && tenant.certificateExpiration != null
                 && tenant.certificateExpiration.isAfter(Instant.now())) {
