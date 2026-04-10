@@ -1,10 +1,12 @@
 package auracore.key49.api.portal;
 
-import auracore.key49.core.model.enums.DocumentStatus;
-import auracore.key49.core.service.ApiKeyService;
-import io.quarkus.test.junit.QuarkusTest;
-import io.restassured.RestAssured;
-import jakarta.inject.Inject;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.UUID;
+
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -12,13 +14,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.*;
-
-import java.sql.SQLException;
+import auracore.key49.core.service.ApiKeyService;
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import jakarta.inject.Inject;
 
 /**
  * Tests end-to-end del portal web de consulta.
@@ -314,6 +313,42 @@ class PortalEndToEndTest {
                 .statusCode(200)
                 .body(containsString("Autorizado"))
                 .body(containsString("status-ok"));
+    }
+
+    @Test
+    @Order(9)
+    void shouldReturn404ForXmlWhenPathIsNull() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/documents/" + documentId + "/xml")
+                .then()
+                .statusCode(404)
+                .body(containsString("no disponible"));
+    }
+
+    @Test
+    @Order(9)
+    void shouldReturn404ForRideWhenPathIsNull() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .when()
+                .get("/portal/documents/" + documentId + "/ride")
+                .then()
+                .statusCode(404)
+                .body(containsString("no disponible"));
+    }
+
+    @Test
+    @Order(9)
+    void shouldRedirectToLoginForXmlWithoutSession() {
+        RestAssured.given()
+                .redirects().follow(false)
+                .when()
+                .get("/portal/documents/" + documentId + "/xml")
+                .then()
+                .statusCode(303)
+                .header("Location", containsString("/portal/login"));
     }
 
     @Test

@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.19.1] - 2026-04-09
+
+### Corregido
+
+- **Portal: descarga de XML/RIDE** — los botones "XML Autorizado" y "RIDE (PDF)" en la vista de detalle apuntaban a endpoints de la API REST (`/v1/invoices/:id/xml`) que requieren `Authorization` header. Ahora apuntan a endpoints propios del portal (`/portal/documents/:id/xml`, `/portal/documents/:id/ride`) que usan autenticación por sesión/cookie
+- **NotifyConsumer: email fuera de transacción JTA** — el envío de email se movió fuera de la transacción JTA para evitar rollback del estado NOTIFIED cuando el email tarda más de 60s. Se reemplazó `Mailer` bloqueante por `ReactiveMailer` con timeout configurable (`key49.email.send-timeout-seconds`, default 120s)
+- **NotifyConsumer: I/O de RIDE, MinIO y webhook fuera de transacción** — generación de RIDE, almacenamiento en MinIO y despacho de webhook se extrajeron de la transacción JTA. La transacción ahora solo contiene lectura de BD, actualización de rutas y transición de estado, evitando rollbacks por `StorageException` o timeouts de red
+
+### Agregado
+
+- Endpoints `GET /portal/documents/:id/xml` y `GET /portal/documents/:id/ride` en `PortalResource` con autenticación por sesión
+- 3 tests en `PortalEndToEndTest`: 404 cuando XML/RIDE no disponible, redirect a login sin sesión
+- Propiedad `key49.email.send-timeout-seconds` para controlar el timeout del envío de email
+
 ## [0.19.0] - 2026-04-09
 
 ### Agregado

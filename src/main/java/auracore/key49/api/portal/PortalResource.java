@@ -17,6 +17,7 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -70,6 +71,9 @@ public class PortalResource {
 
     @Inject
     TenantConnectionManager tcm;
+
+    @Inject
+    ObjectStorageService storageService;
 
     @Context
     ContainerRequestContext requestContext;
@@ -207,6 +211,49 @@ public class PortalResource {
         var label = statusLabel(doc.status);
         var cls = statusClass(doc.status);
         return "<mark class=\"%s\">%s</mark>".formatted(cls, label);
+    }
+
+    // ── Document downloads ──
+    @GET
+    @Path("/documents/{id}/xml")
+    @Produces(MediaType.APPLICATION_XML)
+    public Response downloadXml(@PathParam("id") UUID id) {
+        var session = getSession();
+        var doc = tcm.withTenantSession(session.schemaName(), em -> em.find(Document.class, id));
+        if (doc == null || doc.authorizedXmlPath == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity("XML autorizado no disponible")
+                    .build();
+        }
+        byte[] bytes = storageService.retrieve(doc.authorizedXmlPath);
+        return Response.ok(bytes)
+                .type(MediaType.APPLICATION_XML)
+                .header("Content-Disposition",
+                        "attachment; filename=\"%s.xml\"".formatted(
+                                doc.accessKey != null ? doc.accessKey : doc.id))
+                .build();
+    }
+
+    @GET
+    @Path("/documents/{id}/ride")
+    @Produces("application/pdf")
+    public Response downloadRide(@PathParam("id") UUID id) {
+        var session = getSession();
+        var doc = tcm.withTenantSession(session.schemaName(), em -> em.find(Document.class, id));
+        if (doc == null || doc.ridePath == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .type(MediaType.TEXT_PLAIN)
+                    .entity("RIDE no disponible")
+                    .build();
+        }
+        byte[] bytes = storageService.retrieve(doc.ridePath);
+        return Response.ok(bytes)
+                .type("application/pdf")
+                .header("Content-Disposition",
+                        "attachment; filename=\"%s.pdf\"".formatted(
+                                doc.accessKey != null ? doc.accessKey : doc.id))
+                .build();
     }
 
     // ── Helpers ──
