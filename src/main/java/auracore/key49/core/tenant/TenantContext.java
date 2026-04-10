@@ -14,6 +14,8 @@ public class TenantContext {
     private UUID tenantId;
     private String schemaName;
     private int rateLimitRpm = 100;
+    private int rateLimitWriteRpm = 30;
+    private int rateLimitReadRpm = 200;
     private String apiKeyPrefix;
 
     public UUID getTenantId() {
@@ -26,6 +28,14 @@ public class TenantContext {
 
     public int getRateLimitRpm() {
         return rateLimitRpm;
+    }
+
+    public int getRateLimitWriteRpm() {
+        return rateLimitWriteRpm;
+    }
+
+    public int getRateLimitReadRpm() {
+        return rateLimitReadRpm;
     }
 
     public String getApiKeyPrefix() {
@@ -47,6 +57,14 @@ public class TenantContext {
      */
     public void setRateLimitRpm(int rateLimitRpm) {
         this.rateLimitRpm = rateLimitRpm;
+    }
+
+    public void setRateLimitWriteRpm(int rateLimitWriteRpm) {
+        this.rateLimitWriteRpm = rateLimitWriteRpm;
+    }
+
+    public void setRateLimitReadRpm(int rateLimitReadRpm) {
+        this.rateLimitReadRpm = rateLimitReadRpm;
     }
 
     /**

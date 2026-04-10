@@ -159,7 +159,7 @@ class TenantProfileResourceTest {
                     req.requiredAccounting(), req.specialTaxpayer(),
                     req.microEnterpriseRegime(), req.withholdingAgent(),
                     req.environment(), req.webhookUrl(), req.webhookSecret(),
-                    null, req.emailSenderName(),
+                    null, null, null, req.emailSenderName(),
                     req.replyEmail(), null);
 
             assertEquals("Legal", data.legalName());

@@ -21,7 +21,6 @@ import auracore.key49.core.model.Tenant;
 /**
  * Tests unitarios para los DTOs de gestión de tenants.
  */
-
 class TenantDtoTest {
 
     private final ObjectMapper mapper = new ObjectMapper()
@@ -29,7 +28,6 @@ class TenantDtoTest {
             .registerModule(new JavaTimeModule());
 
     // ── Helpers ──
-
     private Tenant createTestTenant() {
         var t = new Tenant();
         t.id = UUID.randomUUID();
@@ -51,7 +49,6 @@ class TenantDtoTest {
     }
 
     // ── TenantResponse.fromEntity ──
-
     @Nested
     @DisplayName("TenantResponse.fromEntity")
     class FromEntity {
@@ -133,19 +130,22 @@ class TenantDtoTest {
             var tenant = createTestTenant();
             tenant.webhookUrl = "https://example.com/webhook";
             tenant.rateLimitRpm = 200;
+            tenant.rateLimitWriteRpm = 50;
+            tenant.rateLimitReadRpm = 500;
             tenant.emailSenderName = "Facturas ACME";
             tenant.replyEmail = "contabilidad@acme.com";
 
             var response = TenantResponse.fromEntity(tenant);
             assertEquals("https://example.com/webhook", response.webhookUrl());
             assertEquals(200, response.rateLimitRpm());
+            assertEquals(50, response.rateLimitWriteRpm());
+            assertEquals(500, response.rateLimitReadRpm());
             assertEquals("Facturas ACME", response.emailSenderName());
             assertEquals("contabilidad@acme.com", response.replyEmail());
         }
     }
 
     // ── CreateTenantRequest serialization ──
-
     @Nested
     @DisplayName("CreateTenantRequest")
     class CreateRequest {
@@ -187,7 +187,6 @@ class TenantDtoTest {
     }
 
     // ── UpdateTenantRequest ──
-
     @Nested
     @DisplayName("UpdateTenantRequest")
     class UpdateRequest {
@@ -211,7 +210,6 @@ class TenantDtoTest {
     }
 
     // ── CertificateStatusResponse ──
-
     @Nested
     @DisplayName("CertificateStatusResponse")
     class CertStatusResponse {

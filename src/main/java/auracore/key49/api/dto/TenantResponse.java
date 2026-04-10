@@ -27,6 +27,8 @@ public record TenantResponse(
         CertificateSummary certificate,
         String webhookUrl,
         Integer rateLimitRpm,
+        Integer rateLimitWriteRpm,
+        Integer rateLimitReadRpm,
         String emailSenderName,
         String replyEmail,
         Instant createdAt,
@@ -64,6 +66,7 @@ public record TenantResponse(
                 t.requiredAccounting, t.specialTaxpayer, t.microEnterpriseRegime,
                 t.withholdingAgent, t.environment, t.schemaName, t.status,
                 cert, t.webhookUrl, t.rateLimitRpm,
+                t.rateLimitWriteRpm, t.rateLimitReadRpm,
                 t.emailSenderName, t.replyEmail,
                 t.createdAt, t.updatedAt);
     }

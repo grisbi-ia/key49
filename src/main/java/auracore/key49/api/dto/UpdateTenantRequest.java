@@ -18,6 +18,8 @@ public record UpdateTenantRequest(
         String webhookUrl,
         String webhookSecret,
         Integer rateLimitRpm,
+        Integer rateLimitWriteRpm,
+        Integer rateLimitReadRpm,
         String emailSenderName,
         String replyEmail,
         String status) {

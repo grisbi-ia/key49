@@ -1,6 +1,7 @@
 package auracore.key49.api.filter;
 
 import auracore.key49.core.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerResponseContext;
@@ -11,12 +12,17 @@ import org.jboss.resteasy.reactive.server.ServerRequestFilter;
 import org.jboss.resteasy.reactive.server.ServerResponseFilter;
 
 /**
- * Filtro de rate limiting por tenant con ventana deslizante en Redis.
+ * Filtro de rate limiting granular por categoría de endpoint (WRITE/READ).
  *
  * <p>
  * Se ejecuta después del filtro de autenticación (prioridad mayor = después).
  * Solo aplica a requests autenticados con API key (TenantContext activo).
  * Agrega headers X-RateLimit-* a todas las respuestas autenticadas.</p>
+ *
+ * <p>
+ * Aplica límites independientes para operaciones de escritura
+ * (POST/PUT/PATCH/DELETE) y lectura (GET/HEAD/OPTIONS), configurables por
+ * tenant.</p>
  */
 public class RateLimitFilter {
 
@@ -31,6 +37,9 @@ public class RateLimitFilter {
     @Inject
     RateLimiter rateLimiter;
 
+    @Inject
+    MeterRegistry meterRegistry;
+
     @ServerRequestFilter(priority = 20)
     public Response filter(ContainerRequestContext requestContext) {
         if (!tenantContext.isSet()) {
@@ -42,15 +51,24 @@ public class RateLimitFilter {
             return null;
         }
 
-        var maxRpm = tenantContext.getRateLimitRpm();
-        var result = rateLimiter.checkLimit(apiKeyPrefix, maxRpm);
+        var category = EndpointCategory.fromHttpMethod(requestContext.getMethod());
+        var maxRpm = switch (category) {
+            case WRITE ->
+                tenantContext.getRateLimitWriteRpm();
+            case READ ->
+                tenantContext.getRateLimitReadRpm();
+        };
+        var result = rateLimiter.checkLimit(apiKeyPrefix, maxRpm, category);
 
         // Almacenar resultado para los response headers
         requestContext.setProperty(RATE_LIMIT_RESULT, result);
 
         if (!result.allowed()) {
-            log.warnf("Rate limit exceeded | tenant=%s limit=%d",
-                    tenantContext.getTenantId(), maxRpm);
+            log.warnf("Rate limit exceeded | tenant=%s category=%s limit=%d",
+                    tenantContext.getTenantId(), category.keySuffix(), maxRpm);
+            meterRegistry.counter("key49.rate_limit.rejected",
+                    "tenant", tenantContext.getTenantId().toString(),
+                    "category", category.keySuffix()).increment();
             return Response.status(429)
                     .type(MediaType.APPLICATION_JSON_TYPE)
                     .header("X-RateLimit-Limit", result.limit())

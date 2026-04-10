@@ -29,7 +29,6 @@ import java.sql.SQLException;
  * Si Redis no está disponible, degrada gracefully consultando BD
  * directamente.</p>
  */
-
 @ApplicationScoped
 public class ApiKeyCacheService {
 
@@ -48,8 +47,9 @@ public class ApiKeyCacheService {
     int ttlSeconds;
 
     /**
-     * Busca datos de autenticación de una API key. Primero intenta Redis,
-     * si no existe consulta BD y popula Redis. Si Redis falla, consulta BD directamente.
+     * Busca datos de autenticación de una API key. Primero intenta Redis, si no
+     * existe consulta BD y popula Redis. Si Redis falla, consulta BD
+     * directamente.
      *
      * @param keyHash SHA-256 hash de la API key
      * @return datos de autenticación o null si la key no existe
@@ -95,8 +95,8 @@ public class ApiKeyCacheService {
     }
 
     /**
-     * Invalida la caché de todas las API keys de un tenant.
-     * Se usa al revocar/crear keys cuando solo se conoce el tenant_id.
+     * Invalida la caché de todas las API keys de un tenant. Se usa al
+     * revocar/crear keys cuando solo se conoce el tenant_id.
      */
     public void invalidateByKeyHash(String keyHash) {
         invalidate(keyHash);
@@ -120,11 +120,10 @@ public class ApiKeyCacheService {
     }
 
     private CachedApiKeyData queryFromDatabase(String keyHash) {
-        try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement("""
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement("""
                      SELECT a.tenant_id, a.status AS key_status, a.expires_at,
                             t.schema_name, t.status AS tenant_status,
-                            t.rate_limit_rpm
+                            t.rate_limit_rpm, t.rate_limit_write_rpm, t.rate_limit_read_rpm
                      FROM api_keys a JOIN tenants t ON a.tenant_id = t.tenant_id
                      WHERE a.key_hash = ?""")) {
             stmt.setString(1, keyHash);
@@ -135,6 +134,8 @@ public class ApiKeyCacheService {
                 var tenantId = rs.getObject("tenant_id", UUID.class);
                 var schemaName = rs.getString("schema_name");
                 var rateLimitRpm = rs.getInt("rate_limit_rpm");
+                var rateLimitWriteRpm = rs.getInt("rate_limit_write_rpm");
+                var rateLimitReadRpm = rs.getInt("rate_limit_read_rpm");
                 var keyStatus = rs.getString("key_status");
                 var tenantStatus = rs.getString("tenant_status");
                 var expiresAt = rs.getTimestamp("expires_at");
@@ -142,6 +143,8 @@ public class ApiKeyCacheService {
                         tenantId,
                         schemaName,
                         rateLimitRpm,
+                        rateLimitWriteRpm,
+                        rateLimitReadRpm,
                         keyStatus,
                         tenantStatus,
                         expiresAt != null ? expiresAt.toInstant().toString() : null
@@ -160,15 +163,20 @@ public class ApiKeyCacheService {
             UUID tenantId,
             String schemaName,
             int rateLimitRpm,
+            int rateLimitWriteRpm,
+            int rateLimitReadRpm,
             String keyStatus,
             String tenantStatus,
             String expiresAt
-    ) {
+            ) {
+
         Map<String, String> toRedisHash() {
             var map = new java.util.HashMap<String, String>();
             map.put("tenant_id", tenantId.toString());
             map.put("schema_name", schemaName);
             map.put("rate_limit_rpm", String.valueOf(rateLimitRpm));
+            map.put("rate_limit_write_rpm", String.valueOf(rateLimitWriteRpm));
+            map.put("rate_limit_read_rpm", String.valueOf(rateLimitReadRpm));
             map.put("key_status", keyStatus);
             map.put("tenant_status", tenantStatus);
             if (expiresAt != null) {
@@ -182,6 +190,8 @@ public class ApiKeyCacheService {
                     UUID.fromString(data.get("tenant_id")),
                     data.get("schema_name"),
                     Integer.parseInt(data.get("rate_limit_rpm")),
+                    Integer.parseInt(data.getOrDefault("rate_limit_write_rpm", "30")),
+                    Integer.parseInt(data.getOrDefault("rate_limit_read_rpm", "200")),
                     data.get("key_status"),
                     data.get("tenant_status"),
                     data.get("expires_at")

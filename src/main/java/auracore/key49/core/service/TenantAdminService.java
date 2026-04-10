@@ -134,6 +134,12 @@ public class TenantAdminService {
         if (data.rateLimitRpm() != null) {
             tenant.rateLimitRpm = data.rateLimitRpm();
         }
+        if (data.rateLimitWriteRpm() != null) {
+            tenant.rateLimitWriteRpm = data.rateLimitWriteRpm();
+        }
+        if (data.rateLimitReadRpm() != null) {
+            tenant.rateLimitReadRpm = data.rateLimitReadRpm();
+        }
         if (data.emailSenderName() != null) {
             tenant.emailSenderName = data.emailSenderName();
         }
@@ -226,6 +232,8 @@ public class TenantAdminService {
             String webhookUrl,
             String webhookSecret,
             Integer rateLimitRpm,
+            Integer rateLimitWriteRpm,
+            Integer rateLimitReadRpm,
             String emailSenderName,
             String replyEmail,
             String status) {

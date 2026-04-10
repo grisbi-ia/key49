@@ -5,6 +5,26 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.24.1] - 2026-04-10
+
+### Agregado
+
+- **Rate limiting granular por endpoint** (T-074): límites independientes para escritura y lectura por tenant
+- `EndpointCategory` enum: clasifica métodos HTTP en `WRITE` (POST/PUT/PATCH/DELETE) y `READ` (GET/HEAD/OPTIONS) con suffix para clave Redis
+- Campos `rate_limit_write_rpm` (default 30) y `rate_limit_read_rpm` (default 200) en entidad `Tenant`
+- Migración `V003__add_granular_rate_limits.sql`: agrega columnas con defaults en tabla `tenants`
+- Métrica Micrometer `key49.rate_limit.rejected` con tags `tenant` y `category` para monitoreo de rechazos
+- Tests `EndpointCategoryTest` (parametrizados) y `GranularRateLimitTest` (integración) para validar aislamiento de límites
+
+### Cambiado
+
+- `RateLimiter`: acepta `EndpointCategory`, clave Redis ahora `ratelimit:{prefix}:{write|read}`
+- `RateLimitFilter`: detecta categoría por método HTTP, selecciona límite write/read del `TenantContext`
+- `ApiKeyCacheService`: `CachedApiKeyData` incluye campos granulares, serialización Redis actualizada con backward compatibility
+- `ApiKeyAuthFilter`: propaga límites write/read al `TenantContext`
+- `TenantResponse` y `UpdateTenantRequest`: incluyen campos `rateLimitWriteRpm` y `rateLimitReadRpm`
+- `TenantAdminService`: soporte para actualizar límites granulares por tenant
+
 ## [0.24.0] - 2026-04-10
 
 ### Agregado

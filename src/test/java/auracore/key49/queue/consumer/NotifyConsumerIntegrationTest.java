@@ -81,9 +81,9 @@ class NotifyConsumerIntegrationTest {
             try (var ps = conn.prepareStatement("""
                     INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                         required_accounting, micro_enterprise_regime, environment,
-                        emission_type, rate_limit_rpm, status, webhook_url, webhook_secret,
+                        emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status, webhook_url, webhook_secret,
                         created_at, updated_at)
-                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 'active',
+                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 10000, 10000, 'active',
                         'https://example.com/webhook', 'secret123', now(), now())
                     """)) {
                 ps.setObject(1, tenantId.toString());

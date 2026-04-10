@@ -16,13 +16,11 @@ import org.junit.jupiter.api.Test;
  * Tests unitarios para validaciones de TenantAdminService. Las operaciones de
  * BD se prueban en integration tests.
  */
-
 class TenantAdminServiceTest {
 
     private TenantAdminService service = new TenantAdminService();
 
     // ── Helpers ──
-
     private CreateTenantData validCreateData() {
         return new CreateTenantData(
                 "1790016919001", "EMPRESA DE PRUEBA S.A.", "EMPRESA PRUEBA",
@@ -31,7 +29,6 @@ class TenantAdminServiceTest {
     }
 
     // ── Validación de Create ──
-
     @Nested
     @DisplayName("validateCreateData")
     class ValidateCreateData {
@@ -179,7 +176,6 @@ class TenantAdminServiceTest {
     }
 
     // ── Records ──
-
     @Nested
     @DisplayName("DTOs de servicio")
     class ServiceDtos {
@@ -211,7 +207,7 @@ class TenantAdminServiceTest {
                     "New Name", null, null,
                     null, null, null, null,
                     null, null, null, null,
-                    null, null, null);
+                    null, null, null, null, null);
 
             assertEquals("New Name", data.legalName());
             // Null fields should not be set when updating

@@ -20,10 +20,31 @@ class TenantContextTest {
     }
 
     @Test
+    void shouldDefaultWriteRateLimitTo30() {
+        var ctx = new TenantContext();
+        assertEquals(30, ctx.getRateLimitWriteRpm());
+    }
+
+    @Test
+    void shouldDefaultReadRateLimitTo200() {
+        var ctx = new TenantContext();
+        assertEquals(200, ctx.getRateLimitReadRpm());
+    }
+
+    @Test
     void shouldStoreRateLimitRpm() {
         var ctx = new TenantContext();
         ctx.setRateLimitRpm(50);
         assertEquals(50, ctx.getRateLimitRpm());
+    }
+
+    @Test
+    void shouldStoreGranularRateLimits() {
+        var ctx = new TenantContext();
+        ctx.setRateLimitWriteRpm(10);
+        ctx.setRateLimitReadRpm(500);
+        assertEquals(10, ctx.getRateLimitWriteRpm());
+        assertEquals(500, ctx.getRateLimitReadRpm());
     }
 
     @Test

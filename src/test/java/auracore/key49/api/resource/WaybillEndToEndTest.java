@@ -60,8 +60,8 @@ class WaybillEndToEndTest {
             try (var ps = conn.prepareStatement("""
 INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                             required_accounting, micro_enterprise_regime, environment,
-                            emission_type, rate_limit_rpm, status, created_at, updated_at)
-                        VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 'active', now(), now())
+                            emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status, created_at, updated_at)
+                        VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 10000, 10000, 10000, 'active', now(), now())
             """)) {
                 ps.setObject(1, tenantId.toString());
                 ps.setString(2, TENANT_RUC);

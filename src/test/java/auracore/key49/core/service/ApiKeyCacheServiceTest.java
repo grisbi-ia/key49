@@ -27,7 +27,6 @@ import jakarta.inject.Inject;
  * Verifica el caché de API keys en Redis: cache miss (consulta BD + populate),
  * cache hit (sin SQL), invalidación al revocar, y degradación graceful.
  */
-
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -57,8 +56,8 @@ class ApiKeyCacheServiceTest {
             try (var ps = conn.prepareStatement("""
                     INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                         required_accounting, micro_enterprise_regime, environment,
-                        emission_type, rate_limit_rpm, status, created_at, updated_at)
-                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 500, 'active', now(), now())
+                        emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status, created_at, updated_at)
+                    VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 500, 10000, 10000, 'active', now(), now())
                     """)) {
                 ps.setObject(1, tenantId.toString());
                 ps.setString(2, "1791234560001");
@@ -96,6 +95,8 @@ class ApiKeyCacheServiceTest {
         assertEquals(tenantId, result.tenantId());
         assertEquals("tenant_cache_test", result.schemaName());
         assertEquals(500, result.rateLimitRpm());
+        assertEquals(10000, result.rateLimitWriteRpm());
+        assertEquals(10000, result.rateLimitReadRpm());
         assertEquals("active", result.keyStatus());
         assertEquals("active", result.tenantStatus());
 

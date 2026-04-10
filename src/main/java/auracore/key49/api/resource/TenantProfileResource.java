@@ -76,7 +76,7 @@ public class TenantProfileResource {
                 request.requiredAccounting(), request.specialTaxpayer(),
                 request.microEnterpriseRegime(), request.withholdingAgent(),
                 request.environment(), request.webhookUrl(), request.webhookSecret(),
-                null, request.emailSenderName(),
+                null, null, null, request.emailSenderName(),
                 request.replyEmail(), null);
 
         var tenant = tenantService.update(tenantId, data);
@@ -190,8 +190,12 @@ public class TenantProfileResource {
     }
 
     private static Response errorResponse(String requestId, String code, String message, int status) {
-        record ErrorDetail(String code, String message) {}
-        record ErrorWrapper(ErrorDetail error) {}
+        record ErrorDetail(String code, String message) {
+
+        }
+        record ErrorWrapper(ErrorDetail error) {
+
+        }
         return Response.status(status)
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .header("X-Request-Id", requestId)

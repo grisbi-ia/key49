@@ -651,13 +651,15 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Herramienta: ejecutar OWASP ZAP o similar contra API en ambiente de pruebas
   - Documentar hallazgos y remediaciones en `docs/SECURITY.md`
 
-- [ ] **T-074** Rate limiting granular por endpoint
-  - El rate limiter actual es global por tenant (requests/minuto)
-  - Implementar límites por endpoint: POST /invoices (más restrictivo), GET /invoices (más permisivo)
-  - Configurar por tenant: tenants premium con límites más altos
-  - Tabla `public.tenant_rate_limits` o campo en `tenants`: `rate_limit_per_minute`, `rate_limit_burst`
-  - Métrica: `key49.rate_limit.rejected{tenant=X, endpoint=Y}` (counter)
-  - Test: verificar que un tenant con límite bajo es rechazado, uno con límite alto no
+- [x] **T-074** Rate limiting granular por endpoint ✓
+  - Enum `EndpointCategory` (WRITE/READ) con mapeo desde método HTTP
+  - Columnas `rate_limit_write_rpm` (default 30) y `rate_limit_read_rpm` (default 200) en `tenants`
+  - `RateLimiter.checkLimit()` recibe categoría, usa Redis key `ratelimit:{prefix}:{category}`
+  - `RateLimitFilter` selecciona límite según categoría del endpoint
+  - DTOs `TenantResponse` y `UpdateTenantRequest` exponen los nuevos campos
+  - Métrica: `key49.rate_limit.rejected{tenant=X, category=Y}` (counter)
+  - Migración `V003__add_granular_rate_limits.sql`
+  - Tests: `EndpointCategoryTest`, `GranularRateLimitTest`, actualizado `RateLimitEndToEndTest`
 
 - [ ] **T-075** Audit log de operaciones sensitivas
   - Registrar en tabla `public.audit_log`:

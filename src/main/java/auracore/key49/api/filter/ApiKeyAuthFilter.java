@@ -81,6 +81,8 @@ public class ApiKeyAuthFilter {
 
         tenantContext.setTenant(cached.tenantId(), cached.schemaName());
         tenantContext.setRateLimitRpm(cached.rateLimitRpm());
+        tenantContext.setRateLimitWriteRpm(cached.rateLimitWriteRpm());
+        tenantContext.setRateLimitReadRpm(cached.rateLimitReadRpm());
         tenantContext.setApiKeyPrefix(prefix);
         log.debugf("Authenticated tenant=%s, schema=%s", cached.tenantId(), cached.schemaName());
 

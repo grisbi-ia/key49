@@ -48,15 +48,17 @@ public class RateLimiter {
      * Verifica si el request debe ser permitido bajo el rate limit.
      *
      * @param apiKeyPrefix prefijo de la API key (identificador para el rate
-     *                     limit)
-     * @param maxRequests  máximo de requests permitidos en la ventana de 60
-     *                     segundos
+     * limit)
+     * @param maxRequests máximo de requests permitidos en la ventana de 60
+     * segundos
+     * @param category categoría del endpoint (WRITE/READ) para limitar por
+     * separado
      * @return resultado con allow/deny y conteos
      */
-    public RateLimitResult checkLimit(String apiKeyPrefix, int maxRequests) {
+    public RateLimitResult checkLimit(String apiKeyPrefix, int maxRequests, EndpointCategory category) {
         var now = Instant.now().toEpochMilli();
         var windowStart = now - WINDOW_MS;
-        var key = KEY_PREFIX + apiKeyPrefix;
+        var key = KEY_PREFIX + apiKeyPrefix + ":" + category.keySuffix();
         var member = now + ":" + Thread.currentThread().threadId();
 
         var request = Request.cmd(Command.EVAL)

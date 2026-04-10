@@ -128,7 +128,8 @@ public class TenantAdminResource {
                 request.requiredAccounting(), request.specialTaxpayer(),
                 request.microEnterpriseRegime(), request.withholdingAgent(),
                 request.environment(), request.webhookUrl(), request.webhookSecret(),
-                request.rateLimitRpm(), request.emailSenderName(),
+                request.rateLimitRpm(), request.rateLimitWriteRpm(),
+                request.rateLimitReadRpm(), request.emailSenderName(),
                 request.replyEmail(), request.status());
 
         var tenant = tenantService.update(id, data);

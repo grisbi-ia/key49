@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "tenants", schema = "public")
@@ -76,6 +77,14 @@ public class Tenant extends PanacheEntityBase {
 
     @Column(name = "rate_limit_rpm", nullable = false)
     public int rateLimitRpm = 100;
+
+    @Column(name = "rate_limit_write_rpm", nullable = false)
+    @ColumnDefault("30")
+    public int rateLimitWriteRpm = 30;
+
+    @Column(name = "rate_limit_read_rpm", nullable = false)
+    @ColumnDefault("200")
+    public int rateLimitReadRpm = 200;
 
     @Column(name = "email_sender_name", length = 200)
     public String emailSenderName;
