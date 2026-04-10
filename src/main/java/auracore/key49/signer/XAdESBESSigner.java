@@ -102,9 +102,29 @@ public final class XAdESBESSigner {
     }
 
     /**
+     * Firma un XML usando datos de certificado ya parseados (cache-friendly).
+     *
+     * @param xml contenido XML del comprobante (sin firmar)
+     * @param certData datos del certificado ya cargados del PKCS#12
+     * @return XML firmado con ds:Signature + XAdES QualifyingProperties
+     * @throws SigningException si ocurre un error durante la firma
+     */
+    public static String sign(String xml, CertificateData certData) {
+        try {
+            var document = parseXml(xml);
+            signDocument(document, certData);
+            return serializeDocument(document);
+        } catch (SigningException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SigningException("Failed to sign XML document", e);
+        }
+    }
+
+    /**
      * Carga la clave privada, certificado y cadena completa desde un PKCS#12.
      */
-    static CertificateData loadCertificateData(byte[] p12Bytes, char[] password) {
+    public static CertificateData loadCertificateData(byte[] p12Bytes, char[] password) {
         try {
             var keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(new ByteArrayInputStream(p12Bytes), password);
@@ -369,7 +389,7 @@ public final class XAdESBESSigner {
     /**
      * Datos extraídos del certificado PKCS#12 incluyendo la cadena completa.
      */
-    record CertificateData(PrivateKey privateKey, X509Certificate certificate, X509Certificate[] chain) {
+    public record CertificateData(PrivateKey privateKey, X509Certificate certificate, X509Certificate[] chain) {
 
     }
 }

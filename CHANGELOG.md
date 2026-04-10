@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.21.2] - 2026-04-10
+
+### Agregado
+
+- **Caché de certificados .p12 en memoria** (T-064): `CertificateCacheService` con `ConcurrentHashMap` que cachea `PrivateKey + X509Certificate + chain` ya parseados por `tenant_id`. TTL configurable vía `KEY49_CERT_CACHE_TTL_MINUTES` (default 30 min), máximo de entradas vía `KEY49_CERT_CACHE_MAX_ENTRIES` (default 100)
+- `XAdESBESSigner.sign(xml, CertificateData)`: overload que acepta datos de certificado ya parseados (cache-friendly)
+- `XAdESBESSigner.CertificateData` y `loadCertificateData()` ahora son públicos para uso externo
+- `SignConsumer` refactorizado: delega descifrado AES + parsing PKCS12 a `CertificateCacheService.getOrLoad()`, eliminando ~50ms por firma repetida
+- Invalidación automática en `TenantAdminService.uploadCertificate()`: limpia caché de certificados + caché Redis de tenant
+- Limpieza de datos sensibles: bytes descifrados del .p12 y contraseña se limpian de memoria tras el parsing
+- `CertificateCacheServiceTest`: 8 tests de integración — cache miss/hit, múltiples tenants, invalidación, re-carga, firma consecutiva con cache
+- Documentación en DEPLOYMENT.md: sección "Caché de Certificados .p12 en Memoria"
+
 ## [0.21.1] - 2026-04-10
 
 ### Agregado

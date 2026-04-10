@@ -1,9 +1,7 @@
 package auracore.key49.queue.consumer;
 
 import java.time.Instant;
-import java.util.Optional;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
@@ -23,7 +21,7 @@ import auracore.key49.queue.mapper.InvoiceDataMapper;
 import auracore.key49.queue.mapper.PurchaseClearanceDataMapper;
 import auracore.key49.queue.mapper.WaybillDataMapper;
 import auracore.key49.queue.mapper.WithholdingDataMapper;
-import auracore.key49.signer.CertificateEncryptor;
+import auracore.key49.signer.CertificateCacheService;
 import auracore.key49.signer.XAdESBESSigner;
 import auracore.key49.xml.accesskey.AccessKeyGenerator;
 import auracore.key49.xml.builder.CreditNoteXmlBuilder;
@@ -77,8 +75,8 @@ public class SignConsumer {
     @Inject
     PurchaseClearanceDataMapper purchaseClearanceMapper;
 
-    @ConfigProperty(name = "key49.master-key")
-    Optional<String> masterKeyBase64;
+    @Inject
+    CertificateCacheService certificateCacheService;
 
     @Incoming("doc-sign-in")
     @Blocking
@@ -126,13 +124,9 @@ public class SignConsumer {
 
             var unsignedXml = buildXml(docType, doc, tenant, accessKey);
 
-            var masterKey = CertificateEncryptor.decodeMasterKey(
-                    masterKeyBase64.orElseThrow(()
-                            -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
-            var p12Bytes = CertificateEncryptor.decrypt(tenant.certificateP12, masterKey);
-            var password = CertificateEncryptor.decryptPassword(
-                    tenant.certificatePasswordEnc, masterKey);
-            var signedXml = XAdESBESSigner.sign(unsignedXml, p12Bytes, password);
+            var certData = certificateCacheService.getOrLoad(
+                    tenant.id, tenant.certificateP12, tenant.certificatePasswordEnc);
+            var signedXml = XAdESBESSigner.sign(unsignedXml, certData);
 
             doc.transitionTo(DocumentStatus.SIGNED);
             doc.accessKey = accessKey;

@@ -8,6 +8,7 @@ import java.util.UUID;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.validation.SriValidator;
+import auracore.key49.signer.CertificateCacheService;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,6 +25,9 @@ public class TenantAdminService {
 
     @Inject
     TenantCacheService tenantCacheService;
+
+    @Inject
+    CertificateCacheService certificateCacheService;
 
     // ── Crear tenant ──
     @Transactional
@@ -166,6 +170,7 @@ public class TenantAdminService {
         Log.infof("Certificate uploaded | tenantId=%s subject=%s expires=%s",
                 id, subject, expiration);
         tenantCacheService.invalidate(id, tenant.schemaName);
+        certificateCacheService.invalidate(id);
         return tenant;
     }
 

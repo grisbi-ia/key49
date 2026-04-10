@@ -562,7 +562,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Beneficio: evita JOIN/SELECT a `public.tenants` en cada operación del pipeline
   - Test: crear tenant, verificar cache populate, actualizar tenant, verificar invalidación
 
-- [ ] **T-064** Caché de certificados .p12 en memoria
+- [x] **T-064** Caché de certificados .p12 en memoria
   - Los consumers descifran el .p12 de BD en cada firma → costoso (BouncyCastle + AES)
   - Implementar caché local (Caffeine o ConcurrentHashMap con TTL) de `PrivateKey + X509Certificate` ya parseados
   - Key: `tenant_id`, TTL: 30 minutos, max entries: 100
