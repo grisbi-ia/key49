@@ -20,7 +20,7 @@ import java.net.URI;
 public class PortalAuthFilter {
 
     static final String SESSION_COOKIE = "KEY49_SESSION";
-    static final String PORTAL_SESSION_ATTR = "key49.portal.session";
+    public static final String PORTAL_SESSION_ATTR = "key49.portal.session";
 
     @Inject
     Logger log;

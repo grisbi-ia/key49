@@ -7,6 +7,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.admin.metrics.DocumentMetrics;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -71,6 +72,8 @@ public class NotifyConsumer {
         tracker.increment("NotifyConsumer");
         try {
             var event = DocumentEvent.fromJson(json);
+            MdcContext.setTenant(event.tenantSchemaName());
+            MdcContext.setDocument(event.documentId());
             log.infof("NotifyConsumer: processing documentId=%s, tenant=%s",
                     event.documentId(), event.tenantSchemaName());
 
@@ -168,6 +171,7 @@ public class NotifyConsumer {
                         "NotifyConsumer", ex);
             }
         } finally {
+            MdcContext.clear();
             tracker.decrement("NotifyConsumer");
         }
     }

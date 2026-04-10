@@ -6,6 +6,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.admin.metrics.DocumentMetrics;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -44,6 +45,8 @@ public class DlqConsumer {
         tracker.increment("DlqConsumer");
         try {
             var event = DocumentEvent.fromJson(json);
+            MdcContext.setTenant(event.tenantSchemaName());
+            MdcContext.setDocument(event.documentId());
             log.errorf("DLQ: processing failed document — documentId=%s, tenant=%s, retryCount=%d",
                     event.documentId(), event.tenantSchemaName(), event.retryCount());
 
@@ -76,6 +79,7 @@ public class DlqConsumer {
                         "DlqConsumer", ex);
             }
         } finally {
+            MdcContext.clear();
             tracker.decrement("DlqConsumer");
         }
     }

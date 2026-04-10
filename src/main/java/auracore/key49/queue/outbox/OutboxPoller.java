@@ -8,6 +8,7 @@ import org.jboss.logging.Logger;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.repository.OutboxRepository;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.producer.DocumentEventProducer;
@@ -102,6 +103,7 @@ public class OutboxPoller {
     }
 
     private boolean pollTenant(String schemaName) {
+        MdcContext.setTenant(schemaName);
         try {
             return connectionManager.withTenantTransaction(schemaName, em -> {
                 var events = outboxRepository.findUnpublishedForUpdate(batchSize);
@@ -111,6 +113,8 @@ public class OutboxPoller {
         } catch (Exception ex) {
             log.errorf(ex, "OutboxPoller: error polling tenant=%s", schemaName);
             return false;
+        } finally {
+            MdcContext.clear();
         }
     }
 

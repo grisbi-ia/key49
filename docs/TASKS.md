@@ -693,7 +693,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Notificar vía webhook y email al equipo de operaciones
   - Test: crear documento y no procesarlo, verificar que alerta SLA se dispara tras threshold
 
-- [ ] **T-079** Structured logging con contexto de tenant
+- [x] **T-079** Structured logging con contexto de tenant
   - Agregar `tenant_id` y `document_id` al MDC (Mapped Diagnostic Context) en cada operación
   - Formato de log: `[tenant=T, doc=D, trace=T] message`
   - Configurar `quarkus.log.console.format` con campos MDC

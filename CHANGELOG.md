@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.2] - 2026-04-10
+
+### Agregado
+
+- **Structured logging con contexto de tenant** (T-079): MDC con `tenant` y `documentId` en todos los logs
+- `MdcContext`: utilidad centralizada para set/clear de campos MDC (`tenant`, `documentId`)
+- `MdcFilter`: filtro HTTP (priority 25) que establece MDC desde TenantContext (API) o PortalSession (portal), limpia en respuesta
+- MDC en 5 consumers: SignConsumer, SendConsumer, AuthorizeConsumer, NotifyConsumer, DlqConsumer — set al inicio, clear en finally
+- MDC en OutboxPoller: set por iteración de tenant, clear tras cada tenant
+- Formato de log actualizado: `tenant=%X{tenant} doc=%X{documentId}` añadido al console format
+- 12 tests unitarios: 7 en MdcContextTest + 5 en MdcFilterTest
+- `PortalAuthFilter.PORTAL_SESSION_ATTR` hecho público para acceso desde MdcFilter
+
 ## [0.25.1] - 2026-04-10
 
 ### Agregado

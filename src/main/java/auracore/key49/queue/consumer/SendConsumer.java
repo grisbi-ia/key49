@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import auracore.key49.admin.metrics.DocumentMetrics;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
@@ -70,6 +71,8 @@ public class SendConsumer {
         tracker.increment("SendConsumer");
         try {
             var event = DocumentEvent.fromJson(json);
+            MdcContext.setTenant(event.tenantSchemaName());
+            MdcContext.setDocument(event.documentId());
             log.infof("SendConsumer: processing documentId=%s, tenant=%s",
                     event.documentId(), event.tenantSchemaName());
 
@@ -126,6 +129,7 @@ public class SendConsumer {
                         "SendConsumer", ex);
             }
         } finally {
+            MdcContext.clear();
             tracker.decrement("SendConsumer");
         }
     }
