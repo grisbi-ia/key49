@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.23.0] - 2026-04-10
+
+### Agregado
+
+- **PgBouncer como connection pooler** (T-069): configuración de PgBouncer en modo `transaction` para gestión eficiente de conexiones PostgreSQL con múltiples tenants
+- Archivos de configuración `docker/pgbouncer/pgbouncer.ini` y `docker/pgbouncer/userlist.txt`
+- Servicio `pgbouncer` en `docker-compose.yml` (imagen `edoburu/pgbouncer:1.23.1-p2`)
+- Servicio `postgres` des-comentado en `docker-compose.yml`
+- Sección "PgBouncer como Connection Pooler" en `DEPLOYMENT.md`
+
+### Cambiado
+
+- `TenantSchemaResolver.buildSearchPathSql()` ahora genera `SET LOCAL search_path` en lugar de `SET search_path` — compatible con PgBouncer modo `transaction` (se resetea automáticamente al finalizar la transacción)
+- Removido `new-connection-sql=SET application_name` de `application.properties` (incompatible con PgBouncer modo `transaction`)
+- Corregida sección "Gestión de Conexiones PostgreSQL por Tenant" en `ARCHITECTURE.md` — reflejaba Vert.x Reactive PgPool pero la implementación real es JDBC/Agroal/JPA
+- Tests de aislamiento de tenant actualizados para usar transacciones explícitas con `SET LOCAL`
+- Test nuevo: verifica que `SET LOCAL search_path` se resetea tras commit (compatibilidad PgBouncer)
+
 ## [0.22.3] - 2026-04-10
 
 ### Agregado

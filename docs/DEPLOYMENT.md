@@ -236,20 +236,68 @@ Key49 ejecuta con **virtual threads habilitados** (`quarkus.virtual-threads.enab
 - Los **event loops** de Vert.x manejan I/O no-bloqueante (HTTP, Redis, RabbitMQ). Su tamaño se auto-configura como `2 × cores`. No se debe sobreescribir salvo en casos excepcionales.
 - El **thread pool** (`KEY49_THREAD_POOL_MAX=50`) es un fallback para tareas que no usan virtual threads. Con virtual threads activos, su importancia es menor, pero se mantiene como límite de seguridad.
 
-**Recomendaciones de producción:**
+**Recomendaciones de producción (con PgBouncer):**
 
-| Parámetro               | Fórmula sugerida                         | Ejemplo (4 cores, 20 tenants) |
-| ----------------------- | ---------------------------------------- | ----------------------------- |
-| `KEY49_DB_POOL_MAX`     | `min(num_tenants × 2 + 10, 50)`          | `50`                          |
-| `KEY49_DB_POOL_MIN`     | `5` (suficiente para conexiones idle)    | `5`                           |
-| `KEY49_THREAD_POOL_MAX` | `50` (fallback, virtual threads dominan) | `50`                          |
-| Event loops (auto)      | `2 × cores` (no configurar)              | `8`                           |
+| Parámetro               | Sin PgBouncer                   | Con PgBouncer                  |
+| ----------------------- | ------------------------------- | ------------------------------ |
+| `KEY49_DB_POOL_MAX`     | `min(num_tenants × 2 + 10, 50)` | `20` (PgBouncer gestiona pool) |
+| `KEY49_DB_POOL_MIN`     | `5`                             | `2`                            |
+| `KEY49_THREAD_POOL_MAX` | `50`                            | `50`                           |
+| Event loops (auto)      | `2 × cores`                     | `2 × cores`                    |
 
 **Métricas a monitorear:**
 
 - `agroal.active.count` — conexiones activas en el pool
 - `agroal.awaiting.count` — requests esperando conexión (alerta si > 0 sostenido)
 - `agroal.max.used.count` — pico de conexiones usadas (ajustar `max-size` si se acerca al tope)
+
+### PgBouncer como Connection Pooler
+
+En producción con múltiples tenants, se recomienda colocar **PgBouncer** entre Key49 y PostgreSQL. PgBouncer gestiona un pool de conexiones al servidor PostgreSQL y multiplexa las peticiones de los clientes (Agroal), reduciendo la cantidad de conexiones reales al servidor.
+
+**Modo `transaction`:**
+
+PgBouncer opera en modo `transaction` — la conexión al servidor se asigna solo durante la duración de una transacción. Al finalizar la transacción, la conexión regresa al pool del servidor y puede ser reutilizada por otro cliente. Este modo es compatible con la multi-tenancy de Key49 porque se usa `SET LOCAL search_path` (se resetea automáticamente al terminar cada transacción).
+
+**Configuración del docker-compose:**
+
+```yaml
+pgbouncer:
+  image: edoburu/pgbouncer:1.23.1-p2
+  depends_on:
+    postgres:
+      condition: service_healthy
+  ports:
+    - "6432:6432"
+  volumes:
+    - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+    - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+```
+
+**Parámetros de PgBouncer (`docker/pgbouncer/pgbouncer.ini`):**
+
+| Parámetro             | Valor         | Descripción                                         |
+| --------------------- | ------------- | --------------------------------------------------- |
+| `pool_mode`           | `transaction` | Conexión asignada por transacción, no por sesión    |
+| `max_client_conn`     | `200`         | Conexiones máximas de clientes (Agroal → PgBouncer) |
+| `default_pool_size`   | `25`          | Conexiones al servidor PostgreSQL por base de datos |
+| `reserve_pool_size`   | `5`           | Conexiones adicionales en caso de picos             |
+| `server_idle_timeout` | `300`         | Cierra conexiones idle al servidor tras 5 minutos   |
+| `server_lifetime`     | `3600`        | Vida máxima de una conexión al servidor (1 hora)    |
+
+**Conexión desde Key49:**
+
+En producción, apuntar la URL JDBC a PgBouncer (puerto 6432) en lugar de PostgreSQL directo:
+
+```bash
+KEY49_DB_JDBC_URL=jdbc:postgresql://pgbouncer:6432/key49
+```
+
+**Compatibilidad con `SET LOCAL search_path`:**
+
+Key49 usa `SET LOCAL search_path TO 'tenant_xxx', public` dentro de cada `@Transactional`. `SET LOCAL` tiene scope de transacción y se resetea automáticamente al hacer commit/rollback. Esto garantiza que cuando PgBouncer devuelve la conexión al pool, el `search_path` vuelve al default — sin riesgo de que un tenant vea datos de otro.
+
+**Nota sobre `SET application_name`:** Se removió `new-connection-sql=SET application_name` de la configuración de Agroal ya que es un comando de nivel sesión incompatible con PgBouncer en modo `transaction`. PgBouncer añade `ignore_startup_parameters=application_name` para manejar esto.
 
 ### Prefetch de Consumers RabbitMQ
 

@@ -2,6 +2,8 @@
 # Uso: docker compose up -d
 
 services:
+  # ── PostgreSQL (comentado: se usa instalación local en puerto 5433) ──
+  # En PRODUCCIÓN: des-comentar este servicio o apuntar a un PostgreSQL gestionado.
   # postgres:
   #   image: postgres:16-alpine
   #   container_name: key49-postgres
@@ -18,6 +20,29 @@ services:
   #     interval: 5s
   #     timeout: 3s
   #     retries: 5
+
+  # ── PgBouncer: connection pooler en modo transaction ──
+  # En desarrollo apunta al PostgreSQL local del host (host.docker.internal:5433).
+  # En PRODUCCIÓN: cambiar pgbouncer.ini para apuntar al host de PostgreSQL real
+  # y des-comentar depends_on si PostgreSQL corre como servicio Docker.
+  pgbouncer:
+    image: edoburu/pgbouncer:1.23.1-p2
+    container_name: key49-pgbouncer
+    # depends_on:          # Des-comentar en producción si PostgreSQL es servicio Docker
+    #   postgres:
+    #     condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "psql -h 127.0.0.1 -p 6432 -U postgres -d key49 -c 'SELECT 1' > /dev/null 2>&1 || pg_isready -h 127.0.0.1 -p 6432"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -68,7 +93,7 @@ services:
       retries: 5
 
 volumes:
-  # key49-pgdata:
+  # key49-pgdata:    # Des-comentar si se usa PostgreSQL como servicio Docker
   key49-rabbitmq:
   # key49-redis:
   key49-minio:

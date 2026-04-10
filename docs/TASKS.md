@@ -607,7 +607,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 14: Base de Datos para Escala Multi-Tenant (Semana 4-5)
 
-- [ ] **T-069** Evaluar e implementar PgBouncer como connection pooler
+- [x] **T-069** Evaluar e implementar PgBouncer como connection pooler
   - Con N tenants, cada uno usando `SET search_path`, el pool de Agroal puede no ser suficiente
   - Desplegar PgBouncer en modo `transaction` delante de PostgreSQL
   - Configurar: `max_client_conn=200`, `default_pool_size=25`, `reserve_pool_size=5`

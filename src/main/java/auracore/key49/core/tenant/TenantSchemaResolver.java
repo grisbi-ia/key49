@@ -3,8 +3,8 @@ package auracore.key49.core.tenant;
 import java.util.regex.Pattern;
 
 /**
- * Valida y resuelve nombres de esquema de tenant para PostgreSQL.
- * Previene SQL injection validando contra un patrón seguro de caracteres.
+ * Valida y resuelve nombres de esquema de tenant para PostgreSQL. Previene SQL
+ * injection validando contra un patrón seguro de caracteres.
  */
 public final class TenantSchemaResolver {
 
@@ -33,15 +33,18 @@ public final class TenantSchemaResolver {
     }
 
     /**
-     * Construye el comando SQL SET search_path para un esquema de tenant.
-     * Valida el nombre antes de construir el SQL.
+     * Construye el comando SQL SET LOCAL search_path para un esquema de tenant.
+     * Usa SET LOCAL para que el search_path se resetee automáticamente al
+     * finalizar la transacción, lo cual es requerido para compatibilidad con
+     * PgBouncer en modo transaction (la conexión se reutiliza entre
+     * transacciones).
      *
      * @param schemaName nombre del esquema del tenant (ej: "tenant_abc123")
-     * @return SQL command "SET search_path TO 'tenant_abc123', public"
+     * @return SQL command "SET LOCAL search_path TO 'tenant_abc123', public"
      * @throws IllegalArgumentException si el nombre es inválido
      */
     public static String buildSearchPathSql(String schemaName) {
         validate(schemaName);
-        return "SET search_path TO '" + schemaName + "', public";
+        return "SET LOCAL search_path TO '" + schemaName + "', public";
     }
 }

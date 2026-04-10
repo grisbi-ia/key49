@@ -11,11 +11,11 @@ class TenantSchemaResolverTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "tenant_abc123",
-            "tenant_a1b2c3",
-            "public",
-            "tenant_000",
-            "a_b_c"
+        "tenant_abc123",
+        "tenant_a1b2c3",
+        "public",
+        "tenant_000",
+        "a_b_c"
     })
     void shouldAcceptValidSchemaNames(String schemaName) {
         assertDoesNotThrow(() -> TenantSchemaResolver.validate(schemaName));
@@ -23,15 +23,15 @@ class TenantSchemaResolverTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "tenant-abc",          // hyphen not allowed
-            "TENANT_ABC",          // uppercase not allowed
-            "tenant abc",          // spaces not allowed
-            "tenant;DROP TABLE",   // SQL injection
-            "tenant'--",           // SQL injection
-            "tenant\"abc",         // quotes
-            "tenant.abc",          // dots
-            "tenant/abc",          // slashes
-            "../../../etc/passwd"  // path traversal
+        "tenant-abc", // hyphen not allowed
+        "TENANT_ABC", // uppercase not allowed
+        "tenant abc", // spaces not allowed
+        "tenant;DROP TABLE", // SQL injection
+        "tenant'--", // SQL injection
+        "tenant\"abc", // quotes
+        "tenant.abc", // dots
+        "tenant/abc", // slashes
+        "../../../etc/passwd" // path traversal
     })
     void shouldRejectInvalidSchemaNames(String schemaName) {
         assertThrows(IllegalArgumentException.class,
@@ -68,7 +68,7 @@ class TenantSchemaResolverTest {
     @Test
     void shouldBuildCorrectSearchPathSql() {
         var sql = TenantSchemaResolver.buildSearchPathSql("tenant_abc123");
-        assertEquals("SET search_path TO 'tenant_abc123', public", sql);
+        assertEquals("SET LOCAL search_path TO 'tenant_abc123', public", sql);
     }
 
     @Test

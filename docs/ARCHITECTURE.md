@@ -545,29 +545,33 @@ X-Trace-Id: 4bf92f3577b347...   # OpenTelemetry trace ID
 
 ## Gestión de Conexiones PostgreSQL por Tenant
 
-### Comportamiento con Reactive PgPool
+### Comportamiento con JDBC/Agroal y PgBouncer
 
-Quarkus usa Vert.x Reactive PgPool con un **pool único de conexiones**. El `SET search_path` se ejecuta al inicio de cada operación reactiva y aplica solo a esa conexión durante la transacción.
+Key49 usa JDBC con Agroal como pool de conexiones del lado de la aplicación. En producción, PgBouncer se coloca entre Agroal y PostgreSQL en modo `transaction` para gestionar el pool del lado del servidor.
+
+El `SET LOCAL search_path` se ejecuta al inicio de cada transacción dentro de `TenantConnectionManager` y aplica solo durante esa transacción. Al hacer commit/rollback, el `search_path` se resetea automáticamente — esto es esencial para la compatibilidad con PgBouncer en modo `transaction`.
 
 ### Garantía de aislamiento
 
 ```java
-// En TenantConnectionFilter (ejecutado por el filtro de autenticación)
-public Uni<Void> setTenantSchema(String schemaName) {
-    return pool.query("SET search_path TO '" + schemaName + "', public")
-        .execute()
-        .replaceWithVoid();
+// En TenantConnectionManager (CDI @ApplicationScoped)
+@Transactional
+public <T> T withTenantSession(String schemaName, Function<EntityManager, T> work) {
+    var sql = TenantSchemaResolver.buildSearchPathSql(schemaName);
+    // → "SET LOCAL search_path TO 'tenant_xxx', public"
+    em.createNativeQuery(sql).executeUpdate();
+    return work.apply(em);
 }
 ```
 
-**IMPORTANTE**: Usar queries parametrizadas o validar `schemaName` contra `[a-z0-9_]+` para prevenir SQL injection. El `schemaName` proviene de `public.tenants.schema_name` (fuente confiable), pero se valida por defensa en profundidad.
+**IMPORTANTE**: `TenantSchemaResolver.validate()` verifica que `schemaName` cumple `[a-z0-9_]+` (máximo 63 caracteres) para prevenir SQL injection. El `schemaName` proviene de `public.tenants.schema_name` (fuente confiable), pero se valida por defensa en profundidad.
 
 ### Consideraciones
 
-- El pool es global (no se crea un pool por tenant), lo cual es eficiente.
-- `SET search_path` es una operación ligera (~0.1ms).
-- Con Vert.x, cada request obtiene una conexión del pool, ejecuta operaciones, y la devuelve. No hay riesgo de que dos requests compartan la misma conexión simultáneamente.
-- Pool size recomendado: `max(numero_cores * 2, 10)` para inicio. Ajustar según carga.
+- El pool de Agroal es global (no se crea un pool por tenant), lo cual es eficiente.
+- `SET LOCAL search_path` es una operación ligera (~0.1ms) y se resetea automáticamente al finalizar la transacción.
+- Con PgBouncer en modo `transaction`, cada transacción obtiene una conexión del pool del servidor, ejecuta operaciones, y la devuelve. El `SET LOCAL` garantiza que el `search_path` no se filtra entre transacciones.
+- Pool size de Agroal con PgBouncer: `KEY49_DB_POOL_MAX=20` (PgBouncer gestiona las conexiones reales). Sin PgBouncer: `min(num_tenants × 2 + 10, 50)`.
 
 ## Sesión del Portal Web
 
