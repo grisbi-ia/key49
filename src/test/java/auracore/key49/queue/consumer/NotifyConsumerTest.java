@@ -85,6 +85,9 @@ class NotifyConsumerTest {
     @Mock
     EntityManager em;
 
+    @Mock
+    InFlightTracker tracker;
+
     @InjectMocks
     NotifyConsumer notifyConsumer;
 

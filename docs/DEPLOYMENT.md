@@ -15,7 +15,8 @@ Guía paso a paso para desplegar Key49 desde cero en un ambiente de pruebas.
 7. [Generar una API Key](#generar-una-api-key)
 8. [Arrancar la aplicación](#arrancar-la-aplicación)
 9. [Verificar el despliegue](#verificar-el-despliegue)
-10. [Troubleshooting](#troubleshooting)
+10. [Despliegue sin pérdida de mensajes](#despliegue-sin-pérdida-de-mensajes)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -679,6 +680,83 @@ Abrir `http://localhost:8080/portal/login` en el navegador e ingresar la API key
 curl -s http://localhost:8080/v1/metrics/summary \
   -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
 ```
+
+---
+
+## Despliegue sin pérdida de mensajes
+
+Key49 implementa graceful shutdown para garantizar que no se pierden mensajes durante un redeploy.
+
+### Configuración
+
+```properties
+# Tiempo máximo que Quarkus espera para que los consumers terminen antes de forzar el shutdown
+quarkus.shutdown.timeout=30s
+```
+
+### Comportamiento al apagar
+
+1. **Quarkus recibe SIGTERM** (o `shutdown` command)
+2. **Se detiene la aceptación de nuevos mensajes** — los consumers dejan de recibir de RabbitMQ
+3. **Los mensajes en vuelo continúan procesándose** — hasta completar o agotar el timeout
+4. **`GracefulShutdownObserver` registra el estado** — reporta cuántos mensajes están en vuelo por consumer
+5. **Al expirar el timeout** — si quedan mensajes sin procesar, RabbitMQ los re-encola automáticamente (`basic.nack` con requeue)
+
+### Logs durante shutdown
+
+```
+INFO  Graceful shutdown initiated — timeout=30s, in-flight messages=3
+INFO    Consumer 'SendConsumer': 2 message(s) in flight
+INFO    Consumer 'SignConsumer': 1 message(s) in flight
+WARN  3 message(s) still in flight — Quarkus will wait up to 30s before forcing shutdown. Non-acked messages will be requeued by RabbitMQ.
+```
+
+Si no hay mensajes en vuelo:
+
+```
+INFO  Graceful shutdown initiated — timeout=30s, in-flight messages=0
+INFO  No in-flight messages — clean shutdown
+```
+
+### Procedimiento de deploy recomendado
+
+```bash
+# 1. Verificar el estado de las colas antes del deploy
+#    (Management UI: http://localhost:15672 o API)
+curl -s -u guest:guest http://localhost:15672/api/queues/%2F/key49.sign | jq '.messages'
+
+# 2. Esperar a que las colas se vacíen (opcional, reduce riesgo)
+#    Monitorear que messages ≈ 0 en las colas activas
+
+# 3. Enviar SIGTERM a la aplicación (inicia graceful shutdown)
+kill -SIGTERM $(pgrep -f "key49")
+# o en Docker:
+docker stop --time=35 key49
+
+# 4. Esperar a que la aplicación se detenga (máx 30s + margen)
+#    Verificar en logs: "Graceful shutdown initiated"
+#    Verificar en logs: "No in-flight messages — clean shutdown"
+
+# 5. Desplegar la nueva versión
+java -jar target/quarkus-app/quarkus-run.jar
+# o en Docker:
+docker run -d --name key49 ...
+
+# 6. Verificar health checks
+curl -s http://localhost:8080/q/health | jq .
+```
+
+### Garantías de RabbitMQ
+
+- **Prefetched messages**: los mensajes que RabbitMQ ya entregó al consumer pero que no fueron `ack`-eados se re-encolan automáticamente al cerrar la conexión
+- **Durabilidad**: las colas `key49.*` son durables — los mensajes persisten en disco
+- **Redelivery**: RabbitMQ marca los mensajes re-encolados con `redelivered=true`
+
+### Notas para Docker / Kubernetes
+
+- Configurar `terminationGracePeriodSeconds >= 35` en Kubernetes (5s de margen sobre el timeout de 30s)
+- En Docker: usar `docker stop --time=35` para dar suficiente tiempo al graceful shutdown
+- La señal `SIGTERM` es la que inicia el shutdown — no usar `SIGKILL` (`docker kill`)
 
 ---
 

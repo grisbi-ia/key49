@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.22.2] - 2026-04-10
+
+### Agregado
+
+- **Graceful shutdown con drenaje de consumers** (T-067): `GracefulShutdownObserver` observa `ShutdownEvent` y reporta mensajes en vuelo por consumer antes del apagado
+- `InFlightTracker`: rastrea mensajes in-flight por consumer (`SignConsumer`, `SendConsumer`, `AuthorizeConsumer`, `NotifyConsumer`, `DlqConsumer`)
+- Los 5 consumers ahora registran inicio/fin de procesamiento en `InFlightTracker` vía try-finally
+- Sección "Despliegue sin pérdida de mensajes" en `DEPLOYMENT.md` con procedimiento paso a paso
+
+### Verificado
+
+- `quarkus.shutdown.timeout=30s` permite que consumers en vuelo terminen antes del shutdown
+- RabbitMQ re-encola automáticamente mensajes no-acked al cerrar la conexión (`basic.nack` con requeue)
+
 ## [0.22.1] - 2026-04-10
 
 ### Agregado

@@ -56,61 +56,69 @@ public class AuthorizeConsumer {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    InFlightTracker tracker;
+
     @Incoming("doc-authorize-in")
     @Blocking
     @ActivateRequestContext
     public void process(JsonObject json) {
-        var event = DocumentEvent.fromJson(json);
-        log.infof("AuthorizeConsumer: processing documentId=%s, tenant=%s",
-                event.documentId(), event.tenantSchemaName());
-
+        tracker.increment("AuthorizeConsumer");
         try {
-            var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
-            if (tenant == null) {
-                log.errorf("AuthorizeConsumer: tenant not found: %s", event.tenantSchemaName());
-                return;
-            }
-            var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
+            var event = DocumentEvent.fromJson(json);
+            log.infof("AuthorizeConsumer: processing documentId=%s, tenant=%s",
+                    event.documentId(), event.tenantSchemaName());
 
-            // Read document data (read-only, outside SOAP transaction)
-            var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
-                var doc = em.find(Document.class, event.documentId());
-                return doc != null
-                        ? new AuthInput(doc.id, doc.accessKey, doc.status)
-                        : null;
-            });
-
-            if (input == null) {
-                log.warnf("AuthorizeConsumer: document not found: %s", event.documentId());
-                return;
-            }
-            if (!input.status.canTransitionTo(DocumentStatus.AUTHORIZED)) {
-                log.warnf("AuthorizeConsumer: skip document %s in state %s",
-                        input.id, input.status);
-                return;
-            }
-            if (input.accessKey == null || input.accessKey.isBlank()) {
-                log.errorf("AuthorizeConsumer: no access key for document %s", input.id);
-                return;
-            }
-
-            // SOAP call (blocking, outside transaction)
             try {
-                var response = sriAuthorizationClient.authorize(input.accessKey, sriEnv);
-                handleResponse(event, response);
-            } catch (CircuitBreakerOpenException ex) {
-                handleInfraError(event,
-                        new SriException("SRI circuit breaker open, fail-fast", ex));
-            } catch (TimeoutException ex) {
-                handleInfraError(event,
-                        new SriException("SRI authorization timeout exceeded", ex));
-            } catch (SriException ex) {
-                handleInfraError(event, ex);
-            }
+                var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
+                if (tenant == null) {
+                    log.errorf("AuthorizeConsumer: tenant not found: %s", event.tenantSchemaName());
+                    return;
+                }
+                var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
-        } catch (Exception ex) {
-            errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
-                    "AuthorizeConsumer", ex);
+                // Read document data (read-only, outside SOAP transaction)
+                var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
+                    var doc = em.find(Document.class, event.documentId());
+                    return doc != null
+                            ? new AuthInput(doc.id, doc.accessKey, doc.status)
+                            : null;
+                });
+
+                if (input == null) {
+                    log.warnf("AuthorizeConsumer: document not found: %s", event.documentId());
+                    return;
+                }
+                if (!input.status.canTransitionTo(DocumentStatus.AUTHORIZED)) {
+                    log.warnf("AuthorizeConsumer: skip document %s in state %s",
+                            input.id, input.status);
+                    return;
+                }
+                if (input.accessKey == null || input.accessKey.isBlank()) {
+                    log.errorf("AuthorizeConsumer: no access key for document %s", input.id);
+                    return;
+                }
+
+                // SOAP call (blocking, outside transaction)
+                try {
+                    var response = sriAuthorizationClient.authorize(input.accessKey, sriEnv);
+                    handleResponse(event, response);
+                } catch (CircuitBreakerOpenException ex) {
+                    handleInfraError(event,
+                            new SriException("SRI circuit breaker open, fail-fast", ex));
+                } catch (TimeoutException ex) {
+                    handleInfraError(event,
+                            new SriException("SRI authorization timeout exceeded", ex));
+                } catch (SriException ex) {
+                    handleInfraError(event, ex);
+                }
+
+            } catch (Exception ex) {
+                errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "AuthorizeConsumer", ex);
+            }
+        } finally {
+            tracker.decrement("AuthorizeConsumer");
         }
     }
 

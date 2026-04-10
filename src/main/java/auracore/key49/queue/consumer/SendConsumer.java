@@ -56,62 +56,70 @@ public class SendConsumer {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    InFlightTracker tracker;
+
     @Incoming("doc-send-in")
     @Blocking
     @ActivateRequestContext
     public void process(JsonObject json) {
-        var event = DocumentEvent.fromJson(json);
-        log.infof("SendConsumer: processing documentId=%s, tenant=%s",
-                event.documentId(), event.tenantSchemaName());
-
+        tracker.increment("SendConsumer");
         try {
-            var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
-            if (tenant == null) {
-                log.errorf("SendConsumer: tenant not found: %s", event.tenantSchemaName());
-                return;
-            }
-            var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
+            var event = DocumentEvent.fromJson(json);
+            log.infof("SendConsumer: processing documentId=%s, tenant=%s",
+                    event.documentId(), event.tenantSchemaName());
 
-            // Read document data (read-only, outside SOAP transaction)
-            var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
-                var doc = em.find(Document.class, event.documentId());
-                return doc != null
-                        ? new SendInput(doc.id, doc.originalXml, doc.status)
-                        : null;
-            });
-
-            if (input == null) {
-                log.warnf("SendConsumer: document not found: %s", event.documentId());
-                return;
-            }
-            if (!input.status.canTransitionTo(DocumentStatus.SENT)) {
-                log.warnf("SendConsumer: skip document %s in state %s",
-                        input.id, input.status);
-                return;
-            }
-            if (input.signedXml == null || input.signedXml.isBlank()) {
-                log.errorf("SendConsumer: no signed XML for document %s", input.id);
-                markFailed(event, "No signed XML available");
-                return;
-            }
-
-            // SOAP call (blocking, outside transaction)
             try {
-                var response = sriReceptionClient.send(input.signedXml, sriEnv);
-                handleResponse(event, response);
-            } catch (CircuitBreakerOpenException ex) {
-                handleInfraError(event,
-                        new SriException("SRI circuit breaker open, fail-fast", ex));
-            } catch (TimeoutException ex) {
-                handleInfraError(event,
-                        new SriException("SRI reception timeout exceeded", ex));
-            } catch (SriException ex) {
-                handleInfraError(event, ex);
-            }
+                var tenant = tenantCacheService.findBySchemaName(event.tenantSchemaName());
+                if (tenant == null) {
+                    log.errorf("SendConsumer: tenant not found: %s", event.tenantSchemaName());
+                    return;
+                }
+                var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
-        } catch (Exception ex) {
-            errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
-                    "SendConsumer", ex);
+                // Read document data (read-only, outside SOAP transaction)
+                var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
+                    var doc = em.find(Document.class, event.documentId());
+                    return doc != null
+                            ? new SendInput(doc.id, doc.originalXml, doc.status)
+                            : null;
+                });
+
+                if (input == null) {
+                    log.warnf("SendConsumer: document not found: %s", event.documentId());
+                    return;
+                }
+                if (!input.status.canTransitionTo(DocumentStatus.SENT)) {
+                    log.warnf("SendConsumer: skip document %s in state %s",
+                            input.id, input.status);
+                    return;
+                }
+                if (input.signedXml == null || input.signedXml.isBlank()) {
+                    log.errorf("SendConsumer: no signed XML for document %s", input.id);
+                    markFailed(event, "No signed XML available");
+                    return;
+                }
+
+                // SOAP call (blocking, outside transaction)
+                try {
+                    var response = sriReceptionClient.send(input.signedXml, sriEnv);
+                    handleResponse(event, response);
+                } catch (CircuitBreakerOpenException ex) {
+                    handleInfraError(event,
+                            new SriException("SRI circuit breaker open, fail-fast", ex));
+                } catch (TimeoutException ex) {
+                    handleInfraError(event,
+                            new SriException("SRI reception timeout exceeded", ex));
+                } catch (SriException ex) {
+                    handleInfraError(event, ex);
+                }
+
+            } catch (Exception ex) {
+                errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "SendConsumer", ex);
+            }
+        } finally {
+            tracker.decrement("SendConsumer");
         }
     }
 

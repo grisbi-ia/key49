@@ -78,33 +78,41 @@ public class SignConsumer {
     @Inject
     CertificateCacheService certificateCacheService;
 
+    @Inject
+    InFlightTracker tracker;
+
     @Incoming("doc-sign-in")
     @Blocking
     @ActivateRequestContext
     public void process(JsonObject json) {
-        var event = DocumentEvent.fromJson(json);
-        log.infof("SignConsumer: processing documentId=%s, tenant=%s",
-                event.documentId(), event.tenantSchemaName());
-
+        tracker.increment("SignConsumer");
         try {
-            var tenant = tenantRepository.findBySchemaName(event.tenantSchemaName());
-            if (tenant == null) {
-                log.errorf("SignConsumer: tenant not found: %s", event.tenantSchemaName());
-                return;
-            }
+            var event = DocumentEvent.fromJson(json);
+            log.infof("SignConsumer: processing documentId=%s, tenant=%s",
+                    event.documentId(), event.tenantSchemaName());
 
-            connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
-                var doc = em.find(Document.class, event.documentId());
-                if (doc == null) {
-                    log.warnf("SignConsumer: document not found: %s", event.documentId());
-                    return null;
+            try {
+                var tenant = tenantRepository.findBySchemaName(event.tenantSchemaName());
+                if (tenant == null) {
+                    log.errorf("SignConsumer: tenant not found: %s", event.tenantSchemaName());
+                    return;
                 }
-                signDocument(doc, tenant, em);
-                return null;
-            });
-        } catch (Exception ex) {
-            errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
-                    "SignConsumer", ex);
+
+                connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                    var doc = em.find(Document.class, event.documentId());
+                    if (doc == null) {
+                        log.warnf("SignConsumer: document not found: %s", event.documentId());
+                        return null;
+                    }
+                    signDocument(doc, tenant, em);
+                    return null;
+                });
+            } catch (Exception ex) {
+                errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
+                        "SignConsumer", ex);
+            }
+        } finally {
+            tracker.decrement("SignConsumer");
         }
     }
 

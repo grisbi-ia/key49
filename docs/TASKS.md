@@ -590,7 +590,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Beneficio: si MinIO cae, los consumers fallan rápido y van a retry, sin bloquear threads
   - Test: simular timeout de MinIO, verificar que el consumer falla y reintenta
 
-- [ ] **T-067** Graceful shutdown con drenaje de consumers
+- [x] **T-067** Graceful shutdown con drenaje de consumers
   - Verificar que `quarkus.shutdown.timeout=30s` permite que consumers en vuelo terminen
   - Implementar hook `@Observes ShutdownEvent` que loguee consumers activos
   - Verificar que mensajes no-acked vuelven a la cola tras shutdown (RabbitMQ basic.nack con requeue)
