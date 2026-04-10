@@ -661,7 +661,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Migración `V003__add_granular_rate_limits.sql`
   - Tests: `EndpointCategoryTest`, `GranularRateLimitTest`, actualizado `RateLimitEndToEndTest`
 
-- [ ] **T-075** Audit log de operaciones sensitivas
+- [x] **T-075** Audit log de operaciones sensitivas
   - Registrar en tabla `public.audit_log`:
     - Login/logout del portal
     - Creación/revocación de API keys

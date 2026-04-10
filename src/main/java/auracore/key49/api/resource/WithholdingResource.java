@@ -7,6 +7,8 @@ import auracore.key49.api.dto.PagedResponse;
 import auracore.key49.api.dto.VoidRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.service.WithholdingService;
+import auracore.key49.core.service.AuditService;
+import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.storage.ObjectStorageService;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
@@ -45,8 +47,16 @@ public class WithholdingResource {
     @Inject
     ObjectStorageService storageService;
 
+    @Inject
+    AuditService auditService;
+
+    @Inject
+    TenantContext tenantContext;
+
     /**
-     * POST /v1/withholdings — Crear y enviar un comprobante de retención al SRI.
+     * POST /v1/withholdings — Crear y enviar un comprobante de retención al
+     *
+     * SRI.
      */
     @POST
     public Response create(
@@ -82,7 +92,9 @@ public class WithholdingResource {
     }
 
     /**
-     * GET /v1/withholdings — Listar comprobantes de retención con filtros y paginación.
+     * GET /v1/withholdings — Listar comprobantes de retención con f
+     *iltros y
+     * paginación.
      */
     @GET
     public Response list(
@@ -167,13 +179,30 @@ public class WithholdingResource {
     }
 
     /**
-     * POST /v1/withholdings/:id/void — Anular comprobante de retención localmente.
+     * POST /v1/withholdings/:id/void — Anular comprobante de 
+     *retención
+    /**
+     * POST /v1/withholdings/:id/void — Anular comprobante de 
+     *retención
+    /**
+     * POST /v1/withholdings/:id/void — Anular comprobante de 
+     *retención
+     * localmente.
      */
     @POST
     @Path("/{id}/void")
-    public Response voidWithholding(@PathParam("id") UUID id, VoidRequest request) {
+    public Response voidWithholding(@PathParam("id") UUID id, VoidRequest request,
+            @Context HttpServerRequest httpRequest) {
         String requestId = generateRequestId();
         var doc = withholdingService.voidWithholding(id, request != null ? request.reason() : null);
+
+        auditService.record(tenantContext.getTenantId(), tenantContext.getApiKeyPrefix(),
+                "document.voided", "document", doc.id,
+                AuditService.resolveIp(httpRequest),
+                """
+                {"reason":"%s"}""".formatted(
+                        doc.voidReason != null ? doc.voidReason.replace("\"", "\\\"") : ""));
+
         var data = new java.util.LinkedHashMap<String, Object>();
         data.put("id", doc.id);
         data.put("status", doc.status.name());

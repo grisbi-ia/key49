@@ -16,11 +16,13 @@ import auracore.key49.api.dto.CreateTenantRequest;
 import auracore.key49.api.dto.PagedResponse;
 import auracore.key49.api.dto.TenantResponse;
 import auracore.key49.api.dto.UpdateTenantRequest;
+import auracore.key49.core.service.AuditService;
 import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -31,6 +33,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -52,6 +55,9 @@ public class TenantAdminResource {
     @Inject
     TenantAdminService tenantService;
 
+    @Inject
+    AuditService auditService;
+
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
 
@@ -59,7 +65,8 @@ public class TenantAdminResource {
      * POST /v1/admin/tenants — Registrar un nuevo tenant.
      */
     @POST
-    public Response create(CreateTenantRequest request) {
+    public Response create(CreateTenantRequest request,
+            @Context HttpServerRequest httpRequest) {
         String requestId = generateRequestId();
 
         var data = new CreateTenantData(
@@ -70,6 +77,12 @@ public class TenantAdminResource {
                 request.schemaName());
 
         var tenant = tenantService.create(data);
+
+        auditService.record(tenant.id, "admin", "tenant.created", "tenant",
+                tenant.id, AuditService.resolveIp(httpRequest),
+                """
+                {"ruc":"%s","schema":"%s"}""".formatted(tenant.ruc, tenant.schemaName));
+
         var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
         return Response.status(Response.Status.CREATED)
                 .header("X-Request-Id", requestId)
@@ -120,7 +133,8 @@ public class TenantAdminResource {
      */
     @PUT
     @Path("/{id}")
-    public Response update(@PathParam("id") UUID id, UpdateTenantRequest request) {
+    public Response update(@PathParam("id") UUID id, UpdateTenantRequest request,
+            @Context HttpServerRequest httpRequest) {
         String requestId = generateRequestId();
 
         var data = new UpdateTenantData(
@@ -133,6 +147,10 @@ public class TenantAdminResource {
                 request.replyEmail(), request.status());
 
         var tenant = tenantService.update(id, data);
+
+        auditService.record(id, "admin", "tenant.updated", "tenant",
+                id, AuditService.resolveIp(httpRequest), null);
+
         var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)
@@ -149,7 +167,8 @@ public class TenantAdminResource {
     public Response uploadCertificate(
             @PathParam("id") UUID id,
             @RestForm("certificate") FileUpload certificate,
-            @RestForm("password") String password) {
+            @RestForm("password") String password,
+            @Context HttpServerRequest httpRequest) {
 
         String requestId = generateRequestId();
 
@@ -196,6 +215,13 @@ public class TenantAdminResource {
         var tenant = tenantService.uploadCertificate(
                 id, encryptedP12, encryptedPassword,
                 metadata.subject(), metadata.expiresAt(), metadata.serial());
+
+        auditService.record(id, "admin", "certificate.uploaded", "certificate",
+                id, AuditService.resolveIp(httpRequest),
+                """
+                {"subject":"%s","expires_at":"%s"}""".formatted(
+                        metadata.subject(), metadata.expiresAt()));
+
         var certResponse = new CertificateStatusResponse(
                 metadata.subject(), metadata.serial(),
                 metadata.expiresAt(), metadata.issuer(),

@@ -10,7 +10,9 @@ import auracore.key49.api.dto.CreateApiKeyRequest;
 import auracore.key49.core.service.ApiKeyManagementService;
 import auracore.key49.core.service.ApiKeyManagementService.ApiKeyException;
 import auracore.key49.core.service.ApiKeyManagementService.CreateApiKeyData;
+import auracore.key49.core.service.AuditService;
 import auracore.key49.core.tenant.TenantContext;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -19,6 +21,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -42,8 +45,12 @@ public class ApiKeyResource {
     @Inject
     TenantContext tenantContext;
 
+    @Inject
+    AuditService auditService;
+
     @POST
-    public Response create(CreateApiKeyRequest request) {
+    public Response create(CreateApiKeyRequest request,
+            @Context HttpServerRequest httpRequest) {
         var requestId = generateRequestId();
         var tenantId = requireTenantId();
 
@@ -52,6 +59,14 @@ public class ApiKeyResource {
                 request.permissions(), request.expiresAt());
 
         var created = apiKeyService.create(tenantId, data);
+
+        auditService.record(tenantId, tenantContext.getApiKeyPrefix(),
+                "api_key.created", "api_key", created.apiKey().id,
+                AuditService.resolveIp(httpRequest),
+                """
+                {"name":"%s","prefix":"%s"}""".formatted(
+                        created.apiKey().name, created.apiKey().keyPrefix));
+
         var body = ApiResponse.of(
                 ApiKeyResponse.fromCreated(created.apiKey(), created.rawKey()),
                 requestId);
@@ -93,11 +108,19 @@ public class ApiKeyResource {
 
     @DELETE
     @Path("/{id}")
-    public Response revoke(@PathParam("id") UUID id) {
+    public Response revoke(@PathParam("id") UUID id,
+            @Context HttpServerRequest httpRequest) {
         var requestId = generateRequestId();
         var tenantId = requireTenantId();
 
         var key = apiKeyService.revoke(tenantId, id);
+
+        auditService.record(tenantId, tenantContext.getApiKeyPrefix(),
+                "api_key.revoked", "api_key", key.id,
+                AuditService.resolveIp(httpRequest),
+                """
+                {"name":"%s","prefix":"%s"}""".formatted(key.name, key.keyPrefix));
+
         var body = ApiResponse.of(ApiKeyResponse.fromEntity(key), requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)

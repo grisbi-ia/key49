@@ -7,6 +7,8 @@ import auracore.key49.api.dto.PagedResponse;
 import auracore.key49.api.dto.VoidRequest;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.service.PurchaseClearanceService;
+import auracore.key49.core.service.AuditService;
+import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.storage.ObjectStorageService;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
@@ -45,8 +47,15 @@ public class PurchaseClearanceResource {
     @Inject
     ObjectStorageService storageService;
 
+    @Inject
+    AuditService auditService;
+
+    @Inject
+    TenantContext tenantContext;
+
     /**
-     * POST /v1/purchase-clearances — Crear y enviar una liquidación de compra al SRI.
+     * POST /v1/purchase-clearances — Crear y enviar una liquidación de compra
+     * al SRI.
      */
     @POST
     public Response create(
@@ -82,7 +91,8 @@ public class PurchaseClearanceResource {
     }
 
     /**
-     * GET /v1/purchase-clearances — Listar liquidaciones de compra con filtros y paginación.
+     * GET /v1/purchase-clearances — Listar liquidaciones de compra con filtros
+     * y paginación.
      */
     @GET
     public Response list(
@@ -149,7 +159,8 @@ public class PurchaseClearanceResource {
     }
 
     /**
-     * POST /v1/purchase-clearances/:id/resend-email — Reenviar email con RIDE y XML.
+     * POST /v1/purchase-clearances/:id/resend-email — Reenviar email con RIDE y
+     * XML.
      */
     @POST
     @Path("/{id}/resend-email")
@@ -167,13 +178,23 @@ public class PurchaseClearanceResource {
     }
 
     /**
-     * POST /v1/purchase-clearances/:id/void — Anular liquidación de compra localmente.
+     * POST /v1/purchase-clearances/:id/void — Anular liquidación de compra
+     * localmente.
      */
     @POST
     @Path("/{id}/void")
-    public Response voidPurchaseClearance(@PathParam("id") UUID id, VoidRequest request) {
+    public Response voidPurchaseClearance(@PathParam("id") UUID id, VoidRequest request,
+            @Context HttpServerRequest httpRequest) {
         String requestId = generateRequestId();
         var doc = purchaseClearanceService.voidPurchaseClearance(id, request != null ? request.reason() : null);
+
+        auditService.record(tenantContext.getTenantId(), tenantContext.getApiKeyPrefix(),
+                "document.voided", "document", doc.id,
+                AuditService.resolveIp(httpRequest),
+                """
+                {"reason":"%s"}""".formatted(
+                        doc.voidReason != null ? doc.voidReason.replace("\"", "\\\"") : ""));
+
         var data = new java.util.LinkedHashMap<String, Object>();
         data.put("id", doc.id);
         data.put("status", doc.status.name());

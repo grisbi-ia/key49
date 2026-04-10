@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.24.2] - 2026-04-10
+
+### Agregado
+
+- **Audit log de operaciones sensitivas** (T-075): registro centralizado en `public.audit_log` para todas las operaciones críticas
+- Tabla `public.audit_log` con campos `tenant_id`, `actor`, `action`, `resource`, `resource_id`, `ip_address`, `details` (JSONB), `created_at` — migración `V004__create_audit_log.sql`
+- Entidad `AuditLog` con `@Table(schema = "public")` — funciona independientemente del `search_path` activo del tenant
+- `AuditService.record()`: servicio centralizado `@Transactional` que registra entradas de auditoría
+- `AuditService.resolveIp()`: extrae IP del cliente desde `X-Forwarded-For` o `remoteAddress`
+- Acciones auditadas: `portal.login`, `portal.logout`, `api_key.created`, `api_key.revoked`, `tenant.created`, `tenant.updated`, `certificate.uploaded`, `document.voided`
+- Instrumentación en 12 recursos: `PortalResource`, `ApiKeyResource`, `TenantAdminResource`, `TenantProfileResource`, `InvoiceResource`, `CreditNoteResource`, `DebitNoteResource`, `WithholdingResource`, `PurchaseClearanceResource`, `WaybillResource`
+- Endpoint admin `GET /v1/admin/audit-log` con filtros: `tenant_id`, `action`, `date_from`, `date_to`, paginación
+- `AuditLogResponse` DTO y `AuditLogAdminResource` para consulta administrativa
+- Tests: `AuditServiceTest` (7 tests resolveIp), `AuditLogResponseTest` (4 tests DTO/serialización), `AuditLogAdminResourceTest` (9 tests integración con filtros y paginación)
+
 ## [0.24.1] - 2026-04-10
 
 ### Agregado

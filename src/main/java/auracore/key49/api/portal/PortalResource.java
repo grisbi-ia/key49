@@ -17,9 +17,11 @@ import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
+import auracore.key49.core.service.AuditService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.qute.Location;
+import io.vertx.core.http.HttpServerRequest;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import jakarta.inject.Inject;
@@ -71,6 +73,9 @@ public class PortalResource {
     PortalSessionService sessionService;
 
     @Inject
+    AuditService auditService;
+
+    @Inject
     TenantConnectionManager tcm;
 
     @Inject
@@ -94,12 +99,21 @@ public class PortalResource {
     @Path("/login")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public Response doLogin(@FormParam("api_key") String apiKey) {
+    public Response doLogin(@FormParam("api_key") String apiKey,
+            @Context HttpServerRequest httpRequest) {
         var sessionId = sessionService.login(apiKey);
         if (sessionId == null) {
             return Response.seeOther(URI.create("/portal/login?error=invalid"))
                     .build();
         }
+
+        var session = sessionService.validate(sessionId);
+        if (session != null) {
+            auditService.record(session.tenantId(), "portal", "portal.login",
+                    "session", session.tenantId(),
+                    AuditService.resolveIp(httpRequest), null);
+        }
+
         return Response.seeOther(URI.create("/portal/"))
                 .cookie(new NewCookie.Builder(PortalAuthFilter.SESSION_COOKIE)
                         .value(sessionId)
@@ -114,10 +128,19 @@ public class PortalResource {
     // ── Logout ──
     @GET
     @Path("/logout")
-    public Response logout() {
+    public Response logout(@Context HttpServerRequest httpRequest) {
         var cookies = requestContext.getCookies();
         var sessionCookie = cookies.get(PortalAuthFilter.SESSION_COOKIE);
         var sessionId = sessionCookie != null ? sessionCookie.getValue() : null;
+
+        if (sessionId != null) {
+            var session = sessionService.validate(sessionId);
+            if (session != null) {
+                auditService.record(session.tenantId(), "portal", "portal.logout",
+                        "session", session.tenantId(),
+                        AuditService.resolveIp(httpRequest), null);
+            }
+        }
 
         sessionService.logout(sessionId);
         return Response.seeOther(URI.create("/portal/login"))

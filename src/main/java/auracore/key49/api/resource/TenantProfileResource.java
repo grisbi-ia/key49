@@ -14,11 +14,13 @@ import auracore.key49.api.dto.ApiResponse;
 import auracore.key49.api.dto.CertificateStatusResponse;
 import auracore.key49.api.dto.TenantResponse;
 import auracore.key49.api.dto.UpdateProfileRequest;
+import auracore.key49.core.service.AuditService;
 import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
 import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -26,6 +28,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -48,6 +51,9 @@ public class TenantProfileResource {
     @Inject
     TenantContext tenantContext;
 
+    @Inject
+    AuditService auditService;
+
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
 
@@ -67,7 +73,8 @@ public class TenantProfileResource {
 
     @PUT
     @Path("/profile")
-    public Response updateProfile(UpdateProfileRequest request) {
+    public Response updateProfile(UpdateProfileRequest request,
+            @Context HttpServerRequest httpRequest) {
         var requestId = generateRequestId();
         var tenantId = requireTenantId();
 
@@ -80,6 +87,11 @@ public class TenantProfileResource {
                 request.replyEmail(), null);
 
         var tenant = tenantService.update(tenantId, data);
+
+        auditService.record(tenantId, tenantContext.getApiKeyPrefix(),
+                "tenant.updated", "tenant", tenantId,
+                AuditService.resolveIp(httpRequest), null);
+
         var body = ApiResponse.of(TenantResponse.fromEntity(tenant), requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)
@@ -92,7 +104,8 @@ public class TenantProfileResource {
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public Response uploadCertificate(
             @RestForm("certificate") FileUpload certificate,
-            @RestForm("password") String password) {
+            @RestForm("password") String password,
+            @Context HttpServerRequest httpRequest) {
 
         var requestId = generateRequestId();
         var tenantId = requireTenantId();
@@ -138,6 +151,14 @@ public class TenantProfileResource {
         var tenant = tenantService.uploadCertificate(
                 tenantId, encryptedP12, encryptedPassword,
                 metadata.subject(), metadata.expiresAt(), metadata.serial());
+
+        auditService.record(tenantId, tenantContext.getApiKeyPrefix(),
+                "certificate.uploaded", "certificate", tenantId,
+                AuditService.resolveIp(httpRequest),
+                """
+                {"subject":"%s","expires_at":"%s"}""".formatted(
+                        metadata.subject(), metadata.expiresAt()));
+
         var certResponse = new CertificateStatusResponse(
                 metadata.subject(), metadata.serial(),
                 metadata.expiresAt(), metadata.issuer(),
