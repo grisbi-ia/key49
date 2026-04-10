@@ -1,15 +1,5 @@
 package auracore.key49.notify.webhook;
 
-import auracore.key49.core.model.Document;
-import auracore.key49.core.model.WebhookDelivery;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -21,16 +11,31 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import auracore.key49.core.model.Document;
+import auracore.key49.core.model.WebhookDelivery;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
 /**
  * Dispatcher de webhooks con firma HMAC-SHA256.
  *
- * <p>Envía un HTTP POST al webhook_url del tenant con el payload del evento,
- * incluyendo la firma HMAC-SHA256 en el header {@code X-Key49-Signature}.
- * Si falla, registra el intento y calcula el siguiente reintento con backoff:
- * 10s, 60s, 300s.</p>
+ * <p>
+ * Envía un HTTP POST al webhook_url del tenant con el payload del evento,
+ * incluyendo la firma HMAC-SHA256 en el header {@code X-Key49-Signature}. Si
+ * falla, registra el intento y calcula el siguiente reintento con backoff: 10s,
+ * 60s, 300s.</p>
  *
- * <p>Este servicio es bloqueante (usa java.net.http.HttpClient síncrono).
- * Debe invocarse desde un contexto que soporte operaciones bloqueantes.</p>
+ * <p>
+ * Este servicio es bloqueante (usa java.net.http.HttpClient síncrono). Debe
+ * invocarse desde un contexto que soporte operaciones bloqueantes.</p>
  */
 @ApplicationScoped
 public class WebhookDispatcher {
@@ -57,6 +62,9 @@ public class WebhookDispatcher {
 
     @ConfigProperty(name = "key49.webhook.enabled", defaultValue = "true")
     boolean webhookEnabled;
+
+    @ConfigProperty(name = "key49.webhook.ssrf-validation", defaultValue = "true")
+    boolean ssrfValidationEnabled;
 
     /**
      * Construye el payload del webhook a partir de un documento y evento.
@@ -90,13 +98,13 @@ public class WebhookDispatcher {
     }
 
     /**
-     * Crea un registro de entrega y despacha el webhook.
-     * Retorna el WebhookDelivery con el resultado del envío.
+     * Crea un registro de entrega y despacha el webhook. Retorna el
+     * WebhookDelivery con el resultado del envío.
      *
-     * @param webhookUrl    URL del endpoint del tenant
+     * @param webhookUrl URL del endpoint del tenant
      * @param webhookSecret secret HMAC del tenant
-     * @param doc           documento origen
-     * @param eventType     tipo de evento (e.g. "document.authorized")
+     * @param doc documento origen
+     * @param eventType tipo de evento (e.g. "document.authorized")
      * @return WebhookDelivery con resultado del envío
      */
     public WebhookDelivery dispatch(String webhookUrl, String webhookSecret, Document doc, String eventType) {
@@ -116,7 +124,7 @@ public class WebhookDispatcher {
     /**
      * Reintenta enviar un webhook pendiente.
      *
-     * @param delivery      registro de entrega existente
+     * @param delivery registro de entrega existente
      * @param webhookSecret secret HMAC del tenant
      */
     public void retry(WebhookDelivery delivery, String webhookSecret) {
@@ -128,12 +136,16 @@ public class WebhookDispatcher {
      * Ejecuta el envío HTTP POST del webhook.
      */
     void send(WebhookDelivery delivery, String webhookUrl, String webhookSecret, String json) {
+        if (ssrfValidationEnabled) {
+            WebhookUrlValidator.validate(webhookUrl);
+        }
         var signature = computeSignature(json, webhookSecret);
         long startTime = System.currentTimeMillis();
 
         try {
             var client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                    .followRedirects(HttpClient.Redirect.NEVER)
                     .build();
 
             var request = HttpRequest.newBuilder()
@@ -173,7 +185,7 @@ public class WebhookDispatcher {
     /**
      * Calcula la firma HMAC-SHA256 del body con el secret del tenant.
      *
-     * @param body   payload JSON
+     * @param body payload JSON
      * @param secret clave secreta del tenant
      * @return firma hexadecimal
      */

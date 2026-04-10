@@ -1,14 +1,5 @@
 package auracore.key49.admin.health;
 
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
-import io.quarkus.scheduler.Scheduled;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
-import javax.sql.DataSource;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,6 +8,18 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+
+import javax.sql.DataSource;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import auracore.key49.notify.webhook.WebhookUrlValidator;
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
+import io.quarkus.scheduler.Scheduled;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 /**
  * Job programado que verifica certificados próximos a vencer y notifica
@@ -59,14 +62,13 @@ public class CertificateExpirationNotifier {
         log.info("Checking for expiring certificates...");
         var threshold = Instant.now().plus(WARNING_DAYS, ChronoUnit.DAYS);
 
-        try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement(
-                     "SELECT tenant_id, legal_name, ruc, reply_email, certificate_expiration, " +
-                             "webhook_url, webhook_secret " +
-                             "FROM public.tenants " +
-                             "WHERE status = 'active' AND certificate_expiration IS NOT NULL " +
-                             "AND certificate_expiration < ? " +
-                             "ORDER BY certificate_expiration ASC")) {
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement(
+                "SELECT tenant_id, legal_name, ruc, reply_email, certificate_expiration, "
+                + "webhook_url, webhook_secret "
+                + "FROM public.tenants "
+                + "WHERE status = 'active' AND certificate_expiration IS NOT NULL "
+                + "AND certificate_expiration < ? "
+                + "ORDER BY certificate_expiration ASC")) {
 
             stmt.setTimestamp(1, Timestamp.from(threshold));
             try (var rs = stmt.executeQuery()) {
@@ -124,14 +126,16 @@ public class CertificateExpirationNotifier {
     }
 
     private void sendExpirationWebhook(String tenantId, String legalName, long daysLeft,
-                                       String webhookUrl, String webhookSecret) {
+            String webhookUrl, String webhookSecret) {
         var payload = """
                 {"event":"certificate.expiring","tenant_id":"%s","legal_name":"%s","days_remaining":%d,"timestamp":"%s"}"""
                 .formatted(tenantId, legalName, daysLeft, Instant.now().toString());
 
         try {
+            WebhookUrlValidator.validate(webhookUrl);
             var client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofMillis(webhookConnectTimeoutMs))
+                    .followRedirects(HttpClient.Redirect.NEVER)
                     .build();
 
             var requestBuilder = HttpRequest.newBuilder()

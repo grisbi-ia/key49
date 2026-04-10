@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.Key49Constants;
@@ -75,6 +76,9 @@ public class PortalResource {
     @Inject
     ObjectStorageService storageService;
 
+    @ConfigProperty(name = "key49.portal.secure-cookie", defaultValue = "false")
+    boolean secureCookie;
+
     @Context
     ContainerRequestContext requestContext;
 
@@ -101,6 +105,7 @@ public class PortalResource {
                         .value(sessionId)
                         .path("/portal")
                         .httpOnly(true)
+                        .secure(secureCookie)
                         .sameSite(NewCookie.SameSite.STRICT)
                         .build())
                 .build();
@@ -121,6 +126,7 @@ public class PortalResource {
                         .path("/portal")
                         .maxAge(0)
                         .httpOnly(true)
+                        .secure(secureCookie)
                         .build())
                 .build();
     }

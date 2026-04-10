@@ -16,7 +16,7 @@ public class StorageExceptionMapper {
     @ServerExceptionMapper
     public Response handleStorageException(StorageException ex) {
         var body = new ErrorBody(new ErrorBody.Detail(
-                "STORAGE_ERROR", "Storage service unavailable: " + ex.getMessage()));
+                "STORAGE_ERROR", "Storage service temporarily unavailable"));
         return Response.status(Response.Status.SERVICE_UNAVAILABLE)
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .entity(body)

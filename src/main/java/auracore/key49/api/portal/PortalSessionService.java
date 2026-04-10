@@ -49,8 +49,7 @@ public class PortalSessionService {
 
         var keyHash = ApiKeyService.sha256(rawApiKey);
 
-        try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement("""
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement("""
                      SELECT a.tenant_id, a.status AS key_status, a.expires_at,
                             t.schema_name, t.status AS tenant_status, t.legal_name
                      FROM api_keys a JOIN tenants t ON a.tenant_id = t.tenant_id
@@ -134,7 +133,7 @@ public class PortalSessionService {
         var key = SESSION_PREFIX + sessionId;
         KeyCommands<String> keys = redisDS.key(String.class);
         keys.del(key);
-        log.infof("Portal session destroyed | sessionId=%s", sessionId);
+        log.infof("Portal session destroyed | sessionId=%s...", sessionId.substring(0, Math.min(8, sessionId.length())));
     }
 
     /**

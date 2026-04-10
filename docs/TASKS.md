@@ -641,7 +641,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 15: Seguridad y Hardening (Semana 5-6)
 
-- [ ] **T-073** Auditoría de seguridad OWASP Top 10
+- [x] **T-073** Auditoría de seguridad OWASP Top 10
   - Revisar cada endpoint REST contra:
     - Injection (SQL/NoSQL/LDAP): verificar que todas las queries usan parámetros bindeados (Hibernate/Panache)
     - Broken Authentication: verificar validación de API key, session handling del portal

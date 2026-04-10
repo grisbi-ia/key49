@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests unitarios para WebhookDispatcher: firma HMAC, serialización, envío HTTP, reintentos.
+ * Tests unitarios para WebhookDispatcher: firma HMAC, serialización, envío
+ * HTTP, reintentos.
  */
 class WebhookDispatcherTest {
 
@@ -46,6 +47,7 @@ class WebhookDispatcherTest {
         setField("connectTimeoutMs", 3000);
         setField("readTimeoutMs", 5000);
         setField("webhookEnabled", true);
+        setField("ssrfValidationEnabled", false);
     }
 
     private void setField(String name, Object value) {
@@ -74,7 +76,6 @@ class WebhookDispatcherTest {
     }
 
     // ── Firma HMAC-SHA256 ──
-
     @Nested
     class SignatureTests {
 
@@ -132,7 +133,6 @@ class WebhookDispatcherTest {
     }
 
     // ── Payload Building ──
-
     @Nested
     class PayloadTests {
 
@@ -207,7 +207,6 @@ class WebhookDispatcherTest {
     }
 
     // ── Retry Delays ──
-
     @Nested
     class RetryDelayTests {
 
@@ -255,7 +254,6 @@ class WebhookDispatcherTest {
     }
 
     // ── HTTP Dispatch ──
-
     @Nested
     class DispatchTests {
 

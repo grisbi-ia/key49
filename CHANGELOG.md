@@ -5,6 +5,32 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.24.0] - 2026-04-10
+
+### Agregado
+
+- **Auditoría de seguridad OWASP Top 10** (T-073): auditoría completa del codebase con 23 hallazgos y remediaciones
+- `WebhookUrlValidator`: protección SSRF — valida URLs de webhook contra redes internas (loopback, link-local, site-local, metadata cloud 169.254.169.254), resolución DNS obligatoria y solo esquemas HTTP/HTTPS
+- `AdminAuthFilter`: autorización dedicada para endpoints `/v1/admin/*` con header `X-Admin-Token` y comparación time-safe (`MessageDigest.isEqual`)
+- `CatchAllExceptionMapper`: catch-all para excepciones no manejadas — retorna respuesta genérica sin exponer stack traces ni datos internos
+- Cookie `Secure` flag configurable por perfil (`key49.portal.secure-cookie`), activado por defecto en producción
+- SMTP TLS requerido en producción (`%prod.quarkus.mailer.start-tls=REQUIRED`)
+- Swagger UI deshabilitado en producción (`%prod.quarkus.swagger-ui.always-include=false`)
+- Documentación `docs/SECURITY.md` con inventario completo de controles y hallazgos
+
+### Cambiado
+
+- `ApiKeyAuthFilter`: endpoints `/v1/admin/*` excluidos de autenticación por API key (protegidos por `AdminAuthFilter`)
+- `WebhookDispatcher`: validación SSRF obligatoria + deshabilitación de redirects (`HttpClient.Redirect.NEVER`)
+- `CertificateExpirationNotifier`: validación SSRF + deshabilitación de redirects en webhooks de expiración
+- `StorageExceptionMapper`: mensaje genérico sin leak de detalles internos de MinIO/S3
+- `PortalSessionService`: session ID truncado a 8 caracteres en logs de logout
+
+### Corregido
+
+- `TenantSchemaResolverTest`: strings corruptas en `@ValueSource` reconstruidas
+- `QueryOptimizationTest`: variables truncadas en assertion de índice parcial
+
 ## [0.23.3] - 2026-04-10
 
 ### Agregado
