@@ -7,7 +7,6 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.Document;
-import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.repository.TenantRepository;
@@ -72,7 +71,8 @@ public class NotifyConsumer {
                 return;
             }
 
-            connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+            // Fase 1 (transaccional): RIDE, MinIO, webhook, transición a NOTIFIED
+            var emailData = connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                 var doc = em.find(Document.class, event.documentId());
                 if (doc == null) {
                     log.warnf("NotifyConsumer: document not found: %s", event.documentId());
@@ -118,47 +118,78 @@ public class NotifyConsumer {
                             doc.id);
                 }
 
-                // Paso 3: Enviar email — independiente, no bloquea transición
-                try {
-                    var docType = DocumentType.fromSriCode(doc.documentType);
-                    var documentNumber = doc.establishment + "-" + doc.issuePoint + "-" + doc.sequenceNumber;
-                    var emailData = new EmailData(
-                            tenant.legalName,
-                            tenant.ruc,
-                            doc.recipientName,
-                            EmailData.parseEmails(doc.recipientEmail),
-                            docType.description(),
-                            documentNumber,
-                            doc.accessKey,
-                            doc.issueDate,
-                            doc.totalAmount,
-                            doc.currency,
-                            ridePdf,
-                            authorizedXmlBytes
-                    );
-                    emailService.sendDocumentDelivery(emailData);
-                    doc.emailSentAt = Instant.now();
-                    doc.emailStatus = "SENT";
-                } catch (Exception emailEx) {
-                    doc.emailStatus = "FAILED";
-                    doc.emailError = truncate(emailEx.getMessage(), 500);
-                    log.warnf(emailEx, "NotifyConsumer: email failed for document %s (non-blocking)",
-                            doc.id);
-                }
-
-                // Paso 4: Despachar webhook — independiente, no bloquea transición
+                // Paso 3: Despachar webhook — independiente, no bloquea transición
                 dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, doc, em);
 
-                // Siempre transiciona a NOTIFIED — fallos parciales se registran pero no bloquean
+                // Transicionar a NOTIFIED — el email se envía DESPUÉS del commit
                 doc.transitionTo(DocumentStatus.NOTIFIED);
                 doc.updatedAt = Instant.now();
                 log.infof("NotifyConsumer: document %s marked as NOTIFIED", doc.id);
-                return null;
+
+                // Preparar datos de email para envío post-commit
+                var docType = DocumentType.fromSriCode(doc.documentType);
+                var documentNumber = doc.establishment + "-" + doc.issuePoint + "-" + doc.sequenceNumber;
+                return new EmailData(
+                        tenant.legalName,
+                        tenant.ruc,
+                        doc.recipientName,
+                        EmailData.parseEmails(doc.recipientEmail),
+                        docType.description(),
+                        documentNumber,
+                        doc.accessKey,
+                        doc.issueDate,
+                        doc.totalAmount,
+                        doc.currency,
+                        ridePdf,
+                        authorizedXmlBytes
+                );
             });
+
+            // Fase 2 (post-commit): Enviar email — NO dentro de transacción JTA
+            if (emailData != null) {
+                sendEmailAndUpdateStatus(emailData, event);
+            }
 
         } catch (Exception ex) {
             errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
                     "NotifyConsumer", ex);
+        }
+    }
+
+    /**
+     * Envía email y actualiza el estado de email en una transacción corta
+     * separada. Si el envío falla, registra el error pero NO afecta el estado
+     * NOTIFIED.
+     */
+    private void sendEmailAndUpdateStatus(EmailData emailData, DocumentEvent event) {
+        try {
+            emailService.sendDocumentDelivery(emailData);
+            connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                var doc = em.find(Document.class, event.documentId());
+                if (doc != null) {
+                    doc.emailSentAt = Instant.now();
+                    doc.emailStatus = "SENT";
+                    doc.updatedAt = Instant.now();
+                }
+                return null;
+            });
+        } catch (Exception emailEx) {
+            log.warnf(emailEx, "NotifyConsumer: email failed for document %s (non-blocking)",
+                    event.documentId());
+            try {
+                connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                    var doc = em.find(Document.class, event.documentId());
+                    if (doc != null) {
+                        doc.emailStatus = "FAILED";
+                        doc.emailError = truncate(emailEx.getMessage(), 500);
+                        doc.updatedAt = Instant.now();
+                    }
+                    return null;
+                });
+            } catch (Exception updateEx) {
+                log.errorf(updateEx, "NotifyConsumer: failed to update email error status for document %s",
+                        event.documentId());
+            }
         }
     }
 

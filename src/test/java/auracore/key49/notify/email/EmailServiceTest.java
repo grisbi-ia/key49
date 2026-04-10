@@ -1,53 +1,52 @@
 package auracore.key49.notify.email;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
-import io.quarkus.qute.TemplateInstance;
-import io.quarkus.qute.Template;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.reactive.ReactiveMailer;
+import io.quarkus.qute.Template;
+import io.quarkus.qute.TemplateInstance;
+import io.smallrye.mutiny.Uni;
 
 class EmailServiceTest {
 
     private static final String ACCESS_KEY = "2506202501099271531200110010020000000011234567813";
 
-    private Mailer mailer;
+    private ReactiveMailer reactiveMailer;
     private Template template;
     private TemplateInstance templateInstance;
     private EmailService service;
 
     @BeforeEach
     void setUp() {
-        mailer = mock(Mailer.class);
+        reactiveMailer = mock(ReactiveMailer.class);
         template = mock(Template.class);
         templateInstance = mock(TemplateInstance.class);
 
         when(template.data(any(String.class), any())).thenReturn(templateInstance);
         when(templateInstance.render()).thenReturn("<html>test</html>");
-        doNothing().when(mailer).send(any(Mail.class));
+        when(reactiveMailer.send(any(Mail.class))).thenReturn(Uni.createFrom().voidItem());
 
         service = new EmailService();
-        service.mailer = mailer;
+        service.reactiveMailer = reactiveMailer;
         service.documentDeliveryTemplate = template;
         service.fromAddress = "facturacion@key49.ec";
         service.emailEnabled = true;
+        service.sendTimeoutSeconds = 120;
     }
 
     @Test
@@ -59,7 +58,7 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         assertTrue(mail.getTo().contains("cliente@test.com"));
@@ -78,7 +77,7 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         assertTrue(mail.getTo().contains("main@test.com"));
@@ -93,7 +92,7 @@ class EmailServiceTest {
 
         service.sendDocumentDelivery(data);
 
-        verify(mailer, never()).send(any());
+        verify(reactiveMailer, never()).send(any());
     }
 
     @Test
@@ -102,7 +101,7 @@ class EmailServiceTest {
 
         service.sendDocumentDelivery(data);
 
-        verify(mailer, never()).send(any());
+        verify(reactiveMailer, never()).send(any());
     }
 
     @Test
@@ -112,7 +111,7 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         assertTrue(mail.getAttachments().isEmpty());
@@ -126,12 +125,12 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         var attachments = mail.getAttachments();
-        assertTrue(attachments.stream().anyMatch(a ->
-                a.getName().endsWith(".pdf")));
+        assertTrue(attachments.stream().anyMatch(a
+                -> a.getName().endsWith(".pdf")));
     }
 
     @Test
@@ -142,22 +141,23 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         var attachments = mail.getAttachments();
-        assertTrue(attachments.stream().anyMatch(a ->
-                a.getName().endsWith(".xml")));
+        assertTrue(attachments.stream().anyMatch(a
+                -> a.getName().endsWith(".xml")));
     }
 
     @Test
     void shouldWrapMailerFailureAsEmailSendException() {
-        doThrow(new RuntimeException("SMTP error")).when(mailer).send(any(Mail.class));
+        when(reactiveMailer.send(any(Mail.class)))
+                .thenReturn(Uni.createFrom().failure(new RuntimeException("SMTP error")));
 
         var data = createEmailData(List.of("test@test.com"), null, null);
 
-        assertThrows(EmailSendException.class, () ->
-                service.sendDocumentDelivery(data));
+        assertThrows(EmailSendException.class, ()
+                -> service.sendDocumentDelivery(data));
     }
 
     @Test
@@ -167,7 +167,7 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         var mail = captor.getValue();
         assertTrue(mail.getFrom().contains("Empresa Test S.A."));
@@ -192,7 +192,7 @@ class EmailServiceTest {
         service.sendDocumentDelivery(data);
 
         var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(mailer).send(captor.capture());
+        verify(reactiveMailer).send(captor.capture());
 
         assertTrue(captor.getValue().getAttachments().isEmpty());
     }

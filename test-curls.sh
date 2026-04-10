@@ -29,14 +29,14 @@ factura() {
     -d '{
       "establishment": "001",
       "issue_point": "999",
-      "sequence_number": "000000005",
+      "sequence_number": "000000007",
       "issue_date": "'"$TODAY"'",
       "recipient": {
         "id_type": "04",
-        "id": "1792198569001",
-        "name": "SIVASA",
+        "id": "0105252704001",
+        "name": "Jesy Salamea",
         "address": "Quito, Av. Principal 123",
-        "email": "test@example.com"
+        "email": "pvalarezo@grisbi.com.ec"
       },
       "items": [{
         "main_code": "SRV-001",

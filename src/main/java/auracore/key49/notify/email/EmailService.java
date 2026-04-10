@@ -1,19 +1,24 @@
 package auracore.key49.notify.email;
 
+import java.time.Duration;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
+import io.quarkus.mailer.reactive.ReactiveMailer;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 /**
  * Servicio de envío de emails para notificación de comprobantes electrónicos.
  *
- * <p>Envía el RIDE (PDF) y XML autorizado como adjuntos al receptor del comprobante.
- * Soporta múltiples destinatarios separados por {@code ;} en el campo {@code recipient_email}.</p>
+ * <p>
+ * Envía el RIDE (PDF) y XML autorizado como adjuntos al receptor del
+ * comprobante. Soporta múltiples destinatarios separados por {@code ;} en el
+ * campo {@code recipient_email}.</p>
  */
 @ApplicationScoped
 public class EmailService {
@@ -21,7 +26,7 @@ public class EmailService {
     private static final Logger log = Logger.getLogger(EmailService.class);
 
     @Inject
-    Mailer mailer;
+    ReactiveMailer reactiveMailer;
 
     @Location("document-delivery.html")
     Template documentDeliveryTemplate;
@@ -31,6 +36,9 @@ public class EmailService {
 
     @ConfigProperty(name = "key49.email.enabled", defaultValue = "true")
     boolean emailEnabled;
+
+    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "120")
+    int sendTimeoutSeconds;
 
     /**
      * Envía el email de entrega de comprobante electrónico.
@@ -88,7 +96,8 @@ public class EmailService {
                 data.recipientEmails().size() - 1);
 
         try {
-            mailer.send(mail);
+            reactiveMailer.send(mail)
+                    .await().atMost(Duration.ofSeconds(sendTimeoutSeconds));
         } catch (Exception error) {
             log.errorf(error, "Failed to send email for document %s", data.accessKey());
             throw new EmailSendException(
