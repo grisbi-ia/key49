@@ -7,6 +7,7 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.Document;
+import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.repository.TenantRepository;
@@ -71,89 +72,113 @@ public class NotifyConsumer {
                 return;
             }
 
-            // Fase 1 (transaccional): RIDE, MinIO, webhook, transición a NOTIFIED
-            var emailData = connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
-                var doc = em.find(Document.class, event.documentId());
-                if (doc == null) {
+            // Fase 1 (transacción de lectura): obtener documento desconectado para I/O
+            var doc = connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                var d = em.find(Document.class, event.documentId());
+                if (d == null) {
                     log.warnf("NotifyConsumer: document not found: %s", event.documentId());
                     return null;
                 }
-                if (!doc.status.canTransitionTo(DocumentStatus.NOTIFIED)) {
-                    log.warnf("NotifyConsumer: skip document %s in state %s",
-                            doc.id, doc.status);
+                if (!d.status.canTransitionTo(DocumentStatus.NOTIFIED)) {
+                    log.warnf("NotifyConsumer: skip document %s in state %s", d.id, d.status);
+                    return null;
+                }
+                em.detach(d);
+                return d;
+            });
+
+            if (doc == null) {
+                return;
+            }
+
+            // Fase 2 (sin transacción): operaciones I/O pesadas
+            byte[] ridePdf = null;
+            try {
+                ridePdf = rideDataMapper.generateRide(doc, tenant);
+                log.infof("NotifyConsumer: RIDE generated for document %s (%d bytes)",
+                        doc.id, ridePdf.length);
+            } catch (Exception rideEx) {
+                log.warnf(rideEx, "NotifyConsumer: RIDE generation failed for document %s (non-blocking)",
+                        doc.id);
+            }
+
+            String xmlPath = null;
+            String ridePdfPath = null;
+            byte[] authorizedXmlBytes = null;
+            try {
+                if (doc.originalXml != null) {
+                    authorizedXmlBytes = doc.originalXml.getBytes(StandardCharsets.UTF_8);
+                    xmlPath = objectStorageService.store(
+                            tenant.schemaName, doc.issueDate, doc.documentType,
+                            doc.accessKey, DocumentArtifact.AUTHORIZED_XML, authorizedXmlBytes);
+                    log.debugf("NotifyConsumer: authorized XML stored at %s", xmlPath);
+                }
+                if (ridePdf != null) {
+                    ridePdfPath = objectStorageService.store(
+                            tenant.schemaName, doc.issueDate, doc.documentType,
+                            doc.accessKey, DocumentArtifact.RIDE, ridePdf);
+                    log.debugf("NotifyConsumer: RIDE stored at %s", ridePdfPath);
+                }
+            } catch (Exception storageEx) {
+                log.warnf(storageEx, "NotifyConsumer: storage failed for document %s (non-blocking)",
+                        doc.id);
+            }
+
+            // Fase 3 (transacción corta): actualizar rutas, webhook, transicionar
+            final var fXmlPath = xmlPath;
+            final var fRidePath = ridePdfPath;
+            connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                var d = em.find(Document.class, event.documentId());
+                if (d == null || !d.status.canTransitionTo(DocumentStatus.NOTIFIED)) {
+                    log.warnf("NotifyConsumer: document %s no longer eligible for NOTIFIED", event.documentId());
                     return null;
                 }
 
-                // Paso 1: Generar RIDE (PDF) — independiente, no bloquea transición
-                byte[] ridePdf = null;
-                try {
-                    ridePdf = rideDataMapper.generateRide(doc, tenant);
-                    log.infof("NotifyConsumer: RIDE generated for document %s (%d bytes)",
-                            doc.id, ridePdf.length);
-                } catch (Exception rideEx) {
-                    log.warnf(rideEx, "NotifyConsumer: RIDE generation failed for document %s (non-blocking)",
-                            doc.id);
+                if (fXmlPath != null) {
+                    d.authorizedXmlPath = fXmlPath;
+                }
+                if (fRidePath != null) {
+                    d.ridePath = fRidePath;
                 }
 
-                // Paso 2: Almacenar artefactos en MinIO — independiente, no bloquea transición
-                byte[] authorizedXmlBytes = null;
-                try {
-                    if (doc.originalXml != null) {
-                        authorizedXmlBytes = doc.originalXml.getBytes(StandardCharsets.UTF_8);
-                        var xmlPath = objectStorageService.store(
-                                tenant.schemaName, doc.issueDate, doc.documentType,
-                                doc.accessKey, DocumentArtifact.AUTHORIZED_XML, authorizedXmlBytes);
-                        doc.authorizedXmlPath = xmlPath;
-                        log.debugf("NotifyConsumer: authorized XML stored at %s", xmlPath);
-                    }
-                    if (ridePdf != null) {
-                        var ridePdfPath = objectStorageService.store(
-                                tenant.schemaName, doc.issueDate, doc.documentType,
-                                doc.accessKey, DocumentArtifact.RIDE, ridePdf);
-                        doc.ridePath = ridePdfPath;
-                        log.debugf("NotifyConsumer: RIDE stored at %s", ridePdfPath);
-                    }
-                } catch (Exception storageEx) {
-                    log.warnf(storageEx, "NotifyConsumer: storage failed for document %s (non-blocking)",
-                            doc.id);
-                }
+                dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, d, em);
 
-                // Paso 3: Despachar webhook — independiente, no bloquea transición
-                dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, doc, em);
-
-                // Transicionar a NOTIFIED — el email se envía DESPUÉS del commit
-                doc.transitionTo(DocumentStatus.NOTIFIED);
-                doc.updatedAt = Instant.now();
-                log.infof("NotifyConsumer: document %s marked as NOTIFIED", doc.id);
-
-                // Preparar datos de email para envío post-commit
-                var docType = DocumentType.fromSriCode(doc.documentType);
-                var documentNumber = doc.establishment + "-" + doc.issuePoint + "-" + doc.sequenceNumber;
-                return new EmailData(
-                        tenant.legalName,
-                        tenant.ruc,
-                        doc.recipientName,
-                        EmailData.parseEmails(doc.recipientEmail),
-                        docType.description(),
-                        documentNumber,
-                        doc.accessKey,
-                        doc.issueDate,
-                        doc.totalAmount,
-                        doc.currency,
-                        ridePdf,
-                        authorizedXmlBytes
-                );
+                d.transitionTo(DocumentStatus.NOTIFIED);
+                d.updatedAt = Instant.now();
+                log.infof("NotifyConsumer: document %s marked as NOTIFIED", d.id);
+                return null;
             });
 
-            // Fase 2 (post-commit): Enviar email — NO dentro de transacción JTA
-            if (emailData != null) {
-                sendEmailAndUpdateStatus(emailData, event);
-            }
+            // Fase 4 (post-commit): enviar email sin afectar NOTIFIED
+            sendEmailAndUpdateStatus(
+                    buildEmailData(doc, tenant, ridePdf, authorizedXmlBytes), event);
 
         } catch (Exception ex) {
             errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
                     "NotifyConsumer", ex);
         }
+    }
+
+    /**
+     * Construye el objeto EmailData a partir del documento desconectado.
+     */
+    private EmailData buildEmailData(Document doc, Tenant tenant,
+            byte[] ridePdf, byte[] authorizedXmlBytes) {
+        var docType = DocumentType.fromSriCode(doc.documentType);
+        var documentNumber = doc.establishment + "-" + doc.issuePoint + "-" + doc.sequenceNumber;
+        return new EmailData(
+                tenant.legalName,
+                tenant.ruc,
+                doc.recipientName,
+                EmailData.parseEmails(doc.recipientEmail),
+                docType.description(),
+                documentNumber,
+                doc.accessKey,
+                doc.issueDate,
+                doc.totalAmount,
+                doc.currency,
+                ridePdf,
+                authorizedXmlBytes);
     }
 
     /**
