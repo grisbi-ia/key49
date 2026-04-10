@@ -4,6 +4,7 @@ import auracore.key49.admin.alert.rules.CertificateExpiryAlertRule;
 import auracore.key49.admin.alert.rules.DlqAlertRule;
 import auracore.key49.admin.alert.rules.ErrorRateAlertRule;
 import auracore.key49.admin.alert.rules.QueueDepthAlertRule;
+import auracore.key49.admin.alert.rules.SlaAuthorizationAlertRule;
 import auracore.key49.admin.alert.rules.SriHealthAlertRule;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,9 +19,10 @@ import java.util.List;
 /**
  * Orquestador de evaluación de alertas.
  *
- * <p>Ejecuta todas las reglas de alerta periódicamente. Compara el resultado
- * con el estado anterior en Redis y envía notificaciones en transiciones
- * de estado (OK→FIRING, FIRING→OK) y como reminder cada
+ * <p>
+ * Ejecuta todas las reglas de alerta periódicamente. Compara el resultado con
+ * el estado anterior en Redis y envía notificaciones en transiciones de estado
+ * (OK→FIRING, FIRING→OK) y como reminder cada
  * {@code key49.alerts.reminder-interval}.</p>
  */
 @ApplicationScoped
@@ -41,6 +43,9 @@ public class AlertEvaluator {
     QueueDepthAlertRule queueDepthRule;
 
     @Inject
+    SlaAuthorizationAlertRule slaAuthorizationRule;
+
+    @Inject
     AlertStateRepository stateRepository;
 
     @Inject
@@ -59,7 +64,9 @@ public class AlertEvaluator {
     @Scheduled(every = "60s", identity = "alert-evaluator-infra",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void evaluateInfraRules() {
-        if (!alertsEnabled) return;
+        if (!alertsEnabled) {
+            return;
+        }
 
         var rules = List.<AlertRule>of(sriHealthRule, dlqRule, errorRateRule, queueDepthRule);
         for (var rule : rules) {
@@ -68,8 +75,8 @@ public class AlertEvaluator {
     }
 
     /**
-     * Evaluación de certificados (cada 6 horas).
-     * Menos frecuente porque los certificados no cambian rápidamente.
+     * Evaluación de certificados (cada 6 horas). Menos frecuente porque los
+     * certificados no cambian rápidamente.
      */
     @Inject
     CertificateExpiryAlertRule certExpiryRule;
@@ -77,8 +84,23 @@ public class AlertEvaluator {
     @Scheduled(every = "6h", identity = "alert-evaluator-certs",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void evaluateCertRule() {
-        if (!alertsEnabled) return;
+        if (!alertsEnabled) {
+            return;
+        }
         evaluateRule(certExpiryRule);
+    }
+
+    /**
+     * Evaluación de SLA de autorización (cada 5 minutos). Verifica que los
+     * documentos se autoricen dentro del tiempo máximo configurado.
+     */
+    @Scheduled(every = "5m", identity = "alert-evaluator-sla",
+            concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    void evaluateSlaRules() {
+        if (!alertsEnabled) {
+            return;
+        }
+        evaluateRule(slaAuthorizationRule);
     }
 
     void evaluateRule(AlertRule rule) {

@@ -683,7 +683,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Precaución: cardinalidad alta → limitar a tenants activos, usar tag solo en métricas clave
   - Test: emitir documento, verificar que métricas tienen tag tenant_id correcto
 
-- [ ] **T-078** Alertas SLA y métricas de negocio
+- [x] **T-078** Alertas SLA y métricas de negocio
   - Definir SLAs por tenant (configurable):
     - Tiempo máximo de autorización: 5 minutos desde creación
     - Tasa de error máxima: 2% por hora

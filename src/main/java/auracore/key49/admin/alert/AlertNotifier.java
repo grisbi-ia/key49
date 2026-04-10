@@ -20,8 +20,9 @@ import java.util.Optional;
 /**
  * Notificador de alertas operativas vía email y webhook.
  *
- * <p>Envía notificaciones cuando una alerta cambia de estado (FIRING/RESOLVED)
- * o como reminder periódico mientras la alerta sigue activa.</p>
+ * <p>
+ * Envía notificaciones cuando una alerta cambia de estado (FIRING/RESOLVED) o
+ * como reminder periódico mientras la alerta sigue activa.</p>
  */
 @ApplicationScoped
 public class AlertNotifier {
@@ -119,10 +120,12 @@ public class AlertNotifier {
 
         for (var email : recipients.split("[;,]")) {
             var trimmed = email.trim();
-            if (trimmed.isBlank()) continue;
+            if (trimmed.isBlank()) {
+                continue;
+            }
 
             mailer.send(Mail.withText(trimmed, subject, body)
-                            .setFrom("Key49 Alertas <" + fromAddress + ">"))
+                    .setFrom("Key49 Alertas <" + fromAddress + ">"))
                     .subscribe().with(
                             v -> log.debugf("Alert email sent to %s", trimmed),
                             e -> log.errorf(e, "Failed to send alert email to %s", trimmed)
@@ -188,12 +191,20 @@ public class AlertNotifier {
 
     private static String humanName(String alertName) {
         return switch (alertName) {
-            case "sri_health" -> "SRI no responde";
-            case "dlq_messages" -> "DLQ con mensajes";
-            case "cert_expiry" -> "Certificado por vencer";
-            case "error_rate" -> "Tasa de error alta";
-            case "queue_depth" -> "Cola saturada";
-            default -> alertName;
+            case "sri_health" ->
+                "SRI no responde";
+            case "dlq_messages" ->
+                "DLQ con mensajes";
+            case "cert_expiry" ->
+                "Certificado por vencer";
+            case "error_rate" ->
+                "Tasa de error alta";
+            case "queue_depth" ->
+                "Cola saturada";
+            case "sla_authorization" ->
+                "SLA autorización incumplido";
+            default ->
+                alertName;
         };
     }
 }

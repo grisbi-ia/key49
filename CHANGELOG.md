@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.1] - 2026-04-10
+
+### Agregado
+
+- **Alertas SLA y métricas de negocio** (T-078): regla de alerta para detectar documentos sin autorizar fuera de SLA
+- `SlaAuthorizationAlertRule`: itera todos los tenants activos y consulta documentos en estados intermedios (CREATED, SIGNED, SENT, RECEIVED) más antiguos que el umbral configurado
+- Métrica `key49.sla.breach{tenant, type=authorization_latency}` incrementada por cada tenant con incumplimiento
+- Schedule dedicado cada 5 minutos (`alert-evaluator-sla`) en `AlertEvaluator`
+- Configuración: `key49.alerts.sla-authorization-minutes` (default 5)
+- Notificación vía email y webhook cuando se detectan documentos atascados
+- 8 tests unitarios en `SlaAuthorizationAlertRuleTest` (stubs para TenantRepository y TenantConnectionManager)
+
 ## [0.25.0] - 2026-04-10
 
 ### Agregado
