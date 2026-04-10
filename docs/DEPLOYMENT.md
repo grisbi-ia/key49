@@ -758,6 +758,41 @@ curl -s http://localhost:8080/q/health | jq .
 - En Docker: usar `docker stop --time=35` para dar suficiente tiempo al graceful shutdown
 - La señal `SIGTERM` es la que inicia el shutdown — no usar `SIGKILL` (`docker kill`)
 
+### Backpressure y Monitoreo de Profundidad de Cola
+
+Key49 monitorea la profundidad de las colas RabbitMQ a través de la API de management y expone la información como **readiness health check** y **métricas Micrometer**.
+
+**Health check de readiness:**
+
+- Si alguna cola supera `KEY49_QUEUE_DEPTH_CRITICAL` mensajes, el endpoint `/q/health/ready` reporta `DOWN`.
+- El balanceador de carga (o Kubernetes) deja de enviar tráfico a esa instancia hasta que la cola se descongestione.
+- Si la API de management de RabbitMQ no responde, el health check reporta `UP` (fail-open — no bloquea tráfico por fallo del monitoreo).
+
+**Variables de configuración:**
+
+| Variable                     | Default | Descripción                                                    |
+| ---------------------------- | ------- | -------------------------------------------------------------- |
+| `KEY49_QUEUE_DEPTH_CRITICAL` | `5000`  | Umbral para marcar readiness=false (instancia deja de recibir) |
+| `KEY49_QUEUE_DEPTH_WARNING`  | `1000`  | Umbral informativo (ya gestionado por alerta T-037)            |
+
+**Métricas Micrometer:**
+
+| Métrica                              | Tipo  | Descripción                                      |
+| ------------------------------------ | ----- | ------------------------------------------------ |
+| `key49.queue.depth{queue=sign}`      | Gauge | Mensajes pendientes en cola de firma             |
+| `key49.queue.depth{queue=send}`      | Gauge | Mensajes pendientes en cola de envío SOAP        |
+| `key49.queue.depth{queue=authorize}` | Gauge | Mensajes pendientes en cola de autorización SOAP |
+| `key49.queue.depth{queue=notify}`    | Gauge | Mensajes pendientes en cola de notificación      |
+| `key49.queue.depth{queue=dlq}`       | Gauge | Mensajes en la cola de dead letters              |
+
+Las métricas se actualizan cada 30 segundos vía la API de management de RabbitMQ (`/api/queues/%2F/{queue}`).
+
+**Recomendaciones:**
+
+- En producción, configurar alertas en Grafana cuando `key49.queue.depth > 1000` sostenido por >5 minutos.
+- Si el SRI está caído y las colas crecen, el circuit breaker (T-065) detiene los envíos y el backpressure evita saturar la instancia.
+- Ajustar `KEY49_QUEUE_DEPTH_CRITICAL` según la capacidad de la instancia y el volumen esperado.
+
 ---
 
 ## Troubleshooting

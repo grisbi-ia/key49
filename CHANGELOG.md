@@ -5,6 +5,16 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.22.3] - 2026-04-10
+
+### Agregado
+
+- **Backpressure y monitoreo de profundidad de cola** (T-068): `QueueDepthHealthCheck` (`@Readiness`) marca instancia como DOWN si alguna cola RabbitMQ supera el umbral crítico
+- `QueueDepthMetrics`: métricas Micrometer `key49.queue.depth{queue=sign|send|authorize|notify|dlq}` actualizadas cada 30 segundos vía API de management de RabbitMQ
+- Variables de entorno `KEY49_QUEUE_DEPTH_CRITICAL` (defecto 5000) y `KEY49_QUEUE_DEPTH_WARNING` (defecto 1000)
+- `DlqAlertRule.extractMessageCount()` ahora es `public` para reutilizarse desde otros paquetes
+- 16 tests unitarios para health check y métricas de profundidad de cola
+
 ## [0.22.2] - 2026-04-10
 
 ### Agregado

@@ -597,7 +597,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Documentar procedimiento de deploy sin pérdida de mensajes: stop consumers → drain → deploy → start
   - Test: enviar mensaje a consumer, iniciar shutdown, verificar que el mensaje se procesa o se re-encola
 
-- [ ] **T-068** Backpressure y monitoreo de profundidad de cola
+- [x] **T-068** Backpressure y monitoreo de profundidad de cola
   - La alerta `queue-depth-max=1000` ya existe (T-037), pero no hay acción automática
   - Implementar health check que revise profundidad de todas las colas vía API de RabbitMQ management
   - Si profundidad > threshold: marcar readiness=false → el balanceador deja de enviar tráfico

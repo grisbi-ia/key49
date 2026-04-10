@@ -1,24 +1,24 @@
 package auracore.key49.admin.alert.rules;
 
-import auracore.key49.admin.alert.AlertResult;
-import auracore.key49.admin.alert.AlertRule;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.List;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import auracore.key49.admin.alert.AlertResult;
+import auracore.key49.admin.alert.AlertRule;
+import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * Regla de alerta: DLQ con mensajes.
  *
- * <p>Consulta la cola {@code key49.dlq} vía RabbitMQ Management HTTP API.
- * Dispara alerta si hay más de {@code key49.alerts.dlq-threshold} mensajes.</p>
+ * <p>
+ * Consulta la cola {@code key49.dlq} vía RabbitMQ Management HTTP API. Dispara
+ * alerta si hay más de {@code key49.alerts.dlq-threshold} mensajes.</p>
  */
 @ApplicationScoped
 public class DlqAlertRule implements AlertRule {
@@ -79,10 +79,10 @@ public class DlqAlertRule implements AlertRule {
     }
 
     /**
-     * Extrae el campo "messages" del JSON de la API de RabbitMQ.
-     * Parsing simple sin dependencia adicional de JSON.
+     * Extrae el campo "messages" del JSON de la API de RabbitMQ. Parsing simple
+     * sin dependencia adicional de JSON.
      */
-    static int extractMessageCount(String json) {
+    public static int extractMessageCount(String json) {
         // Look for "messages": followed by a number (not "messages_ready" or "messages_unacknowledged")
         var pattern = java.util.regex.Pattern.compile("\"messages\"\\s*:\\s*(\\d+)");
         var matcher = pattern.matcher(json);
