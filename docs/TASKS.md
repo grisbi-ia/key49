@@ -545,7 +545,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 12: Caché con Redis (Semana 2-3)
 
-- [ ] **T-062** Caché de API keys en Redis
+- [x] **T-062** Caché de API keys en Redis
   - Actualmente cada request HTTP ejecuta `SELECT` a BD para validar API key → cuello de botella
   - Implementar caché en Redis con TTL configurable (default 5 min): `key49:apikey:{hash}` → `{tenant_id, key_id, status}`
   - Usar Quarkus Cache con `@CacheResult` o `RedisAPI` directo

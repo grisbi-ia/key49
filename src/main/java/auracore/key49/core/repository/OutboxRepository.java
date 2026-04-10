@@ -31,16 +31,16 @@ public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID
     }
 
     /**
-     * Obtiene eventos no publicados con bloqueo FOR UPDATE SKIP LOCKED.
-     * Permite concurrencia segura entre múltiples instancias del poller.
+     * Obtiene eventos no publicados con bloqueo FOR UPDATE SKIP LOCKED. Permite
+     * concurrencia segura entre múltiples instancias del poller.
      *
      * @param limit máximo de eventos a retornar
      */
     @SuppressWarnings("unchecked")
     public List<OutboxEvent> findUnpublishedForUpdate(int limit) {
         return em.createNativeQuery(
-                        "SELECT * FROM outbox WHERE published = false ORDER BY created_at ASC LIMIT :limit FOR UPDATE SKIP LOCKED",
-                        OutboxEvent.class)
+                "SELECT * FROM outbox WHERE published = false ORDER BY created_at ASC LIMIT :limit FOR UPDATE SKIP LOCKED",
+                OutboxEvent.class)
                 .setParameter("limit", limit)
                 .getResultList();
     }
@@ -56,7 +56,8 @@ public class OutboxRepository implements PanacheRepositoryBase<OutboxEvent, UUID
     /**
      * Elimina eventos publicados anteriores a la fecha indicada.
      *
-     * @param olderThan fecha límite (se eliminan eventos publicados antes de esta fecha)
+     * @param olderThan fecha límite (se eliminan eventos publicados antes de
+     * esta fecha)
      * @return cantidad de registros eliminados
      */
     public long deleteOldPublished(Instant olderThan) {

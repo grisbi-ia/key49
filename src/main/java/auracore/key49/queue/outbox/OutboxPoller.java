@@ -1,5 +1,7 @@
 package auracore.key49.queue.outbox;
 
+import java.util.List;
+
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -16,19 +18,19 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.List;
-
 /**
- * Poller que lee eventos no publicados de la tabla outbox de cada tenant
- * y los publica a RabbitMQ a través del {@link DocumentEventProducer}.
+ * Poller que lee eventos no publicados de la tabla outbox de cada tenant y los
+ * publica a RabbitMQ a través del {@link DocumentEventProducer}.
  *
- * <p>Ejecuta con intervalo configurable (default 500ms). Usa polling adaptativo:
- * al encontrar eventos, el siguiente ciclo usa intervalo corto; si no hay eventos,
- * usa intervalo largo (idle). Batch-size y ambos intervalos son configurables
- * vía variables de entorno.</p>
+ * <p>
+ * Ejecuta con intervalo configurable (default 500ms). Usa polling adaptativo:
+ * al encontrar eventos, el siguiente ciclo usa intervalo corto; si no hay
+ * eventos, usa intervalo largo (idle). Batch-size y ambos intervalos son
+ * configurables vía variables de entorno.</p>
  *
- * <p>Usa SELECT ... FOR UPDATE SKIP LOCKED para soportar concurrencia
- * segura entre múltiples instancias (futuro multi-instancia).</p>
+ * <p>
+ * Usa SELECT ... FOR UPDATE SKIP LOCKED para soportar concurrencia segura entre
+ * múltiples instancias (futuro multi-instancia).</p>
  */
 @ApplicationScoped
 public class OutboxPoller {
@@ -57,7 +59,9 @@ public class OutboxPoller {
     private final Counter polledCounter;
     private final Timer pollDurationTimer;
 
-    /** Indica si el último ciclo encontró eventos (para polling adaptativo). */
+    /**
+     * Indica si el último ciclo encontró eventos (para polling adaptativo).
+     */
     private volatile boolean lastCycleHadEvents = false;
 
     @Inject
@@ -90,8 +94,8 @@ public class OutboxPoller {
     }
 
     /**
-     * Indica si el último ciclo de polling encontró eventos.
-     * Útil para testing y monitoreo del polling adaptativo.
+     * Indica si el último ciclo de polling encontró eventos. Útil para testing
+     * y monitoreo del polling adaptativo.
      */
     public boolean lastCycleHadEvents() {
         return lastCycleHadEvents;

@@ -5,6 +5,16 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.21.0] - 2026-04-10
+
+### Agregado
+
+- **Caché de API keys en Redis** (T-062): `ApiKeyCacheService` con caché Redis (hash `key49:apikey:{hash}`) y TTL configurable vía `KEY49_API_KEY_CACHE_TTL_SECONDS` (default 300s). Cache miss consulta BD y popula Redis. Fallback graceful a BD si Redis no está disponible
+- `ApiKeyAuthFilter` refactorizado para usar `ApiKeyCacheService.lookup()` en lugar de SQL directo por request
+- Invalidación automática en `ApiKeyManagementService.revoke()`: elimina la entrada de Redis al revocar una key
+- `ApiKeyCacheServiceTest`: 6 tests de integración — cache miss + populate, cache hit, invalidación, key inexistente, TTL, re-populate post-invalidación
+- Documentación en DEPLOYMENT.md: sección "Caché de API Keys en Redis" con security considerations y variable `KEY49_API_KEY_CACHE_TTL_SECONDS`
+
 ## [0.20.3] - 2026-04-10
 
 ### Agregado

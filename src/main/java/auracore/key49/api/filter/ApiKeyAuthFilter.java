@@ -1,5 +1,6 @@
 package auracore.key49.api.filter;
 
+import auracore.key49.core.service.ApiKeyCacheService;
 import auracore.key49.core.service.ApiKeyService;
 import auracore.key49.core.tenant.TenantContext;
 import jakarta.inject.Inject;
@@ -14,8 +15,9 @@ import java.sql.SQLException;
 import java.time.Instant;
 
 /**
- * Filtro de autenticación por API Key. Usa DataSource (JDBC) para consultar
- * api_keys y tenants en el esquema public.
+ * Filtro de autenticación por API Key. Usa caché Redis para evitar consultas
+ * SQL en cada request. Si Redis no está disponible, degrada a consulta directa
+ * a BD.
  */
 public class ApiKeyAuthFilter {
 
@@ -30,6 +32,9 @@ public class ApiKeyAuthFilter {
 
     @Inject
     TenantContext tenantContext;
+
+    @Inject
+    ApiKeyCacheService apiKeyCacheService;
 
     @ServerRequestFilter(priority = 10)
     public Response authenticate(ContainerRequestContext requestContext) {
@@ -57,61 +62,36 @@ public class ApiKeyAuthFilter {
 
         var keyHash = ApiKeyService.sha256(rawKey);
 
-        try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement("""
-                     SELECT a.tenant_id, a.status AS key_status, a.expires_at,
-                            t.schema_name, t.status AS tenant_status,
-                            t.rate_limit_rpm
-                     FROM api_keys a JOIN tenants t ON a.tenant_id = t.tenant_id
-                     WHERE a.key_hash = ?""")) {
-
-            stmt.setString(1, keyHash);
-            try (var rs = stmt.executeQuery()) {
-                if (!rs.next()) {
-                    return unauthorizedResponse("Invalid API key");
-                }
-
-                var keyStatus = rs.getString("key_status");
-                if (!"active".equals(keyStatus)) {
-                    return forbiddenResponse("API key is not active");
-                }
-
-                var expiresAt = rs.getTimestamp("expires_at");
-                if (expiresAt != null && Instant.now().isAfter(expiresAt.toInstant())) {
-                    return forbiddenResponse("API key has expired");
-                }
-
-                var tenantStatus = rs.getString("tenant_status");
-                if (!"active".equals(tenantStatus)) {
-                    return forbiddenResponse("Tenant is not active");
-                }
-
-                var tenantId = rs.getObject("tenant_id", java.util.UUID.class);
-                var schemaName = rs.getString("schema_name");
-                var rateLimitRpm = rs.getInt("rate_limit_rpm");
-                tenantContext.setTenant(tenantId, schemaName);
-                tenantContext.setRateLimitRpm(rateLimitRpm);
-                tenantContext.setApiKeyPrefix(prefix);
-                log.debugf("Authenticated tenant=%s, schema=%s", tenantId, schemaName);
-            }
-
-            // Update last_used_at (fire-and-forget in a separate connection)
-            updateLastUsedAt(keyHash);
-
-        } catch (SQLException e) {
-            log.errorf(e, "Database error during API key authentication");
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .type(MediaType.APPLICATION_JSON_TYPE)
-                    .entity(errorBody("Internal server error"))
-                    .build();
+        var cached = apiKeyCacheService.lookup(keyHash);
+        if (cached == null) {
+            return unauthorizedResponse("Invalid API key");
         }
+
+        if (!"active".equals(cached.keyStatus())) {
+            return forbiddenResponse("API key is not active");
+        }
+
+        if (cached.expiresAt() != null && Instant.now().isAfter(Instant.parse(cached.expiresAt()))) {
+            return forbiddenResponse("API key has expired");
+        }
+
+        if (!"active".equals(cached.tenantStatus())) {
+            return forbiddenResponse("Tenant is not active");
+        }
+
+        tenantContext.setTenant(cached.tenantId(), cached.schemaName());
+        tenantContext.setRateLimitRpm(cached.rateLimitRpm());
+        tenantContext.setApiKeyPrefix(prefix);
+        log.debugf("Authenticated tenant=%s, schema=%s", cached.tenantId(), cached.schemaName());
+
+        // Update last_used_at (fire-and-forget)
+        updateLastUsedAt(keyHash);
 
         return null;
     }
 
     private void updateLastUsedAt(String keyHash) {
-        try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement("UPDATE api_keys SET last_used_at = now() WHERE key_hash = ?")) {
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement("UPDATE api_keys SET last_used_at = now() WHERE key_hash = ?")) {
             stmt.setString(1, keyHash);
             stmt.executeUpdate();
         } catch (SQLException e) {

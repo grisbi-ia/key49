@@ -1,10 +1,9 @@
 package auracore.key49.queue.outbox;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,8 +12,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 
 /**
- * Verifica la configuración del OutboxPoller: batch-size configurable,
- * métricas Micrometer registradas, y polling adaptativo.
+ * Verifica la configuración del OutboxPoller: batch-size configurable, métricas
+ * Micrometer registradas, y polling adaptativo.
  */
 @QuarkusTest
 class OutboxPollerConfigTest {

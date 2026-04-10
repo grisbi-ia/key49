@@ -21,6 +21,9 @@ public class ApiKeyManagementService {
     @Inject
     ApiKeyRepository apiKeyRepository;
 
+    @Inject
+    ApiKeyCacheService apiKeyCacheService;
+
     @Transactional
     public CreatedApiKey create(UUID tenantId, CreateApiKeyData data) {
         validateCreateData(data);
@@ -71,6 +74,7 @@ public class ApiKeyManagementService {
                     "API key is already revoked", 409);
         }
         key.status = "revoked";
+        apiKeyCacheService.invalidate(key.keyHash);
         Log.infof("API key revoked | tenantId=%s apiKeyId=%s name=%s",
                 tenantId, apiKeyId, key.name);
         return key;
@@ -94,9 +98,11 @@ public class ApiKeyManagementService {
 
     public record CreateApiKeyData(String name, String environment,
             String permissions, Instant expiresAt) {
+
     }
 
     public record CreatedApiKey(ApiKey apiKey, String rawKey) {
+
     }
 
     public static class ApiKeyException extends RuntimeException {
