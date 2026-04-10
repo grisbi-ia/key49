@@ -16,7 +16,8 @@ Operaciones comunes de administración de PostgreSQL para Key49.
 8. [Monitoreo y diagnóstico](#monitoreo-y-diagnóstico)
 9. [Particionamiento de documents](#particionamiento-de-documents)
 10. [Mantenimiento automatizado](#mantenimiento-automatizado)
-11. [Mantenimiento manual](#mantenimiento-manual)
+11. [Monitoreo de queries (pg_stat_statements)](#monitoreo-de-queries-pg_stat_statements)
+12. [Mantenimiento manual](#mantenimiento-manual)
 
 ---
 
@@ -913,6 +914,180 @@ export KEY49_DB_PORT=5433
 export KEY49_DB_NAME=key49
 export KEY49_DB_USER=postgres
 export PGPASSWORD=<password_seguro>
+```
+
+---
+
+## Monitoreo de queries (pg_stat_statements)
+
+`pg_stat_statements` es una extensión de PostgreSQL que registra estadísticas de todas las queries ejecutadas (tiempo, frecuencia, rows). Es esencial para identificar queries lentas y optimizar índices.
+
+### Habilitar pg_stat_statements
+
+#### PostgreSQL local (desarrollo)
+
+```bash
+# 1. Editar postgresql.conf (ubicación típica en Ubuntu/Debian)
+sudo nano /etc/postgresql/13/main/postgresql.conf
+
+# Agregar/modificar estas líneas:
+shared_preload_libraries = 'pg_stat_statements'
+pg_stat_statements.track = all
+pg_stat_statements.max = 10000
+
+# 2. Reiniciar PostgreSQL
+sudo systemctl restart postgresql
+
+# 3. Crear la extensión en la base de datos key49
+psql -h localhost -p 5433 -U postgres -d key49 -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+```
+
+#### PostgreSQL en Docker (producción)
+
+En `docker-compose.yml`, agregar los parámetros al servicio de PostgreSQL:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: key49
+      POSTGRES_USER: ${KEY49_DB_USER}
+      POSTGRES_PASSWORD: ${KEY49_DB_PASSWORD}
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c pg_stat_statements.max=10000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+```
+
+Luego crear la extensión:
+
+```bash
+docker exec -it <container_postgres> psql -U $KEY49_DB_USER -d key49 \
+  -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+```
+
+#### Verificar que está habilitado
+
+```sql
+-- Debe devolver 1
+SELECT count(*) FROM pg_extension WHERE extname = 'pg_stat_statements';
+
+-- Ver configuración actual
+SHOW shared_preload_libraries;
+SHOW pg_stat_statements.track;
+```
+
+### Script de reporte: top_queries.sh
+
+Extrae las queries más lentas y frecuentes desde `pg_stat_statements`.
+
+```bash
+# Top 10 queries (por tiempo total, frecuencia, y promedio)
+export PGPASSWORD=1234abcd
+db/maintenance/top_queries.sh
+
+# Top 20
+db/maintenance/top_queries.sh 20
+
+# Resetear estadísticas (iniciar una nueva ventana de medición)
+db/maintenance/top_queries.sh --reset
+```
+
+El reporte incluye 4 secciones:
+
+1. **Top N by Total Time** — queries que consumen más tiempo acumulado
+2. **Top N by Call Frequency** — queries más ejecutadas
+3. **Top N by Average Time** — queries individualmente más lentas (mín. 10 llamadas)
+4. **Summary** — total de queries distintas, llamadas totales, tiempo total
+
+### Script de análisis: explain_pipeline_queries.sh
+
+Ejecuta `EXPLAIN (ANALYZE, BUFFERS)` en las queries del pipeline de documentos para verificar uso de índices.
+
+```bash
+export PGPASSWORD=1234abcd
+db/maintenance/explain_pipeline_queries.sh tenant_demo
+```
+
+Analiza 11 patrones de query:
+
+| #   | Query                      | Uso                                   |
+| --- | -------------------------- | ------------------------------------- |
+| 1   | PK lookup por document_id  | Todos los consumers del pipeline      |
+| 2   | Find por access_key        | DocumentRepository.findByAccessKey    |
+| 3   | Retry-ready                | RetryPoller (cada 5s)                 |
+| 4   | Documentos en tránsito     | Monitoreo pipeline                    |
+| 5   | Listado por rango de fecha | GET /v1/invoices                      |
+| 6   | Listado por fecha + estado | GET /v1/invoices?status=X             |
+| 7   | Count para paginación      | GET /v1/invoices (Total-Count header) |
+| 8   | Find por idempotency_key   | Verificación de idempotencia          |
+| 9   | Find por recipient_id      | Búsqueda por receptor                 |
+| 10  | Outbox unpublished         | OutboxPoller                          |
+| 11  | Webhook pending retries    | WebhookRetryPoller                    |
+
+### Índices optimizados (V006)
+
+La migración `V006__add_query_optimization_indexes.sql` agrega:
+
+| Índice                           | Tipo               | Propósito                                                                                |
+| -------------------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `idx_documents_pending`          | Parcial (B-tree)   | Documentos en tránsito: `WHERE status IN ('CREATED','SIGNED','SENT','RECEIVED','RETRY')` |
+| `idx_documents_status_type_date` | Compuesto (B-tree) | Queries de listado: `WHERE status = X AND document_type = Y ORDER BY issue_date DESC`    |
+
+Se elimina `idx_documents_status` (índice completo sobre status) porque:
+
+- Las queries de pipeline usan el índice parcial `idx_documents_pending` (solo docs en tránsito)
+- Las queries de listado usan el índice compuesto `idx_documents_status_type_date`
+
+### Cobertura de índices por patrón de acceso
+
+| Patrón de query                                                     | Índice utilizado                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------- |
+| `em.find(Document.class, id)` — pipeline consumers                  | PK `(document_id, issue_date)` escanea particiones   |
+| `WHERE access_key = ?`                                              | `idx_documents_access_key` (parcial, WHERE NOT NULL) |
+| `WHERE idempotency_key = ?`                                         | `uq_documents_idempotency` (unique constraint)       |
+| `WHERE status = 'RETRY' AND next_retry_at <= now()`                 | `idx_documents_retry` (parcial)                      |
+| `WHERE status IN ('CREATED','SIGNED','SENT','RECEIVED','RETRY')`    | `idx_documents_pending` (parcial)                    |
+| `WHERE status = X AND document_type = Y AND issue_date BETWEEN ...` | `idx_documents_status_type_date` + partition pruning |
+| `WHERE document_type = X AND issue_date BETWEEN ...`                | `idx_documents_type_date` + partition pruning        |
+| `WHERE recipient_id = ?`                                            | `idx_documents_recipient`                            |
+| `outbox WHERE published = false`                                    | `idx_outbox_unpublished` (parcial)                   |
+| `webhook_deliveries WHERE status = 'pending'`                       | `idx_webhook_pending` (parcial)                      |
+
+### Consultas manuales útiles
+
+```sql
+-- Top 10 queries más lentas (por tiempo promedio)
+SELECT
+    calls,
+    ROUND(mean_exec_time::NUMERIC, 2) AS avg_ms,
+    ROUND(total_exec_time::NUMERIC, 2) AS total_ms,
+    rows,
+    LEFT(query, 100) AS query
+FROM pg_stat_statements
+WHERE dbid = (SELECT oid FROM pg_database WHERE datname = 'key49')
+ORDER BY mean_exec_time DESC
+LIMIT 10;
+
+-- Top 10 queries más frecuentes
+SELECT
+    calls,
+    ROUND(mean_exec_time::NUMERIC, 2) AS avg_ms,
+    rows,
+    LEFT(query, 100) AS query
+FROM pg_stat_statements
+WHERE dbid = (SELECT oid FROM pg_database WHERE datname = 'key49')
+ORDER BY calls DESC
+LIMIT 10;
+
+-- Resetear estadísticas
+SELECT pg_stat_statements_reset();
 ```
 
 ---

@@ -631,7 +631,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Crear índice `CONCURRENTLY` script para reindexación sin downtime
   - Documentar procedimiento en `DB-ADMIN.md`
 
-- [ ] **T-072** Monitoreo de queries y optimización
+- [x] **T-072** Monitoreo de queries y optimización
   - Habilitar `pg_stat_statements` en PostgreSQL
   - Script para extraer top 10 queries más lentas y más frecuentes
   - Revisar plan de ejecución de queries del pipeline (sign, send, authorize, notify consumer)

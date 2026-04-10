@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.23.3] - 2026-04-10
+
+### Agregado
+
+- **Monitoreo de queries y optimización de índices** (T-072): herramientas de análisis de queries y nuevos índices optimizados
+- Migración `V006__add_query_optimization_indexes.sql`: índice parcial `idx_documents_pending` para documentos en tránsito y compuesto `idx_documents_status_type_date` para queries de listado
+- Script `db/maintenance/top_queries.sh`: extrae top N queries por tiempo total, frecuencia y promedio desde `pg_stat_statements`
+- Script `db/maintenance/explain_pipeline_queries.sh`: ejecuta EXPLAIN ANALYZE en 11 patrones de query del pipeline
+- Sección "Monitoreo de queries (pg_stat_statements)" en `DB-ADMIN.md` con instrucciones para habilitar en PostgreSQL local y Docker
+- Documentación de cobertura de índices por patrón de acceso y consultas manuales útiles
+- 8 tests de integración en `QueryOptimizationTest` que verifican: índice parcial de pendientes, índice compuesto para listados, partition pruning, y cobertura de todos los índices
+
 ## [0.23.2] - 2026-04-10
 
 ### Agregado
