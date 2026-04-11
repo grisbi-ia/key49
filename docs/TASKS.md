@@ -820,3 +820,197 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 3. El código sigue las convenciones del archivo CONVENTIONS.md
 4. Cada PR debe pasar CI (build + tests + linting)
 5. Los endpoints REST tienen documentación OpenAPI
+
+---
+
+## Fase 8: Comercialización SaaS (6-8 semanas)
+
+> **Objetivo**: Convertir Key49 en un producto SaaS comercializable con autoregistro, planes de documentos, control de cuota y renovación manual de pagos. El cliente puede registrarse, configurar su firma electrónica y empezar a emitir comprobantes sin intervención del administrador.
+
+### Sprint 21: Provisioning Automático de Tenants (Semana 1-2)
+
+- [ ] **T-090** Función PL/pgSQL `clone_schema()` y esquema template
+  - Crear esquema `tenant_template` con todas las tablas (V001–V006) vacías
+  - Implementar función `clone_schema(source, target)` en PL/pgSQL que duplique tablas, índices, constraints y sequences
+  - Validar que el esquema destino no exista (prevenir sobreescritura)
+  - Script SQL en `db/migrations/public/` para crear la función y el template
+  - Test: clonar template, verificar que las tablas existen con estructura idéntica
+  - Documentar en `DB-ADMIN.md` el mantenimiento del template (aplicar migraciones nuevas)
+
+- [ ] **T-091** Provisioning automático en `TenantAdminService`
+  - Modificar `TenantAdminService.create()` para ejecutar `SELECT clone_schema('tenant_template', :schema)` después del INSERT
+  - Transición automática a `status = 'active'` tras provisioning exitoso
+  - Si falla el clonado: rollback, dejar `status = 'failed'`, log de error detallado
+  - Respetar validación de `TenantSchemaResolver.validate()` (inyección SQL)
+  - Invalidar caché Redis del tenant tras activación
+  - Test: crear tenant vía API, verificar que esquema existe y tablas son accesibles
+  - Test: intentar crear tenant con schema duplicado → error controlado
+
+### Sprint 22: Modelo de Planes y Cuotas (Semana 2-3)
+
+- [ ] **T-092** Schema de planes y cuotas en BD
+  - Nuevas columnas en `public.tenants`:
+    - `plan_type VARCHAR(20) DEFAULT 'demo'` — demo, starter, business, enterprise
+    - `document_quota INTEGER DEFAULT 25` — documentos permitidos en el periodo
+    - `documents_used INTEGER DEFAULT 0` — documentos emitidos en el periodo actual
+    - `plan_starts_at TIMESTAMPTZ` — inicio del periodo
+    - `plan_expires_at TIMESTAMPTZ` — fin del periodo (30 días desde activación)
+  - Nueva tabla `public.plan_renewals`:
+    - `renewal_id UUID PK`, `tenant_id FK`, `plan_type`, `document_quota`
+    - `amount NUMERIC(10,2)`, `payment_proof_path VARCHAR(500)` (ruta MinIO)
+    - `status VARCHAR(20)` — pending, approved, rejected
+    - `approved_by`, `approved_at`, `notes`, `created_at`
+  - Enum Java `PlanType` con cuotas por defecto: DEMO(25), STARTER(100), BUSINESS(500), ENTERPRISE(5000)
+  - Script SQL en `db/migrations/public/`
+  - Test: verificar defaults y constraints
+
+- [ ] **T-093** Validación de cuota en emisión de documentos
+  - En cada servicio de creación (Invoice, CreditNote, DebitNote, Waybill, Withholding, PurchaseClearance, RawDocument):
+    - Antes de INSERT: verificar `documents_used < document_quota`
+    - Si excede → HTTP 402 Payment Required con mensaje "Cuota de documentos agotada. Renueve su plan."
+    - Si plan expirado (`plan_expires_at < now()`) → HTTP 402 con "Plan expirado"
+  - Incrementar `documents_used` atómicamente: `UPDATE tenants SET documents_used = documents_used + 1 WHERE tenant_id = ? AND documents_used < document_quota`
+  - El UPDATE atómico previene race conditions bajo concurrencia
+  - No contar documentos en estado REJECTED o FAILED (solo los que avanzan a SIGNED+)
+  - Test: emitir documentos hasta agotar cuota, verificar 402
+  - Test: concurrencia — 10 requests simultáneos con 1 documento restante → solo 1 éxito
+
+- [ ] **T-094** Alertas de cuota por webhook y email
+  - Webhook `plan.quota_warning` cuando `documents_used >= 80%` de `document_quota`
+  - Webhook `plan.quota_exhausted` cuando se agota la cuota
+  - Webhook `plan.expiring` 7 días antes de `plan_expires_at`
+  - Email al tenant en cada caso (usando SMTP de Key49 o SMTP propio del tenant)
+  - Job `@Scheduled` diario para verificar planes próximos a vencer
+  - Test: simular 80% uso, verificar webhook disparado
+
+### Sprint 23: SMTP por Tenant (Semana 3-4)
+
+- [ ] **T-095** Configuración SMTP por tenant
+  - Nuevas columnas en `public.tenants`:
+    - `smtp_host VARCHAR(255)`, `smtp_port INTEGER`, `smtp_user VARCHAR(255)`
+    - `smtp_password_enc BYTEA` (cifrado AES-256-GCM, misma clave maestra)
+    - `smtp_from VARCHAR(255)`, `smtp_enabled BOOLEAN DEFAULT false`
+  - Script SQL en `db/migrations/public/`
+  - Endpoint `PUT /v1/admin/tenants/{id}/smtp` para configurar SMTP
+  - Endpoint `POST /v1/admin/tenants/{id}/smtp/test` para enviar email de prueba
+  - Test de conexión SMTP antes de guardar (validar host:port accesible)
+  - Test: configurar SMTP, enviar email de prueba, verificar recepción
+
+- [ ] **T-096** Envío de email con SMTP del tenant
+  - Modificar `EmailService` para resolver el SMTP correcto:
+    - Si `tenant.smtp_enabled = true` → usar SMTP del tenant
+    - Si `tenant.smtp_enabled = false` → usar SMTP compartido de Key49
+  - Crear `SmtpClientFactory` que construya clientes SMTP bajo demanda (con caché LRU por tenant)
+  - Descifrar `smtp_password_enc` solo al momento de enviar (no cachear contraseña en claro)
+  - Fallback: si SMTP del tenant falla 3 veces → usar SMTP de Key49 + log warning
+  - Test: enviar email con SMTP custom, verificar headers From
+
+### Sprint 24: Portal de Autoregistro (Semana 4-6)
+
+- [ ] **T-097** Autenticación del portal por contraseña (además de API key)
+  - Nueva columna `portal_password_hash VARCHAR(255)` en `public.tenants` (bcrypt)
+  - Nueva columna `email VARCHAR(255)` y `email_verified BOOLEAN DEFAULT false`
+  - Modificar `PortalAuthFilter` para soportar login por email + contraseña (además del API key existente)
+  - Endpoint `POST /portal/login` acepta `{email, password}` o `{apiKey}`
+  - Hashear con bcrypt (cost factor 12)
+  - Sesión Redis existente se reutiliza (30 min TTL)
+  - Test: login con contraseña, verificar sesión creada
+
+- [ ] **T-098** Wizard de autoregistro — Paso 1: Datos de empresa
+  - Template Qute: `/portal/register` con formulario multi-paso (Pico CSS + HTMX)
+  - Paso 1: RUC, razón social, email, contraseña, confirmar contraseña
+  - Validación client-side (HTMX): verificar RUC con módulo 11, email formato válido
+  - Validación server-side: RUC no duplicado, email no duplicado, contraseña mínimo 8 caracteres
+  - Al completar paso 1: guardar datos en sesión temporal (Redis, TTL 30 min), no crear tenant aún
+  - Test: validación de RUC, detección de duplicados
+
+- [ ] **T-099** Wizard de autoregistro — Paso 2: Certificado .p12
+  - Upload de archivo .p12 (máximo 50 KB, validar extensión y magic bytes)
+  - Campo de contraseña del certificado
+  - Selector de ambiente: TEST / PRODUCCIÓN (radio buttons)
+  - Validación server-side: intentar cargar el .p12 con la contraseña para verificar que es válido
+  - Extraer del certificado: emisor, fecha de expiración, serial number
+  - Mostrar resumen del certificado al usuario antes de continuar
+  - Cifrar con AES-256-GCM y guardar en sesión temporal
+  - Test: upload de certificado válido, rechazo de archivo inválido
+
+- [ ] **T-100** Wizard de autoregistro — Paso 3: SMTP y webhook (opcional)
+  - Formulario opcional de SMTP: host, puerto, usuario, contraseña, email remitente
+  - Botón "Probar conexión SMTP" (HTMX → POST que verifica conexión)
+  - Campo opcional de webhook URL (con validación SSRF)
+  - Si no configura SMTP → mostrar mensaje "Se usará el servicio de email de Key49"
+  - Guardar en sesión temporal
+  - Test: configurar SMTP, probar conexión
+
+- [ ] **T-101** Wizard de autoregistro — Paso 4: Confirmación y creación
+  - Resumen de toda la configuración (datos empresa, certificado, ambiente, SMTP)
+  - Botón "Crear mi cuenta"
+  - Al confirmar:
+    1. Crear tenant con plan DEMO (25 docs, 30 días) via `TenantAdminService.create()`
+    2. Provisioning automático del esquema (T-091)
+    3. Guardar certificado cifrado
+    4. Configurar SMTP si fue proporcionado
+    5. Generar API key y mostrarla UNA SOLA VEZ (con botón copiar)
+    6. Enviar email de bienvenida con guía rápida de integración
+  - Redirigir al dashboard del portal con mensaje de bienvenida
+  - Test E2E: completar wizard completo, verificar tenant activo y API key funcional
+
+### Sprint 25: Panel Admin de Renovaciones (Semana 6-7)
+
+- [ ] **T-102** Solicitud de renovación desde el portal del tenant
+  - Nueva página `/portal/plan` que muestra: plan actual, documentos usados/total, fecha expiración
+  - Barra de progreso visual de cuota (verde < 50%, amarillo 50-80%, rojo > 80%)
+  - Lista de planes disponibles con precios
+  - Botón "Renovar plan" → formulario:
+    - Seleccionar plan deseado
+    - Subir comprobante de pago (imagen JPG/PNG o PDF, máximo 5 MB)
+    - Campo de observaciones
+  - El comprobante se sube a MinIO: `plan-renewals/{tenant_id}/{renewal_id}.{ext}`
+  - Se crea registro en `plan_renewals` con `status = 'pending'`
+  - Webhook `plan.renewal_requested` al admin
+  - Test: subir comprobante, verificar registro creado
+
+- [ ] **T-103** Panel de administración de renovaciones
+  - Endpoint admin: `GET /v1/admin/renewals?status=pending` — lista solicitudes pendientes
+  - Endpoint admin: `GET /v1/admin/renewals/{id}` — detalle con link al comprobante en MinIO
+  - Endpoint admin: `POST /v1/admin/renewals/{id}/approve` — aprobar renovación:
+    - Actualizar `plan_renewals.status = 'approved'`, `approved_by`, `approved_at`
+    - Actualizar tenant: `plan_type`, `document_quota`, `documents_used = 0`, nueva `plan_expires_at`
+    - Invalidar caché Redis del tenant
+    - Webhook `plan.activated` al tenant
+    - Email de confirmación al tenant
+  - Endpoint admin: `POST /v1/admin/renewals/{id}/reject` — rechazar con motivo
+    - Webhook `plan.rejected` al tenant
+  - Portal admin (`/portal/admin/renewals`): tabla con filtros, botones aprobar/rechazar
+  - Test: flujo completo solicitud → aprobación → cuota actualizada
+
+### Sprint 26: Pulido y Hardening (Semana 7-8)
+
+- [ ] **T-104** Reset mensual de cuota (job programado)
+  - Job `@Scheduled` diario que verifica planes con suscripción activa:
+    - Si `plan_expires_at <= now()` y plan no es Enterprise → `status = 'expired'`, webhook `plan.expired`
+    - Para suscripciones con auto-renovación futura: reset `documents_used = 0`, nueva `plan_expires_at`
+  - Mantener historial de periodos en `plan_renewals`
+  - Test: simular expiración, verificar cambio de estado
+
+- [ ] **T-105** Email de verificación en autoregistro
+  - Al registrarse, enviar email con token de verificación (UUID, expira en 24h)
+  - Endpoint `GET /portal/verify?token=...` → marca `email_verified = true`
+  - El tenant queda en `status = 'pending'` hasta verificar email
+  - Después de verificar → provisioning automático → `status = 'active'`
+  - Test: generar token, verificar, confirmar activación
+
+- [ ] **T-106** Rate limiting por plan
+  - Ajustar `rate_limit_rpm` según el plan del tenant:
+    - DEMO: 10 rpm (solicitudes por minuto)
+    - STARTER: 30 rpm
+    - BUSINESS: 60 rpm
+    - ENTERPRISE: 200 rpm
+  - Aplicar automáticamente al cambiar de plan
+  - Test: verificar 429 con plan DEMO a más de 10 rpm
+
+- [ ] **T-107** Documentación de planes y autoregistro
+  - Actualizar `API.md` con endpoints de renovación y planes
+  - Actualizar `DEVELOPER-GUIDE.md` con flujo de autoregistro
+  - Crear `docs/PLANS.md` con detalle de planes, precios placeholder, y políticas
+  - Actualizar `OPERATIONS.md` con flujo de renovación y panel admin
