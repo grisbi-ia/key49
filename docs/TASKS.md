@@ -748,7 +748,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Tarea Intermedia: Documentación Operativa
 
-- [ ] **T-084A** Guía operativa del sistema (`docs/OPERATIONS.md`)
+- [x] **T-084A** Guía operativa del sistema (`docs/OPERATIONS.md`) ✅ v0.25.8
   - **Flujo end-to-end de un comprobante**: diagrama y explicación paso a paso desde el request API hasta la notificación final, indicando qué componente interviene en cada fase (API → PostgreSQL → RabbitMQ → Signer → SRI SOAP → MinIO → Email/Webhook)
   - **RabbitMQ — colas y consumers**: exchange `key49`, routing keys, cola por etapa (`sign`, `send`, `authorize`, `notify`), cola DLQ, prefetch por consumer, qué pasa si un consumer se cae
   - **Reintentos y backoff exponencial**: qué errores se reintentan (infra) vs cuáles no (negocio SRI), secuencia de delays (5s→15s→45s→135s→405s), máximo 6 intentos, transición a FAILED

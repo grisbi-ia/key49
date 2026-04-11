@@ -5,6 +5,25 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.8] - 2026-04-11
+
+### Agregado
+
+- **Guía operativa del sistema** (T-084A): `docs/OPERATIONS.md`
+- Flujo end-to-end de un comprobante con tiempos típicos por etapa
+- Topología RabbitMQ: exchanges, colas, routing keys, prefetch por consumer
+- Reintentos con backoff exponencial: 5s→15s→45s→135s→405s, clasificación de errores
+- Máquina de estados completa con diagrama ASCII y tabla de transiciones
+- Circuit breaker: parámetros SRI/MinIO, comportamiento en apertura, semi-abierto, cierre
+- Redis: qué se cachea, TTL por tipo, comportamiento ante caída (degradación graceful)
+- MinIO: estructura de rutas, artefactos por documento, timeouts, circuit breaker
+- PgBouncer: modo transaction, SET LOCAL search_path, sizing del pool
+- Outbox pattern: flujo de publicación, FOR UPDATE SKIP LOCKED, limpieza nocturna
+- Webhooks: HMAC-SHA256, validación SSRF, reintentos (10s→60s→300s), tipos de evento
+- Idempotencia: flujo con X-Idempotency-Key, unicidad de documento, reciclaje
+- Tabla de resiliencia ante caídas: impacto y recuperación por componente
+- Apagado graceful: secuencia de 30s, re-encolado automático de mensajes
+
 ## [0.25.7] - 2026-04-11
 
 ### Cambiado
