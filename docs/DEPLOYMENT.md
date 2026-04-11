@@ -16,7 +16,8 @@ Guía paso a paso para desplegar Key49 desde cero en un ambiente de pruebas.
 8. [Arrancar la aplicación](#arrancar-la-aplicación)
 9. [Verificar el despliegue](#verificar-el-despliegue)
 10. [Despliegue sin pérdida de mensajes](#despliegue-sin-pérdida-de-mensajes)
-11. [Troubleshooting](#troubleshooting)
+11. [Docker en producción](#docker-en-producción)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -840,6 +841,85 @@ Las métricas se actualizan cada 30 segundos vía la API de management de Rabbit
 - En producción, configurar alertas en Grafana cuando `key49.queue.depth > 1000` sostenido por >5 minutos.
 - Si el SRI está caído y las colas crecen, el circuit breaker (T-065) detiene los envíos y el backpressure evita saturar la instancia.
 - Ajustar `KEY49_QUEUE_DEPTH_CRITICAL` según la capacidad de la instancia y el volumen esperado.
+
+---
+
+## Docker en producción
+
+### Construir la imagen
+
+El Dockerfile usa **multi-stage build**: Maven compila en un stage temporal y la imagen final contiene solo el JRE Alpine mínimo.
+
+```bash
+# Build
+docker build -t key49:latest .
+
+# Con tag de versión
+docker build -t key49:0.25.7 -t key49:latest .
+```
+
+Características de la imagen:
+
+- **Base**: Eclipse Temurin 25 JRE Alpine (~150 MB)
+- **Usuario no-root**: `key49` (seguridad)
+- **Zona horaria**: `America/Guayaquil` preconfigurada
+- **Healthcheck**: `curl http://localhost:8080/q/health/ready` cada 30s
+- **Cache de dependencias**: el POM se copia primero para aprovechar capas Docker
+
+### JVM flags de producción
+
+La imagen configura estos flags por defecto vía `JAVA_OPTS`:
+
+| Flag                                    | Propósito                                               |
+| --------------------------------------- | ------------------------------------------------------- |
+| `-XX:MaxRAMPercentage=75.0`             | Usa hasta 75% de la RAM del contenedor como heap        |
+| `-XX:+UseG1GC`                          | Garbage collector G1 (buen balance throughput/latencia) |
+| `-XX:+UseStringDeduplication`           | Reduce memoria de strings duplicados (XMLs del SRI)     |
+| `-XX:+ExitOnOutOfMemoryError`           | Fuerza exit en OOM para que el orquestador reinicie     |
+| `-Djava.security.egd=file:/dev/urandom` | Evita bloqueos en generación de UUIDs/crypto            |
+
+Para sobreescribir flags, pasar `JAVA_OPTS` como variable de entorno:
+
+```bash
+# Ejemplo: más memoria, logging GC
+docker run -p 8080:8080 \
+  -e JAVA_OPTS="-XX:MaxRAMPercentage=80.0 -XX:+UseG1GC -Xlog:gc*:stdout" \
+  --env-file .env \
+  key49:latest
+```
+
+### Ejecutar el contenedor
+
+```bash
+# Con archivo de variables de entorno
+docker run -d --name key49 \
+  -p 8080:8080 \
+  --memory=512m \
+  --env-file .env \
+  key49:latest
+
+# Verificar salud
+docker inspect --format='{{.State.Health.Status}}' key49
+```
+
+### Dimensionamiento de memoria
+
+| Perfil       | `--memory` | Heap estimado (75%) | Tenants estimados |
+| ------------ | ---------- | ------------------- | ----------------- |
+| Mínimo       | 256m       | ~192m               | 1-5               |
+| Estándar     | 512m       | ~384m               | 5-20              |
+| Alto volumen | 1g         | ~768m               | 20-100            |
+
+### GraalVM Native Image (evaluación)
+
+Quarkus soporta compilación nativa con GraalVM para reducir startup (~50ms vs ~2s) y memoria (~50MB vs ~200MB). Sin embargo, **no se recomienda actualmente** para Key49 por:
+
+- La firma XAdES-BES usa Apache Santuario + BouncyCastle que requieren configuración compleja en GraalVM
+- Los clientes SOAP generados necesitan reflection config extensiva
+- El beneficio de startup rápido es menor en un servicio long-running
+- La imagen JVM ya logra ~2s de startup, suficiente para producción
+
+Se reevaluará en futuras versiones si Quarkus mejora el soporte nativo para estas librerías.
 
 ---
 

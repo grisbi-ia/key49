@@ -1,0 +1,37 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+docker/
+
+# Docs (no needed in image)
+docs/
+*.md
+!README.md
+
+# Test resources
+src/test/
+
+# CI/CD
+.github/
+
+# Env files (never include secrets)
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

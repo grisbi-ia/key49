@@ -738,7 +738,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Beneficio: los integradores pueden pausar envíos cuando el sistema reporta problemas
   - Test: simular SRI caído, verificar que webhook system.incident se dispara
 
-  - [ ] **T-084** Docker production image optimizado
+  - [x] **T-084** Docker production image optimizado ✅ v0.25.7
   - Multi-stage Dockerfile: build con Maven → runtime con JRE mínimo
   - Evaluar Quarkus native image (GraalVM) para reducir startup y memoria
   - Configurar JVM flags para producción: `-XX:MaxRAMPercentage=75`, `-XX:+UseG1GC`

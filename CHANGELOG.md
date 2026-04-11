@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.25.7] - 2026-04-11
+
+### Cambiado
+
+- **Docker production image optimizado** (T-084): Dockerfile reescrito con multi-stage build
+- Stage 1: Maven 3.9 + Temurin 25 para compilación con cache de dependencias
+- Stage 2: JRE 25 Alpine (~331 MB total) con usuario no-root `key49`
+- JVM flags de producción: MaxRAMPercentage=75%, G1GC, StringDeduplication, ExitOnOutOfMemoryError
+- HEALTHCHECK integrado: `curl -f http://localhost:8080/q/health/ready` cada 30s
+- Zona horaria America/Guayaquil preconfigurada en la imagen
+- `.dockerignore` para excluir tests, docs, IDE y archivos innecesarios del build context
+- Evaluación de GraalVM native image: no recomendado actualmente (SOAP/XAdES-BES)
+- Documentación completa en `DEPLOYMENT.md`: build, run, JVM flags, dimensionamiento
+
 ## [0.25.6] - 2026-04-10
 
 ### Agregado
