@@ -746,6 +746,22 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Publicar imagen en registry (Docker Hub o GHCR)
   - Documentar en `DEPLOYMENT.md`
 
+### Tarea Intermedia: Documentación Operativa
+
+- [ ] **T-084A** Guía operativa del sistema (`docs/OPERATIONS.md`)
+  - **Flujo end-to-end de un comprobante**: diagrama y explicación paso a paso desde el request API hasta la notificación final, indicando qué componente interviene en cada fase (API → PostgreSQL → RabbitMQ → Signer → SRI SOAP → MinIO → Email/Webhook)
+  - **RabbitMQ — colas y consumers**: exchange `key49`, routing keys, cola por etapa (`sign`, `send`, `authorize`, `notify`), cola DLQ, prefetch por consumer, qué pasa si un consumer se cae
+  - **Reintentos y backoff exponencial**: qué errores se reintentan (infra) vs cuáles no (negocio SRI), secuencia de delays (5s→15s→45s→135s→405s), máximo 6 intentos, transición a FAILED
+  - **Máquina de estados**: diagrama completo (CREATED→SIGNED→SENT→RECEIVED→AUTHORIZED→NOTIFIED), estados de error (REJECTED, FAILED), RETRY, VOIDED, con tabla de transiciones válidas
+  - **Circuit breaker SRI**: cuándo se abre (5 fallos), duración half-open (30s), qué pasa con los documentos en cola mientras está abierto, recovery automático
+  - **Redis — caché y resiliencia**: qué se cachea (API keys, tenants, certificados), TTL de cada tipo, comportamiento cuando Redis no está disponible (fallback a BD)
+  - **MinIO — almacenamiento de artefactos**: qué se guarda (XML firmado, XML autorizado, RIDE PDF), estructura de buckets/paths, qué pasa si MinIO está caído
+  - **PgBouncer — pool de conexiones**: modo transacción, `SET LOCAL search_path`, sizing del pool, relación con multi-tenancy
+  - **Outbox pattern**: cómo garantiza exactly-once delivery, frecuencia de polling, limpieza de registros antiguos (7 días)
+  - **Resiliencia ante caídas**: tabla de escenarios (PostgreSQL caído, RabbitMQ caído, Redis caído, MinIO caído, SRI caído) con el impacto y la recuperación automática de cada uno
+  - **Webhooks**: flujo de entrega, HMAC-SHA256, reintentos de entrega, validación SSRF de URLs
+  - **Idempotencia**: cómo funciona `X-Idempotency-Key`, dónde se almacena, TTL, comportamiento ante requests duplicados
+
 ### Sprint 18: Grafana y Observabilidad Avanzada (Semana 7-8)
 
 - [ ] **T-085** Grafana dashboards
