@@ -17,4 +17,18 @@ public class PlanRenewalRepository implements PanacheRepositoryBase<PlanRenewal,
     public List<PlanRenewal> findPendingByTenantId(UUID tenantId) {
         return find("tenantId = ?1 AND status = 'pending'", tenantId).list();
     }
+
+    public List<PlanRenewal> findByStatus(String status, int page, int perPage) {
+        return find("status = ?1 ORDER BY createdAt DESC", status)
+                .page(page - 1, perPage).list();
+    }
+
+    public long countByStatus(String status) {
+        return count("status", status);
+    }
+
+    public List<PlanRenewal> findAllPaged(int page, int perPage) {
+        return find("ORDER BY createdAt DESC")
+                .page(page - 1, perPage).list();
+    }
 }

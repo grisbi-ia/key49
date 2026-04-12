@@ -983,7 +983,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Webhook `plan.renewal_requested` al admin
   - Test: subir comprobante, verificar registro creado
 
-- [ ] **T-103** Panel de administración de renovaciones
+- [x] **T-103** Panel de administración de renovaciones ✅ v0.27.7
   - Endpoint admin: `GET /v1/admin/renewals?status=pending` — lista solicitudes pendientes
   - Endpoint admin: `GET /v1/admin/renewals/{id}` — detalle con link al comprobante en MinIO
   - Endpoint admin: `POST /v1/admin/renewals/{id}/approve` — aprobar renovación:

@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.7] - 2026-04-12
+
+### Agregado
+
+- **Panel de administración de renovaciones** (T-103)
+  - REST API admin (`/v1/admin/renewals`): listar con filtro por estado y paginación, detalle con datos del tenant, aprobar y rechazar con motivo
+  - `RenewalAdminService` — lógica de negocio: aprobación (actualiza plan/cuota/documentsUsed=0, invalida caché Redis, webhook `plan.activated` + email), rechazo (webhook `plan.rejected` + email con motivo)
+  - `RenewalAdminResource` — endpoint REST protegido por `AdminAuthFilter` (`X-Admin-Token`)
+  - Portal admin (`/portal/admin/renewals`): tabla con filtros por estado, resumen de pendientes, botones aprobar/rechazar con confirmación, descarga de comprobantes de pago desde MinIO
+  - `PortalAdminResource` — controlador del portal admin con autenticación por query parameter `token` validado contra `key49.admin.token`
+  - Template `portal/admin/renewals.html` — vista Pico CSS independiente del layout tenant, con filtros, paginación y acciones inline
+  - `PlanRenewalRepository` — nuevos métodos: `findByStatus()`, `countByStatus()`, `findAllPaged()`
+  - `PortalAuthFilter` — exclusión de rutas `/portal/admin/*`, `/portal/forgot-password`, `/portal/reset-password`
+  - 23 tests unitarios: listar sin filtro/con filtro/vacío, detalle existente/no encontrado, aprobación exitosa/plan actualizado/caché invalidada/webhook/sin webhook/documentsUsed reset/error renovación no encontrada/estado no pendiente/tenant no encontrado, rechazo exitoso/notes append/webhook/sin webhook/tenant null/no modifica plan
+
 ## [0.27.6] - 2026-04-12
 
 ### Agregado

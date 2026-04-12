@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Administración de Renovaciones — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <script src="/js/htmx.min.js"></script>
+    <style>
+        :root {
+            --pico-font-size: 15px;
+        }
+
+        .status-ok {
+            background-color: #2ecc40;
+            color: #fff;
+        }
+
+        .status-error {
+            background-color: #ff4136;
+            color: #fff;
+        }
+
+        .status-pending {
+            background-color: #adb5bd;
+            color: #fff;
+        }
+
+        mark[class^="status-"] {
+            padding: 0.15em 0.5em;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        nav .brand {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .amount {
+            font-family: monospace;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        table {
+            font-size: 0.9rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        .filters label {
+            margin-bottom: 0;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="container">
+        <ul>
+            <li><a href="/portal/admin/renewals?token={token}" class="brand">Key49 Admin</a></li>
+        </ul>
+        <ul>
+            <li><small>Panel de Administración</small></li>
+        </ul>
+    </nav>
+    <main class="container">
+        <h3>Solicitudes de Renovación</h3>
+
+        {#if error}
+        <article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+            <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+        </article>
+        {/if}
+
+        {#if successMsg}
+        <article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+            <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+        </article>
+        {/if}
+
+        <!-- Filtros -->
+        <form method="get" action="/portal/admin/renewals" class="filters" style="margin-bottom: 1rem;">
+            <input type="hidden" name="token" value="{token}">
+            <label>
+                Estado
+                <select name="status">
+                    <option value="" {#if !statusFilter}selected{/if}>Todos</option>
+                    <option value="pending" {#if statusFilter == 'pending'}selected{/if}>Pendiente</option>
+                    <option value="approved" {#if statusFilter == 'approved'}selected{/if}>Aprobado</option>
+                    <option value="rejected" {#if statusFilter == 'rejected'}selected{/if}>Rechazado</option>
+                </select>
+            </label>
+            <button type="submit" class="btn-sm">Filtrar</button>
+        </form>
+
+        <!-- Resumen -->
+        <div class="grid">
+            <article>
+                <strong>{pendingCount}</strong>
+                <p style="margin: 0;">Pendientes</p>
+            </article>
+            <article>
+                <strong>{totalCount}</strong>
+                <p style="margin: 0;">Total</p>
+            </article>
+        </div>
+
+        <!-- Tabla de renovaciones -->
+        {#if renewals.isEmpty}
+        <article style="text-align: center; padding: 2rem;">
+            <p>No se encontraron solicitudes de renovación.</p>
+        </article>
+        {#else}
+        <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tenant</th>
+                        <th>Plan</th>
+                        <th>Documentos</th>
+                        <th class="text-right">Monto</th>
+                        <th>Comprobante</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#for r in renewals}
+                    <tr>
+                        <td>{r.createdAt}</td>
+                        <td>
+                            <small>{r.tenantName}</small><br>
+                            <small style="color: var(--pico-muted-color);">RUC: {r.tenantRuc}</small>
+                        </td>
+                        <td>{r.planType}</td>
+                        <td>{r.documentQuota}</td>
+                        <td class="text-right amount">${r.amount}</td>
+                        <td>
+                            {#if r.paymentProofPath}
+                            <a href="/portal/admin/renewals/{r.id}/proof?token={token}" target="_blank">Ver</a>
+                            {#else}
+                            <small style="color: var(--pico-muted-color);">—</small>
+                            {/if}
+                        </td>
+                        <td>
+                            {#if r.status == 'approved'}
+                            <mark class="status-ok">Aprobado</mark>
+                            {#else}{#if r.status == 'rejected'}
+                            <mark class="status-error">Rechazado</mark>
+                            {#else}
+                            <mark class="status-pending">Pendiente</mark>
+                            {/if}{/if}
+                        </td>
+                        <td>
+                            {#if r.status == 'pending'}
+                            <form method="post" action="/portal/admin/renewals/{r.id}/approve"
+                                style="display: inline; margin: 0;">
+                                <input type="hidden" name="token" value="{token}">
+                                <button type="submit" class="btn-sm outline"
+                                    onclick="return confirm('¿Aprobar esta renovación?')">Aprobar</button>
+                            </form>
+                            <form method="post" action="/portal/admin/renewals/{r.id}/reject"
+                                style="display: inline; margin: 0;">
+                                <input type="hidden" name="token" value="{token}">
+                                <input type="hidden" name="reason"
+                                    value="">
+                                <button type="submit" class="btn-sm outline secondary"
+                                    onclick="var r=prompt('Motivo del rechazo:'); if(!r) return false; this.form.reason.value=r; return true;">Rechazar</button>
+                            </form>
+                            {#else}
+                            {#if r.approvedBy}
+                            <small>{r.approvedBy}</small>
+                            {/if}
+                            {/if}
+                        </td>
+                    </tr>
+                    {/for}
+                </tbody>
+            </table>
+        </figure>
+
+        <!-- Paginación -->
+        {#if totalPages > 1}
+        <div class="pagination">
+            {#if page > 1}
+            <a href="/portal/admin/renewals?token={token}&status={statusFilter}&page={page - 1}">&laquo; Anterior</a>
+            {/if}
+            <span>Página {page} de {totalPages}</span>
+            {#if page < totalPages}
+            <a href="/portal/admin/renewals?token={token}&status={statusFilter}&page={page + 1}">Siguiente &raquo;</a>
+            {/if}
+        </div>
+        {/if}
+        {/if}
+    </main>
+    <footer class="container">
+        <small>Key49 — Panel de Administración</small>
+    </footer>
+</body>
+
+</html>
