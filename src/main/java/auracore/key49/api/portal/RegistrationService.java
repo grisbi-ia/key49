@@ -58,6 +58,9 @@ public class RegistrationService {
     @Inject
     ApiKeyManagementService apiKeyManagementService;
 
+    @Inject
+    EmailVerificationService emailVerificationService;
+
     @ConfigProperty(name = "key49.master-key")
     String masterKeyBase64;
 
@@ -482,20 +485,26 @@ public class RegistrationService {
                 tenant.webhookUrl = webhookUrl;
             }
 
+            // 7. Marcar como pendiente hasta verificar email
+            tenant.status = "pending";
+            tenant.emailVerified = false;
             tenant.updatedAt = Instant.now();
 
-            // 7. Generar API key
+            // 8. Generar API key (no funcionará hasta que el tenant esté activo)
             var apiKeyEnv = "test".equals(environment.toLowerCase()) ? "test" : "production";
             var createdKey = apiKeyManagementService.create(tenant.id,
                     new ApiKeyManagementService.CreateApiKeyData(
                             "Portal - Registro automático", apiKeyEnv, "*", null));
 
-            // 8. Limpiar sesión de registro en Redis
+            // 9. Enviar email de verificación
+            emailVerificationService.sendVerificationEmail(tenant.id, email, legalName);
+
+            // 10. Limpiar sesión de registro en Redis
             KeyCommands<String> keys = redisDS.key(String.class);
             keys.del(REG_PREFIX + registrationId);
 
-            log.infof("Registration completed | tenantId=%s ruc=%s schema=%s",
-                    tenant.id, ruc, schemaName);
+            log.infof("Registration completed, pending verification | tenantId=%s ruc=%s schema=%s email=%s",
+                    tenant.id, ruc, schemaName, email);
             return new RegistrationResult(true, null, createdKey.rawKey(), tenant.id);
 
         } catch (TenantAdminService.TenantException e) {

@@ -1006,7 +1006,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Mantener historial de periodos en `plan_renewals`
   - Test: simular expiración, verificar cambio de estado
 
-- [ ] **T-105** Email de verificación en autoregistro
+- [x] **T-105** Email de verificación en autoregistro ✅
   - Al registrarse, enviar email con token de verificación (UUID, expira en 24h)
   - Endpoint `GET /portal/verify?token=...` → marca `email_verified = true`
   - El tenant queda en `status = 'pending'` hasta verificar email

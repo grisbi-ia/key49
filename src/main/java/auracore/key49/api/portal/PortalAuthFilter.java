@@ -1,13 +1,14 @@
 package auracore.key49.api.portal;
 
+import java.net.URI;
+
+import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.server.ServerRequestFilter;
+
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
-import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.server.ServerRequestFilter;
-
-import java.net.URI;
 
 /**
  * Filtro de autenticación para el portal web.
@@ -36,6 +37,7 @@ public class PortalAuthFilter {
                 || path.startsWith("/portal/register")
                 || path.startsWith("/portal/forgot-password")
                 || path.startsWith("/portal/reset-password")
+                || path.startsWith("/portal/verify")
                 || path.startsWith("/portal/admin")) {
             return null;
         }

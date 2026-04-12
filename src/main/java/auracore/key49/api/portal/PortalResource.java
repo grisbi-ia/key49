@@ -116,6 +116,10 @@ public class PortalResource {
     Template plan;
 
     @Inject
+    @Location("portal/verify-result")
+    Template verifyResult;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -135,6 +139,9 @@ public class PortalResource {
 
     @Inject
     PasswordResetService passwordResetService;
+
+    @Inject
+    EmailVerificationService emailVerificationService;
 
     @Inject
     PlanRenewalService planRenewalService;
@@ -530,6 +537,16 @@ public class PortalResource {
         }
     }
 
+    // ── Email Verification ──
+    @GET
+    @Path("/verify")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance verifyEmail(@QueryParam("token") String token) {
+        var result = emailVerificationService.verify(token);
+        return verifyResult.data("success", result.success())
+                .data("error", result.error());
+    }
+
     // ── Register Step 4: Confirmation & Creation ──
     @GET
     @Path("/register/step4")
@@ -593,7 +610,8 @@ public class PortalResource {
                 .sameSite(NewCookie.SameSite.LAX)
                 .build();
 
-        return Response.ok(registerSuccess.data("apiKey", result.rawApiKey()))
+        return Response.ok(registerSuccess.data("apiKey", result.rawApiKey())
+                .data("pendingVerification", true))
                 .cookie(expiredCookie)
                 .build();
     }

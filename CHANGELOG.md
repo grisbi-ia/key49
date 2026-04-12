@@ -5,6 +5,22 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.9] - 2026-04-12
+
+### Agregado
+
+- **Email de verificación en autoregistro** (T-105)
+  - `EmailVerificationService` — genera token UUID (Redis, TTL 24h), envía email con enlace de verificación, verifica token y activa tenant (`email_verified = true`, `status = 'active'`)
+  - Rate limiting: máximo 3 solicitudes de verificación por email por hora
+  - `GET /portal/verify?token=...` — endpoint público de verificación con página de resultado (éxito/error)
+  - Template HTML `email-verification.html` — email con enlace de verificación (24h expiración)
+  - Template HTML `verify-result.html` — página de resultado de verificación
+  - Tenant queda en `status = 'pending'` tras registro hasta verificar email
+  - Página de registro exitoso muestra aviso de verificación de email pendiente
+  - `PortalAuthFilter` — ruta `/portal/verify` exenta de autenticación
+  - 18 tests unitarios: validación de inputs, rate limiting, generación y envío de token, normalización de email, verificación exitosa, token expirado, datos incompletos, idempotencia (ya verificado), tenant no pendiente, tenant no encontrado
+  - Tests existentes actualizados: `RegistrationServiceTest` verifica nuevo flujo con `status = 'pending'` y envío de email de verificación
+
 ## [0.27.8] - 2026-04-12
 
 ### Agregado

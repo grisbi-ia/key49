@@ -134,6 +134,17 @@
             No se volverá a mostrar. Si la pierde, deberá generar una nueva desde el portal.
         </div>
 
+        {#if pendingVerification}
+        <div class="next-steps" style="background: #cce5ff; border-color: #b8daff;">
+            <h4>📧 Verifique su email</h4>
+            <p style="margin-bottom: 0;">
+                Hemos enviado un enlace de verificación a su correo electrónico.
+                <strong>Su cuenta permanecerá en estado pendiente</strong> hasta que verifique su email.
+                El enlace expira en 24 horas.
+            </p>
+        </div>
+        {/if}
+
         <div class="next-steps">
             <h4>Próximos pasos</h4>
             <ol>

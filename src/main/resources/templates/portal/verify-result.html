@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Verificación de Email — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .verify-card {
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .verify-card h2 {
+            margin-bottom: 0.5rem;
+        }
+
+        .verify-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .verify-card .subtitle {
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .error-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #721c24;
+            font-size: 0.9rem;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            color: #155724;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <article class="verify-card">
+        {#if success}
+        <div class="verify-icon">✓</div>
+        <h2>¡Email verificado!</h2>
+        <p class="subtitle">Su cuenta ha sido activada exitosamente</p>
+
+        <div class="success-box">
+            Su cuenta Key49 está activa. Ya puede iniciar sesión en el portal y utilizar la API
+            con su API key.
+        </div>
+
+        <a href="/portal/login" role="button" style="width: 100%;">
+            Iniciar sesión →
+        </a>
+        {#else}
+        <div class="verify-icon">✗</div>
+        <h2>Verificación fallida</h2>
+        <p class="subtitle">No se pudo verificar su email</p>
+
+        <div class="error-box">
+            {error ?: 'Ocurrió un error inesperado durante la verificación.'}
+        </div>
+
+        <a href="/portal/login" role="button" class="secondary" style="width: 100%;">
+            Ir al inicio de sesión
+        </a>
+        {/if}
+    </article>
+</body>
+
+</html>

@@ -660,6 +660,9 @@ class RegistrationServiceTest {
         @Mock
         ApiKeyManagementService apiKeyManagementService;
 
+        @Mock
+        EmailVerificationService emailVerificationService;
+
         @BeforeEach
         void injectDependencies() throws Exception {
             Field mkField = RegistrationService.class.getDeclaredField("masterKeyBase64");
@@ -673,6 +676,10 @@ class RegistrationServiceTest {
             Field akmsField = RegistrationService.class.getDeclaredField("apiKeyManagementService");
             akmsField.setAccessible(true);
             akmsField.set(service, apiKeyManagementService);
+
+            Field evsField = RegistrationService.class.getDeclaredField("emailVerificationService");
+            evsField.setAccessible(true);
+            evsField.set(service, emailVerificationService);
         }
 
         private Map<String, String> fullRegistrationData() {
@@ -702,6 +709,8 @@ class RegistrationServiceTest {
             tenant.ruc = "1790016919001";
             tenant.status = "active";
             when(tenantAdminService.create(any(CreateTenantData.class))).thenReturn(tenant);
+            lenient().when(emailVerificationService.sendVerificationEmail(any(), anyString(), anyString()))
+                    .thenReturn(new EmailVerificationService.SendResult(true, null, "test-token"));
             return tenant;
         }
 
@@ -797,7 +806,12 @@ class RegistrationServiceTest {
             // Verifica limpieza de Redis
             verify(keyCommands).del("portal:registration:" + REG_ID);
 
+            // Verifica email de verificación enviado
+            verify(emailVerificationService).sendVerificationEmail(eq(tenant.id), eq("admin@test.com"), eq("Empresa Test S.A."));
+
             // Verifica campos del tenant
+            assertEquals("pending", tenant.status);
+            assertFalse(tenant.emailVerified);
             assertEquals("admin@test.com", tenant.email);
             assertEquals("$2y$12$hashedvalue", tenant.portalPasswordHash);
             assertEquals("demo", tenant.planType);
