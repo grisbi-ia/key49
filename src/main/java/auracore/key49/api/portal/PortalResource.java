@@ -1,6 +1,7 @@
 package auracore.key49.api.portal;
 
 import java.net.URI;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,6 +16,8 @@ import java.util.stream.Collectors;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
@@ -83,6 +86,10 @@ public class PortalResource {
     @Inject
     @Location("portal/register")
     Template register;
+
+    @Inject
+    @Location("portal/register-step2")
+    Template registerStep2;
 
     @Inject
     PortalSessionService sessionService;
@@ -250,6 +257,84 @@ public class PortalResource {
                         .maxAge(1800)
                         .build())
                 .build();
+    }
+
+    // ── Register Step 2: Certificate ──
+    @GET
+    @Path("/register/step2")
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep2Page(@QueryParam("error") String error) {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+        var data = registrationService.getRegistrationData(regId);
+        if (data == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+        return Response.ok(registerStep2.data("error", error)
+                .data("certMeta", null)
+                .data("certExpires", null)
+                .data("environment", null)).build();
+    }
+
+    @POST
+    @Path("/register/step2")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep2Upload(@RestForm("certificate") FileUpload certificate,
+            @RestForm("certPassword") String certPassword,
+            @RestForm("environment") String environment) {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+
+        // Leer bytes del archivo subido
+        byte[] p12Bytes;
+        try {
+            if (certificate == null || certificate.filePath() == null) {
+                return Response.ok(registerStep2.data("error", "Debe seleccionar un archivo de certificado .p12")
+                        .data("certMeta", null)
+                        .data("certExpires", null)
+                        .data("environment", environment)).build();
+            }
+            p12Bytes = Files.readAllBytes(certificate.filePath());
+        } catch (java.io.IOException e) {
+            return Response.ok(registerStep2.data("error", "Error al leer el archivo subido")
+                    .data("certMeta", null)
+                    .data("certExpires", null)
+                    .data("environment", environment)).build();
+        }
+
+        var result = registrationService.saveStep2(regId, p12Bytes, certPassword, environment);
+
+        if (!result.success()) {
+            return Response.ok(registerStep2.data("error", result.error())
+                    .data("certMeta", null)
+                    .data("certExpires", null)
+                    .data("environment", environment)).build();
+        }
+
+        // Mostrar resumen del certificado antes de continuar al paso 3
+        var meta = result.metadata();
+        var certExpires = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                .withZone(ZoneId.of("America/Guayaquil"))
+                .format(meta.expiresAt());
+
+        return Response.ok(registerStep2.data("error", null)
+                .data("certMeta", meta)
+                .data("certExpires", certExpires)
+                .data("environment", environment)).build();
+    }
+
+    private String getRegistrationId() {
+        var cookies = requestContext.getCookies();
+        var regCookie = cookies.get("KEY49_REG");
+        if (regCookie == null || regCookie.getValue().isBlank()) {
+            return null;
+        }
+        return regCookie.getValue();
     }
 
     private static String escapeHtml(String input) {

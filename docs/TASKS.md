@@ -927,7 +927,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Al completar paso 1: guardar datos en sesión temporal (Redis, TTL 30 min), no crear tenant aún
   - Test: validación de RUC, detección de duplicados, bloqueo por RUC existente
 
-- [ ] **T-099** Wizard de autoregistro — Paso 2: Certificado .p12
+- [x] **T-099** Wizard de autoregistro — Paso 2: Certificado .p12 ✅ v0.27.2
   - Upload de archivo .p12 (máximo 50 KB, validar extensión y magic bytes)
   - Campo de contraseña del certificado
   - Selector de ambiente: TEST / PRODUCCIÓN (radio buttons)

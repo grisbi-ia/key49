@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.2] - 2026-04-12
+
+### Agregado
+
+- **Wizard de autoregistro — Paso 2: Certificado .p12** (T-099)
+  - `RegistrationService.saveStep2()` — valida archivo .p12 (máx. 50 KB, magic byte 0x30), contraseña, ambiente
+  - Extrae metadata del certificado: sujeto, emisor, serial, expiración via `CertificateMetadataExtractor`
+  - Certificado expirado → rechazado con mensaje claro
+  - Cifra .p12 y contraseña con AES-256-GCM (`CertificateEncryptor`) antes de guardar en Redis
+  - Template `register-step2.html`: upload de archivo, contraseña, selector TEST/PRODUCCIÓN
+  - Muestra resumen del certificado al usuario antes de continuar al paso 3
+  - Endpoints: `GET /portal/register/step2`, `POST /portal/register/step2` (multipart)
+  - Cookie `KEY49_REG` valida sesión de registro activa; redirige si expiró
+  - 10 tests nuevos (SaveStep2): sesión expirada, archivo nulo/vacío/grande, magic byte, contraseña, ambiente, cert inválido, cert válido
+
 ## [0.27.1] - 2026-04-12
 
 ### Agregado

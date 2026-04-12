@@ -16,6 +16,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -257,6 +259,163 @@ class RegistrationServiceTest {
         void returnsNullIfNull() {
             var result = service.getRegistrationData(null);
             assertNull(result);
+        }
+    }
+
+    @Nested
+    @DisplayName("Guardar paso 2 — Certificado")
+    class SaveStep2 {
+
+        private static final String REG_ID = "reg-test-123";
+        private static final String TEST_MASTER_KEY = "Kt+uSavMguKGLq2ese9Zj0qbk5U97/rGPIaW0TCqask=";
+        private static final String TEST_CERT_PASSWORD = "test1234";
+
+        @BeforeEach
+        void setMasterKey() throws Exception {
+            Field field = RegistrationService.class.getDeclaredField("masterKeyBase64");
+            field.setAccessible(true);
+            field.set(service, TEST_MASTER_KEY);
+        }
+
+        private byte[] loadTestCertificate() {
+            try (InputStream is = getClass().getResourceAsStream("/test-cert.p12")) {
+                if (is == null) {
+                    throw new IllegalStateException("test-cert.p12 not found in test resources");
+                }
+                return is.readAllBytes();
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        private void stubExistingRegistration() {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID))
+                    .thenReturn(Map.of("ruc", "1790016919001", "step", "1"));
+        }
+
+        @Test
+        @DisplayName("falla si sesión de registro no existe")
+        @SuppressWarnings("unchecked")
+        void failsIfSessionExpired() {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID)).thenReturn(Map.of());
+
+            var result = service.saveStep2(REG_ID, new byte[]{0x30, 0x01}, TEST_CERT_PASSWORD, "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("expirada"));
+        }
+
+        @Test
+        @DisplayName("falla si archivo es nulo")
+        void failsIfFileNull() {
+            stubExistingRegistration();
+
+            var result = service.saveStep2(REG_ID, null, TEST_CERT_PASSWORD, "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("seleccionar"));
+        }
+
+        @Test
+        @DisplayName("falla si archivo es vacío")
+        void failsIfFileEmpty() {
+            stubExistingRegistration();
+
+            var result = service.saveStep2(REG_ID, new byte[0], TEST_CERT_PASSWORD, "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("seleccionar"));
+        }
+
+        @Test
+        @DisplayName("falla si archivo excede 50 KB")
+        void failsIfFileTooLarge() {
+            stubExistingRegistration();
+            var largeFile = new byte[51 * 1024];
+            largeFile[0] = 0x30;
+
+            var result = service.saveStep2(REG_ID, largeFile, TEST_CERT_PASSWORD, "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("50 KB"));
+        }
+
+        @Test
+        @DisplayName("falla si magic byte no es 0x30")
+        void failsIfInvalidMagicByte() {
+            stubExistingRegistration();
+
+            var result = service.saveStep2(REG_ID, new byte[]{0x50, 0x4B}, TEST_CERT_PASSWORD, "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("PKCS#12"));
+        }
+
+        @Test
+        @DisplayName("falla si contraseña del certificado vacía")
+        void failsIfCertPasswordEmpty() {
+            stubExistingRegistration();
+
+            var result = service.saveStep2(REG_ID, new byte[]{0x30, 0x01}, "", "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("contraseña del certificado"));
+        }
+
+        @Test
+        @DisplayName("falla si ambiente inválido")
+        void failsIfInvalidEnvironment() {
+            stubExistingRegistration();
+
+            var result = service.saveStep2(REG_ID, new byte[]{0x30, 0x01}, TEST_CERT_PASSWORD, "STAGING");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("ambiente"));
+        }
+
+        @Test
+        @DisplayName("falla si certificado con contraseña incorrecta")
+        void failsIfWrongPassword() {
+            stubExistingRegistration();
+            var p12 = loadTestCertificate();
+
+            var result = service.saveStep2(REG_ID, p12, "wrong_password", "TEST");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("No se pudo leer el certificado"));
+        }
+
+        @Test
+        @DisplayName("exitoso con certificado válido — guarda cifrado en Redis")
+        @SuppressWarnings("unchecked")
+        void successWithValidCertificate() {
+            stubExistingRegistration();
+            var p12 = loadTestCertificate();
+
+            var result = service.saveStep2(REG_ID, p12, TEST_CERT_PASSWORD, "TEST");
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertNull(result.error());
+            assertNotNull(result.metadata());
+            assertNotNull(result.metadata().subject());
+            assertNotNull(result.metadata().serial());
+            assertTrue(result.metadata().valid());
+
+            verify(hashCommands).hset(eq("portal:registration:" + REG_ID), anyMap());
+            verify(keyCommands).pexpire(eq("portal:registration:" + REG_ID), eq(1800000L));
+        }
+
+        @Test
+        @DisplayName("acepta ambiente PRODUCTION")
+        @SuppressWarnings("unchecked")
+        void acceptsProductionEnvironment() {
+            stubExistingRegistration();
+            var p12 = loadTestCertificate();
+
+            var result = service.saveStep2(REG_ID, p12, TEST_CERT_PASSWORD, "PRODUCTION");
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
         }
     }
 }

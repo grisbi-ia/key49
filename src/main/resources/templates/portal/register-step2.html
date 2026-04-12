@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro — Certificado — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <script src="/js/htmx.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .register-card {
+            max-width: 520px;
+            width: 100%;
+        }
+
+        .register-card h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .register-card .subtitle {
+            text-align: center;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .steps .step {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 2px solid var(--pico-muted-border-color);
+            color: var(--pico-muted-color);
+        }
+
+        .steps .step.done {
+            border-color: #2ecc40;
+            background: #2ecc40;
+            color: #fff;
+        }
+
+        .steps .step.active {
+            border-color: var(--pico-primary);
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+        }
+
+        .steps .step-line {
+            width: 2rem;
+            height: 2px;
+            background: var(--pico-muted-border-color);
+            align-self: center;
+        }
+
+        .cert-summary {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .cert-summary dt {
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .cert-summary dd {
+            margin-left: 0;
+            color: var(--pico-muted-color);
+        }
+
+        .file-info {
+            font-size: 0.85rem;
+            color: var(--pico-muted-color);
+            margin-top: -0.5rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <article class="register-card">
+        <h2>Key49</h2>
+        <p class="subtitle">Certificado de firma electrónica</p>
+
+        <div class="steps">
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step active">2</span>
+            <span class="step-line"></span>
+            <span class="step">3</span>
+            <span class="step-line"></span>
+            <span class="step">4</span>
+        </div>
+
+        {#if error}
+        <p role="alert" style="color: var(--pico-del-color);">
+            {error}
+        </p>
+        {/if}
+
+        {#if certMeta}
+        <div class="cert-summary">
+            <h4 style="margin-top: 0;">Certificado válido ✓</h4>
+            <dl>
+                <dt>Sujeto</dt>
+                <dd>{certMeta.subject}</dd>
+                <dt>Emisor</dt>
+                <dd>{certMeta.issuer}</dd>
+                <dt>Serial</dt>
+                <dd>{certMeta.serial}</dd>
+                <dt>Expira</dt>
+                <dd>{certExpires} ({certMeta.daysUntilExpiration} días restantes)</dd>
+            </dl>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <a href="/portal/register/step2" role="button" class="outline" style="flex: 1; text-align: center;">Cambiar certificado</a>
+            <a href="/portal/register/step3" role="button" style="flex: 1; text-align: center;">Siguiente →</a>
+        </div>
+        {#else}
+        <form method="post" action="/portal/register/step2" enctype="multipart/form-data">
+            <label for="certificate">Archivo .p12 <abbr title="Obligatorio">*</abbr></label>
+            <input type="file" id="certificate" name="certificate"
+                   accept=".p12,.pfx" required>
+            <p class="file-info">Máximo 50 KB. Archivo PKCS#12 (.p12 o .pfx)</p>
+
+            <label for="certPassword">Contraseña del certificado <abbr title="Obligatorio">*</abbr></label>
+            <input type="password" id="certPassword" name="certPassword"
+                   placeholder="Contraseña del .p12" required
+                   autocomplete="off">
+
+            <fieldset>
+                <legend>Ambiente <abbr title="Obligatorio">*</abbr></legend>
+                <label>
+                    <input type="radio" name="environment" value="TEST"
+                           {#if environment == null || environment == 'TEST'}checked{/if}>
+                    Pruebas (SRI Celcer)
+                </label>
+                <label>
+                    <input type="radio" name="environment" value="PRODUCTION"
+                           {#if environment == 'PRODUCTION'}checked{/if}>
+                    Producción
+                </label>
+            </fieldset>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <a href="/portal/register" role="button" class="outline" style="flex: 1; text-align: center;">← Atrás</a>
+                <button type="submit" style="flex: 1;">Validar certificado</button>
+            </div>
+        </form>
+        {/if}
+    </article>
+</body>
+
+</html>
