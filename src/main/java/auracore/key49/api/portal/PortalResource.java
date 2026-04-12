@@ -104,6 +104,14 @@ public class PortalResource {
     Template registerSuccess;
 
     @Inject
+    @Location("portal/forgot-password")
+    Template forgotPassword;
+
+    @Inject
+    @Location("portal/reset-password")
+    Template resetPassword;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -122,6 +130,9 @@ public class PortalResource {
     RegistrationService registrationService;
 
     @Inject
+    PasswordResetService passwordResetService;
+
+    @Inject
     EntityManager entityManager;
 
     @ConfigProperty(name = "key49.portal.secure-cookie", defaultValue = "false")
@@ -129,6 +140,89 @@ public class PortalResource {
 
     @Context
     ContainerRequestContext requestContext;
+
+    // ── Forgot Password ──
+    @GET
+    @Path("/forgot-password")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance forgotPasswordPage() {
+        return forgotPassword.data("error", null)
+                .data("sent", false)
+                .data("emailValue", "");
+    }
+
+    @POST
+    @Path("/forgot-password")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance doForgotPassword(@FormParam("email") String email) {
+        var result = passwordResetService.requestReset(email);
+
+        if (!result.success()) {
+            return forgotPassword.data("error", result.error())
+                    .data("sent", false)
+                    .data("emailValue", email != null ? email : "");
+        }
+
+        return forgotPassword.data("error", null)
+                .data("sent", true)
+                .data("emailValue", "");
+    }
+
+    // ── Reset Password ──
+    @GET
+    @Path("/reset-password")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance resetPasswordPage(@QueryParam("token") String token) {
+        var validation = passwordResetService.validateToken(token);
+
+        if (!validation.valid()) {
+            return resetPassword.data("tokenError", validation.error())
+                    .data("error", null)
+                    .data("success", false)
+                    .data("email", "")
+                    .data("token", "");
+        }
+
+        return resetPassword.data("tokenError", null)
+                .data("error", null)
+                .data("success", false)
+                .data("email", validation.email())
+                .data("token", token);
+    }
+
+    @POST
+    @Path("/reset-password")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance doResetPassword(@FormParam("token") String token,
+            @FormParam("password") String password,
+            @FormParam("confirmPassword") String confirmPassword) {
+        var result = passwordResetService.resetPassword(token, password, confirmPassword);
+
+        if (!result.success()) {
+            // Re-validate token to check if it expired during the attempt
+            var validation = passwordResetService.validateToken(token);
+            if (!validation.valid()) {
+                return resetPassword.data("tokenError", result.error())
+                        .data("error", null)
+                        .data("success", false)
+                        .data("email", "")
+                        .data("token", "");
+            }
+            return resetPassword.data("tokenError", null)
+                    .data("error", result.error())
+                    .data("success", false)
+                    .data("email", validation.email())
+                    .data("token", token);
+        }
+
+        return resetPassword.data("tokenError", null)
+                .data("error", null)
+                .data("success", true)
+                .data("email", "")
+                .data("token", "");
+    }
 
     // ── Login ──
     @GET

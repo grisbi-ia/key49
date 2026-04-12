@@ -5,6 +5,23 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.5] - 2026-04-12
+
+### Agregado
+
+- **Recuperación de contraseña del portal** (T-101b)
+  - `PasswordResetService` — genera token UUID en Redis (TTL 30 min), envía email con enlace, restablece contraseña
+  - Rate limiting: máximo 3 solicitudes por email por hora via contadores Redis
+  - No revela si el email está registrado (seguridad contra enumeración de usuarios)
+  - Token invalidado inmediatamente al usarse (antes de actualizar BD)
+  - Email HTML con botón de acción y enlace de respaldo, estilo consistente con Key49
+  - Template `forgot-password.html`: formulario de email, mensaje de confirmación tras envío
+  - Template `reset-password.html`: formulario nueva contraseña, estados de token inválido/expirado y éxito
+  - Template `password-reset-email.html`: email transaccional con enlace de recuperación
+  - Endpoints: `GET/POST /portal/forgot-password`, `GET/POST /portal/reset-password`
+  - Config: `key49.portal.base-url` para construir enlaces absolutos en emails
+  - 21 tests unitarios: email nulo/vacío/inválido, rate limit, email no registrado, éxito, fallo de envío, token válido/expirado, contraseña corta/no coincide, tenant inactivo, orden de operaciones
+
 ## [0.27.4] - 2026-04-12
 
 ### Agregado

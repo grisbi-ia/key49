@@ -958,7 +958,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Redirigir al dashboard del portal con mensaje de bienvenida
   - Test E2E: completar wizard completo, verificar tenant activo y API key funcional
 
-- [ ] **T-101b** Recuperación de contraseña del portal
+- [x] **T-101b** Recuperación de contraseña del portal ✅ v0.27.5
   - Página `/portal/forgot-password` con campo para email
   - Generar token de recuperación (UUID), guardar en Redis con TTL 30 min (`portal:reset:{token}`)
   - Enviar email con enlace `/portal/reset-password?token={token}`
