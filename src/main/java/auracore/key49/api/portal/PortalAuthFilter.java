@@ -32,7 +32,7 @@ public class PortalAuthFilter {
     public Response filterPortal(ContainerRequestContext ctx) {
         var path = ctx.getUriInfo().getPath();
 
-        if (!path.startsWith("/portal") || path.startsWith("/portal/login")) {
+        if (!path.startsWith("/portal") || path.startsWith("/portal/login") || path.startsWith("/portal/register")) {
             return null;
         }
 

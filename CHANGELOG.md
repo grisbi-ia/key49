@@ -5,6 +5,22 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.1] - 2026-04-12
+
+### Agregado
+
+- **Wizard de autoregistro — Paso 1: Datos de empresa** (T-098)
+  - `RegistrationService` — validación de RUC (módulo 11) + verificación de duplicados, almacena paso 1 en Redis (TTL 30 min)
+  - Si el RUC ya está registrado → BLOQUEA el registro y sugiere recuperar contraseña
+  - Verificación asíncrona de RUC via HTMX (`POST /portal/register/verify-ruc`)
+  - Template `register.html` con formulario multi-paso (Pico CSS + HTMX), indicador visual de pasos 1-4
+  - Validación server-side: RUC, email no duplicado, razón social mín. 3 chars, contraseña mín. 8 chars, confirmación
+  - Cookie `KEY49_REG` con registrationId para continuar en paso 2
+  - `PortalAuthFilter` actualizado para excluir `/portal/register` de autenticación
+  - Enlace "Registrarse" agregado en página de login
+  - 16 tests: RegistrationService (verificación RUC 5, paso 1 validaciones 8, datos Redis 3)
+  - Nueva tarea T-101b (recuperación de contraseña del portal) agregada a TASKS.md
+
 ## [0.27.0] - 2026-04-11
 
 ### Agregado

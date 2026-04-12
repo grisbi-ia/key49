@@ -530,6 +530,7 @@ public class TenantAdminResource {
                 {"email":"%s"}""".formatted(tenant.email));
 
         record PortalCredentialsResult(String email, boolean passwordConfigured) {
+
         }
         var result = new PortalCredentialsResult(tenant.email,
                 tenant.portalPasswordHash != null);

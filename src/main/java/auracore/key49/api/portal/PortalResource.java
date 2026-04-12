@@ -81,6 +81,10 @@ public class PortalResource {
     Template metrics;
 
     @Inject
+    @Location("portal/register")
+    Template register;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -94,6 +98,9 @@ public class PortalResource {
 
     @Inject
     DocumentEventProducer eventProducer;
+
+    @Inject
+    RegistrationService registrationService;
 
     @Inject
     EntityManager entityManager;
@@ -180,6 +187,80 @@ public class PortalResource {
                         .secure(secureCookie)
                         .build())
                 .build();
+    }
+
+    // ── Register ──
+    @GET
+    @Path("/register")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance registerPage(@QueryParam("error") String error) {
+        return register.data("error", error)
+                .data("ruc", null)
+                .data("legalName", null)
+                .data("email", null);
+    }
+
+    @POST
+    @Path("/register/verify-ruc")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public String verifyRuc(@FormParam("ruc") String ruc) {
+        var result = registrationService.verifyRuc(ruc);
+        if (!result.valid()) {
+            return "<span class=\"invalid\">" + escapeHtml(result.message()) + "</span>";
+        }
+        if (result.registered()) {
+            return "<div class=\"registered\">"
+                    + "<span>" + escapeHtml(result.message()) + "</span><br>"
+                    + "<a href=\"/portal/forgot-password\">Recuperar contraseña</a>"
+                    + "</div>";
+        }
+        return "<span class=\"valid\">✓ " + escapeHtml(result.message()) + "</span>";
+    }
+
+    @POST
+    @Path("/register/step1")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep1(@FormParam("ruc") String ruc,
+            @FormParam("legalName") String legalName,
+            @FormParam("email") String email,
+            @FormParam("password") String password,
+            @FormParam("confirmPassword") String confirmPassword) {
+
+        var result = registrationService.saveStep1(ruc, legalName, email, password, confirmPassword);
+
+        if (!result.success()) {
+            return Response.ok(
+                    register.data("error", result.error())
+                            .data("ruc", ruc)
+                            .data("legalName", legalName)
+                            .data("email", email))
+                    .build();
+        }
+
+        // Paso 1 completado — redirigir a paso 2 con registrationId en cookie
+        return Response.seeOther(URI.create("/portal/register/step2"))
+                .cookie(new NewCookie.Builder("KEY49_REG")
+                        .value(result.registrationId())
+                        .path("/portal/register")
+                        .httpOnly(true)
+                        .secure(secureCookie)
+                        .sameSite(NewCookie.SameSite.STRICT)
+                        .maxAge(1800)
+                        .build())
+                .build();
+    }
+
+    private static String escapeHtml(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     // ── Dashboard ──

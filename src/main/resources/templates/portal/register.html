@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <script src="/js/htmx.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .register-card {
+            max-width: 480px;
+            width: 100%;
+        }
+
+        .register-card h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .register-card .subtitle {
+            text-align: center;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .steps .step {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 2px solid var(--pico-muted-border-color);
+            color: var(--pico-muted-color);
+        }
+
+        .steps .step.active {
+            border-color: var(--pico-primary);
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+        }
+
+        .steps .step-line {
+            width: 2rem;
+            height: 2px;
+            background: var(--pico-muted-border-color);
+            align-self: center;
+        }
+
+        #ruc-feedback {
+            font-size: 0.85rem;
+            min-height: 1.5em;
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        #ruc-feedback.valid {
+            color: #2ecc40;
+        }
+
+        #ruc-feedback.invalid {
+            color: var(--pico-del-color);
+        }
+
+        #ruc-feedback.registered {
+            color: var(--pico-del-color);
+        }
+
+        .alert-blocked {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .alert-blocked a {
+            font-weight: 600;
+        }
+
+        .login-link {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <article class="register-card">
+        <h2>Key49</h2>
+        <p class="subtitle">Crear cuenta</p>
+
+        <div class="steps">
+            <span class="step active">1</span>
+            <span class="step-line"></span>
+            <span class="step">2</span>
+            <span class="step-line"></span>
+            <span class="step">3</span>
+            <span class="step-line"></span>
+            <span class="step">4</span>
+        </div>
+
+        {#if error}
+        <p role="alert" style="color: var(--pico-del-color);">
+            {error}
+        </p>
+        {/if}
+
+        <form method="post" action="/portal/register/step1" id="register-form">
+            <label for="ruc">RUC <abbr title="Obligatorio">*</abbr></label>
+            <input type="text" id="ruc" name="ruc" placeholder="1790012345001"
+                   maxlength="13" pattern="\d{13}" required
+                   value="{ruc ?: ''}"
+                   hx-post="/portal/register/verify-ruc"
+                   hx-trigger="change, keyup changed delay:500ms"
+                   hx-target="#ruc-feedback"
+                   hx-include="[name='ruc']"
+                   autocomplete="off">
+            <div id="ruc-feedback"></div>
+
+            <label for="legalName">Razón Social <abbr title="Obligatorio">*</abbr></label>
+            <input type="text" id="legalName" name="legalName" placeholder="Mi Empresa S.A."
+                   required minlength="3" maxlength="300"
+                   value="{legalName ?: ''}"
+                   autocomplete="organization">
+
+            <label for="email">Email <abbr title="Obligatorio">*</abbr></label>
+            <input type="email" id="email" name="email" placeholder="admin@empresa.com"
+                   required
+                   value="{email ?: ''}"
+                   autocomplete="email">
+
+            <label for="password">Contraseña <abbr title="Obligatorio">*</abbr></label>
+            <input type="password" id="password" name="password"
+                   placeholder="Mínimo 8 caracteres" required minlength="8"
+                   autocomplete="new-password">
+
+            <label for="confirmPassword">Confirmar Contraseña <abbr title="Obligatorio">*</abbr></label>
+            <input type="password" id="confirmPassword" name="confirmPassword"
+                   placeholder="Repita la contraseña" required minlength="8"
+                   autocomplete="new-password">
+
+            <button type="submit" id="btn-next">Siguiente →</button>
+        </form>
+
+        <p class="login-link">
+            ¿Ya tiene cuenta? <a href="/portal/login">Ingresar</a>
+        </p>
+    </article>
+
+    <script>
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'ruc-feedback') {
+                var fb = evt.detail.target;
+                var btn = document.getElementById('btn-next');
+                if (fb.classList.contains('registered')) {
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

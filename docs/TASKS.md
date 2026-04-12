@@ -917,14 +917,15 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Sesión Redis existente se reutiliza (30 min TTL)
   - Test: login con contraseña, verificar sesión creada
 
-- [ ] **T-098** Wizard de autoregistro — Paso 1: Datos de empresa
+- [x] **T-098** Wizard de autoregistro — Paso 1: Datos de empresa ✅ v0.27.1
   - Template Qute: `/portal/register` con formulario multi-paso (Pico CSS + HTMX)
   - Paso 1: RUC, razón social, email, contraseña, confirmar contraseña
-  - Validación de que el RUC no esté ya registrado (HTMX → GET `/v1/tenants/validate-ruc/{ruc}`), devolcer notificación de RUC duplicado o ya registrado
+  - Validación de que el RUC no esté ya registrado
+  - **Si el RUC ya está registrado → BLOQUEAR registro**, no proceder a los siguientes pasos, mostrar alerta sugiriendo recuperar la contraseña (enlace a `/portal/forgot-password` — ver T-101b)
   - Validación client-side (HTMX): verificar RUC con módulo 11, email formato válido
   - Validación server-side: RUC no duplicado, email no duplicado, contraseña mínimo 8 caracteres
   - Al completar paso 1: guardar datos en sesión temporal (Redis, TTL 30 min), no crear tenant aún
-  - Test: validación de RUC, detección de duplicados
+  - Test: validación de RUC, detección de duplicados, bloqueo por RUC existente
 
 - [ ] **T-099** Wizard de autoregistro — Paso 2: Certificado .p12
   - Upload de archivo .p12 (máximo 50 KB, validar extensión y magic bytes)
@@ -956,6 +957,16 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
     6. Enviar email de bienvenida con guía rápida de integración
   - Redirigir al dashboard del portal con mensaje de bienvenida
   - Test E2E: completar wizard completo, verificar tenant activo y API key funcional
+
+- [ ] **T-101b** Recuperación de contraseña del portal
+  - Página `/portal/forgot-password` con campo para email
+  - Generar token de recuperación (UUID), guardar en Redis con TTL 30 min (`portal:reset:{token}`)
+  - Enviar email con enlace `/portal/reset-password?token={token}`
+  - Página `/portal/reset-password` con campos: nueva contraseña, confirmar contraseña
+  - Validar token en Redis, actualizar `portal_password_hash` en `public.tenants`
+  - Invalidar token después de uso (eliminar de Redis)
+  - Rate limiting: máximo 3 solicitudes por email por hora
+  - Test: flujo completo de recuperación, token expirado, token inválido
 
 ### Sprint 25: Panel Admin de Renovaciones (Semana 6-7)
 
