@@ -1,0 +1,136 @@
+{#include portal/layout}
+{#title}Mi Plan{/title}
+{#body}
+<h3>Mi Plan</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+</article>
+{/if}
+
+<!-- Plan actual -->
+<article>
+    <header><strong>Plan actual: {currentPlan.planType}</strong></header>
+    <div class="grid">
+        <div>
+            <p><strong>Documentos:</strong> {currentPlan.documentsUsed} / {currentPlan.documentQuota}</p>
+            <div style="background: #e9ecef; border-radius: 4px; height: 24px; overflow: hidden; margin-bottom: 0.5rem;">
+                <div style="background: {#if currentPlan.usagePercent < 50}#2ecc40{#else}{#if currentPlan.usagePercent < 80}#ff851b{#else}#ff4136{/if}{/if}; height: 100%; width: {currentPlan.usagePercent}%; min-width: 2%; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.8rem; font-weight: 600;">
+                    {currentPlan.usagePercent}%
+                </div>
+            </div>
+        </div>
+        <div>
+            {#if currentPlan.planStartsAt}
+            <p><strong>Inicio:</strong> {currentPlan.planStartsAt}</p>
+            {/if}
+            {#if currentPlan.planExpiresAt}
+            <p><strong>Vencimiento:</strong> {currentPlan.planExpiresAt}</p>
+            {/if}
+        </div>
+    </div>
+</article>
+
+<!-- Planes disponibles -->
+<h4>Planes disponibles</h4>
+<figure>
+    <table>
+        <thead>
+            <tr>
+                <th>Plan</th>
+                <th>Documentos</th>
+                <th class="text-right">Precio mensual</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#for plan in plans}
+            <tr>
+                <td><strong>{plan.name}</strong></td>
+                <td>{plan.documentQuota}</td>
+                <td class="text-right amount">${plan.monthlyPrice}</td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</figure>
+
+<!-- Formulario de renovación o estado pendiente -->
+{#if hasPending}
+<article style="border-left: 4px solid #ff851b; padding: 1rem;">
+    <p style="margin: 0;"><strong>⏳ Tiene una solicitud de renovación pendiente.</strong><br>
+        <small>Su solicitud está siendo revisada. Le notificaremos cuando sea procesada.</small>
+    </p>
+</article>
+{#else}
+<article>
+    <header><strong>Solicitar renovación</strong></header>
+    <form method="post" action="/portal/plan/renew" enctype="multipart/form-data">
+        <label>
+            Plan deseado
+            <select name="requestedPlan" required>
+                <option value="">Seleccione un plan…</option>
+                {#for plan in plans}
+                <option value="{plan.code}">{plan.name} — {plan.documentQuota} docs — ${plan.monthlyPrice}/mes</option>
+                {/for}
+            </select>
+        </label>
+        <label>
+            Comprobante de pago
+            <input type="file" name="paymentProof" accept=".jpg,.jpeg,.png,.pdf" required>
+            <small>JPG, PNG o PDF. Máximo 5 MB.</small>
+        </label>
+        <label>
+            Observaciones
+            <textarea name="notes" rows="3" placeholder="Información adicional sobre el pago…"></textarea>
+        </label>
+        <button type="submit">Enviar solicitud</button>
+    </form>
+</article>
+{/if}
+
+<!-- Historial de solicitudes -->
+{#if !renewals.isEmpty}
+<h4>Historial de solicitudes</h4>
+<figure>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Plan</th>
+                <th>Documentos</th>
+                <th class="text-right">Monto</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {#for r in renewals}
+            <tr>
+                <td>{r.createdAt}</td>
+                <td>{r.planType}</td>
+                <td>{r.documentQuota}</td>
+                <td class="text-right amount">${r.amount}</td>
+                <td>
+                    {#if r.status == 'approved'}
+                    <mark class="status-ok">Aprobado</mark>
+                    {#else}{#if r.status == 'rejected'}
+                    <mark class="status-error">Rechazado</mark>
+                    {#else}
+                    <mark class="status-pending">Pendiente</mark>
+                    {/if}{/if}
+                </td>
+            </tr>
+            {/for}
+        </tbody>
+    </table>
+</figure>
+{/if}
+
+{/body}
+{/include}

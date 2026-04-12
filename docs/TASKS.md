@@ -970,7 +970,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 25: Panel Admin de Renovaciones (Semana 6-7)
 
-- [ ] **T-102** Solicitud de renovación desde el portal del tenant
+- [x] **T-102** Solicitud de renovación desde el portal del tenant ✅ v0.27.6
   - Nueva página `/portal/plan` que muestra: plan actual, documentos usados/total, fecha expiración
   - Barra de progreso visual de cuota (verde < 50%, amarillo 50-80%, rojo > 80%)
   - Lista de planes disponibles con precios

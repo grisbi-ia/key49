@@ -154,6 +154,37 @@ public class ObjectStorageService {
     }
 
     /**
+     * Almacena un archivo arbitrario en MinIO con ruta y content-type
+     * explícitos.
+     *
+     * @param objectPath ruta completa del objeto en MinIO
+     * @param data contenido del archivo
+     * @param contentType tipo MIME del archivo
+     * @return ruta del objeto almacenado
+     */
+    @CircuitBreaker(
+            requestVolumeThreshold = 10,
+            failureRatio = 0.5,
+            delay = 30000,
+            successThreshold = 3)
+    public String storeRaw(String objectPath, byte[] data, String contentType) {
+        try (var stream = new ByteArrayInputStream(data)) {
+            client.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectPath)
+                    .stream(stream, data.length, -1)
+                    .contentType(contentType)
+                    .build());
+
+            log.debugf("Stored raw artifact: bucket=%s, path=%s, size=%d bytes",
+                    bucket, objectPath, data.length);
+            return objectPath;
+        } catch (Exception e) {
+            throw new StorageException("Failed to store artifact: " + objectPath, e);
+        }
+    }
+
+    /**
      * Verifica si un artefacto existe en MinIO.
      *
      * @param objectPath ruta del objeto en MinIO

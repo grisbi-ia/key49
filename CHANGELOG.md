@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.6] - 2026-04-12
+
+### Agregado
+
+- **Solicitud de renovación de plan desde el portal** (T-102)
+  - Nueva página `/portal/plan` con vista del plan actual, barra de progreso de cuota (verde/amarillo/rojo), lista de planes disponibles y formulario de renovación
+  - `PlanRenewalService` — lógica de negocio: validación de plan, verificación de renovaciones pendientes, subida de comprobante a MinIO, disparo de webhook
+  - Formulario multipart: selección de plan, comprobante de pago (JPG/PNG/PDF, máx. 5 MB), observaciones
+  - Comprobante almacenado en MinIO con ruta `plan-renewals/{tenant_id}/{renewal_id}.{ext}`
+  - Registro en `plan_renewals` con `status = 'pending'`
+  - Webhook `plan.renewal_requested` disparado al admin con datos de la solicitud + email de confirmación al tenant
+  - Bloqueo de múltiples solicitudes pendientes simultáneas
+  - `ObjectStorageService.storeRaw()` — nuevo método genérico para almacenar archivos con ruta y content-type explícitos
+  - `PlanAlertService.fireAlert()` cambiado a `public` para uso cross-package
+  - Enlace "Mi Plan" agregado a la navegación del portal
+  - Historial de solicitudes con estados visuales (Pendiente/Aprobado/Rechazado)
+  - 23 tests unitarios: obtención de plan, cálculo de porcentaje, solicitud exitosa con JPG/PDF, plan inválido, renovación pendiente, tenant no encontrado, archivo nulo/sobredimensionado/tipo no permitido, webhook, ruta MinIO, error de MinIO, extensiones, renovaciones pendientes
+
 ## [0.27.5] - 2026-04-12
 
 ### Agregado

@@ -210,7 +210,7 @@ public class PlanAlertService {
     }
 
     // ── Alert dispatch ──────────────────────────────────────────────────────
-    void fireAlert(String event, String webhookUrl, String webhookSecret,
+    public void fireAlert(String event, String webhookUrl, String webhookSecret,
             String webhookPayload, String email, String emailSubject, String emailBody) {
         firedAlerts.add(event);
 

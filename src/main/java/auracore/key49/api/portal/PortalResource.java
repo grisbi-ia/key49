@@ -112,6 +112,10 @@ public class PortalResource {
     Template resetPassword;
 
     @Inject
+    @Location("portal/plan")
+    Template plan;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -131,6 +135,9 @@ public class PortalResource {
 
     @Inject
     PasswordResetService passwordResetService;
+
+    @Inject
+    PlanRenewalService planRenewalService;
 
     @Inject
     EntityManager entityManager;
@@ -611,6 +618,49 @@ public class PortalResource {
                 .replace("'", "&#39;");
     }
 
+    // ── Plan ──
+    @GET
+    @Path("/plan")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance planPage(@QueryParam("error") String error,
+            @QueryParam("success") String success) {
+        var session = getSession();
+        var currentPlan = planRenewalService.getCurrentPlan(session.tenantId());
+        var hasPending = planRenewalService.hasPendingRenewal(session.tenantId());
+        var renewals = planRenewalService.getRenewalHistory(session.tenantId());
+
+        return plan.data("session", session)
+                .data("currentPlan", currentPlan)
+                .data("plans", PlanRenewalService.AVAILABLE_PLANS)
+                .data("hasPending", hasPending)
+                .data("renewals", renewals)
+                .data("error", error)
+                .data("successMsg", success);
+    }
+
+    @POST
+    @Path("/plan/renew")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Produces(MediaType.TEXT_HTML)
+    public Response planRenew(
+            @RestForm("requestedPlan") String requestedPlan,
+            @RestForm("paymentProof") FileUpload paymentProof,
+            @RestForm("notes") String notes) {
+
+        var session = getSession();
+        var result = planRenewalService.requestRenewal(
+                session.tenantId(), requestedPlan, paymentProof, notes);
+
+        if (!result.success()) {
+            return Response.seeOther(URI.create("/portal/plan?error=" + encodeQuery(result.error())))
+                    .build();
+        }
+
+        return Response.seeOther(URI.create("/portal/plan?success="
+                + encodeQuery("Solicitud de renovación enviada correctamente. Le notificaremos cuando sea procesada.")))
+                .build();
+    }
+
     // ── Dashboard ──
     @GET
     @Path("/")
@@ -899,6 +949,10 @@ public class PortalResource {
     // ── Helpers ──
     private PortalSessionService.PortalSession getSession() {
         return (PortalSessionService.PortalSession) requestContext.getProperty(PortalAuthFilter.PORTAL_SESSION_ATTR);
+    }
+
+    private static String encodeQuery(String value) {
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private String buildFilterConditions(String status, String docType, String dateFrom, String dateTo, String q) {
