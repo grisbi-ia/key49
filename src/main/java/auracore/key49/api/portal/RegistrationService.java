@@ -3,6 +3,7 @@ package auracore.key49.api.portal;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.PasswordHasher;
 import auracore.key49.core.validation.SriValidator;
+import auracore.key49.notify.webhook.WebhookUrlValidator;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
 import auracore.key49.signer.CertificateMetadataExtractor.CertificateMetadata;
@@ -61,6 +62,13 @@ public class RegistrationService {
      * Resultado de validación del paso 2.
      */
     public record Step2Result(boolean success, String error, CertificateMetadata metadata) {
+
+    }
+
+    /**
+     * Resultado de validación del paso 3.
+     */
+    public record Step3Result(boolean success, String error) {
 
     }
 
@@ -246,6 +254,110 @@ public class RegistrationService {
         log.infof("Registration step 2 saved | registrationId=%s subject=%s environment=%s",
                 registrationId, metadata.subject(), environment);
         return new Step2Result(true, null, metadata);
+    }
+
+    /**
+     * Valida y almacena la configuración opcional de SMTP y webhook URL en la
+     * sesión de registro en Redis (paso 3).
+     *
+     * <p>
+     * Todos los campos son opcionales. Si se proporciona SMTP, host y puerto
+     * son obligatorios. La contraseña SMTP se cifra con AES-256-GCM. El webhook
+     * URL se valida contra SSRF.</p>
+     *
+     * @param registrationId ID de la sesión de registro
+     * @param smtpHost host SMTP (opcional)
+     * @param smtpPort puerto SMTP (opcional)
+     * @param smtpUser usuario SMTP (opcional)
+     * @param smtpPassword contraseña SMTP (opcional)
+     * @param smtpFromEmail email remitente (opcional)
+     * @param webhookUrl URL de webhook (opcional)
+     * @return resultado indicando éxito o error
+     */
+    public Step3Result saveStep3(String registrationId, String smtpHost, String smtpPort,
+            String smtpUser, String smtpPassword, String smtpFromEmail, String webhookUrl) {
+        // Verificar sesión de registro
+        var regData = getRegistrationData(registrationId);
+        if (regData == null) {
+            return new Step3Result(false, "Sesión de registro expirada. Inicie el registro nuevamente.");
+        }
+
+        var trimmedHost = smtpHost != null ? smtpHost.strip() : "";
+        var trimmedPort = smtpPort != null ? smtpPort.strip() : "";
+        var trimmedUser = smtpUser != null ? smtpUser.strip() : "";
+        var trimmedPassword = smtpPassword != null ? smtpPassword : "";
+        var trimmedFrom = smtpFromEmail != null ? smtpFromEmail.strip().toLowerCase() : "";
+        var trimmedWebhook = webhookUrl != null ? webhookUrl.strip() : "";
+
+        boolean hasSmtp = !trimmedHost.isEmpty() || !trimmedPort.isEmpty()
+                || !trimmedUser.isEmpty() || !trimmedPassword.isEmpty() || !trimmedFrom.isEmpty();
+
+        var fields = new java.util.HashMap<String, String>();
+
+        if (hasSmtp) {
+            // Si se proporcionó algún campo SMTP, host y puerto son obligatorios
+            if (trimmedHost.isEmpty()) {
+                return new Step3Result(false, "El host SMTP es obligatorio si configura email propio");
+            }
+            if (trimmedPort.isEmpty()) {
+                return new Step3Result(false, "El puerto SMTP es obligatorio si configura email propio");
+            }
+            int port;
+            try {
+                port = Integer.parseInt(trimmedPort);
+            } catch (NumberFormatException e) {
+                return new Step3Result(false, "El puerto SMTP debe ser un número válido");
+            }
+            if (port < 1 || port > 65535) {
+                return new Step3Result(false, "El puerto SMTP debe estar entre 1 y 65535");
+            }
+
+            // Validar email remitente si se proporcionó
+            if (!trimmedFrom.isEmpty()
+                    && !trimmedFrom.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                return new Step3Result(false, "El email remitente no tiene un formato válido");
+            }
+
+            fields.put("smtp_host", trimmedHost);
+            fields.put("smtp_port", String.valueOf(port));
+            if (!trimmedUser.isEmpty()) {
+                fields.put("smtp_user", trimmedUser);
+            }
+            if (!trimmedPassword.isEmpty()) {
+                byte[] masterKey = CertificateEncryptor.decodeMasterKey(masterKeyBase64);
+                byte[] encryptedPassword = CertificateEncryptor.encryptPassword(
+                        trimmedPassword.toCharArray(), masterKey);
+                fields.put("smtp_password_enc", Base64.getEncoder().encodeToString(encryptedPassword));
+            }
+            if (!trimmedFrom.isEmpty()) {
+                fields.put("smtp_from_email", trimmedFrom);
+            }
+            fields.put("smtp_enabled", "true");
+        }
+
+        // Validar webhook URL si se proporcionó
+        if (!trimmedWebhook.isEmpty()) {
+            try {
+                WebhookUrlValidator.validate(trimmedWebhook);
+            } catch (IllegalArgumentException e) {
+                return new Step3Result(false, "URL de webhook inválida: " + e.getMessage());
+            }
+            fields.put("webhook_url", trimmedWebhook);
+        }
+
+        // Guardar en Redis
+        String key = REG_PREFIX + registrationId;
+        HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+        fields.put("step", "3");
+        hash.hset(key, fields);
+
+        // Renovar TTL
+        KeyCommands<String> keys = redisDS.key(String.class);
+        keys.pexpire(key, REG_TTL.toMillis());
+
+        log.infof("Registration step 3 saved | registrationId=%s smtp=%s webhook=%s",
+                registrationId, hasSmtp, !trimmedWebhook.isEmpty());
+        return new Step3Result(true, null);
     }
 
     /**

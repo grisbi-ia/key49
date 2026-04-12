@@ -418,4 +418,226 @@ class RegistrationServiceTest {
             assertTrue(result.success(), "Expected success but got: " + result.error());
         }
     }
+
+    @Nested
+    @DisplayName("Guardar paso 3 — SMTP y Webhook")
+    class SaveStep3 {
+
+        private static final String REG_ID = "reg-test-456";
+        private static final String TEST_MASTER_KEY = "Kt+uSavMguKGLq2ese9Zj0qbk5U97/rGPIaW0TCqask=";
+
+        @BeforeEach
+        void setMasterKey() throws Exception {
+            Field field = RegistrationService.class.getDeclaredField("masterKeyBase64");
+            field.setAccessible(true);
+            field.set(service, TEST_MASTER_KEY);
+        }
+
+        @SuppressWarnings("unchecked")
+        private void stubExistingRegistration() {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID))
+                    .thenReturn(Map.of("ruc", "1790016919001", "step", "2"));
+        }
+
+        @Test
+        @DisplayName("falla si sesión de registro no existe")
+        @SuppressWarnings("unchecked")
+        void failsIfSessionExpired() {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID)).thenReturn(Map.of());
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "587",
+                    "user", "pass", "from@test.com", null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("expirada"));
+        }
+
+        @Test
+        @DisplayName("exitoso sin ningún campo — omitir SMTP y webhook")
+        @SuppressWarnings("unchecked")
+        void successWithNoFields() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, null, null, null, null, null, null);
+
+            assertTrue(result.success());
+            assertNull(result.error());
+            verify(hashCommands).hset(eq("portal:registration:" + REG_ID), anyMap());
+        }
+
+        @Test
+        @DisplayName("exitoso con campos vacíos — omitir SMTP y webhook")
+        @SuppressWarnings("unchecked")
+        void successWithEmptyFields() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "", "", "", "", "", "");
+
+            assertTrue(result.success());
+            assertNull(result.error());
+        }
+
+        @Test
+        @DisplayName("falla si SMTP parcial — host sin puerto")
+        void failsIfSmtpHostWithoutPort() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "", null, null, null, null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("puerto SMTP"));
+        }
+
+        @Test
+        @DisplayName("falla si SMTP parcial — puerto sin host")
+        void failsIfSmtpPortWithoutHost() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "", "587", null, null, null, null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("host SMTP"));
+        }
+
+        @Test
+        @DisplayName("falla si puerto SMTP no es número")
+        void failsIfPortNotNumber() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "abc",
+                    null, null, null, null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("número válido"));
+        }
+
+        @Test
+        @DisplayName("falla si puerto SMTP fuera de rango")
+        void failsIfPortOutOfRange() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "99999",
+                    null, null, null, null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("entre 1 y 65535"));
+        }
+
+        @Test
+        @DisplayName("falla si email remitente inválido")
+        void failsIfFromEmailInvalid() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "587",
+                    "user", "pass", "not-an-email", null);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("email remitente"));
+        }
+
+        @Test
+        @DisplayName("exitoso con SMTP completo — guarda cifrado en Redis")
+        @SuppressWarnings("unchecked")
+        void successWithFullSmtp() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "587",
+                    "user@test.com", "secret123", "from@test.com", null);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertNull(result.error());
+
+            verify(hashCommands).hset(eq("portal:registration:" + REG_ID), argThat(map -> {
+                @SuppressWarnings("unchecked")
+                var m = (Map<String, String>) map;
+                return "smtp.test.com".equals(m.get("smtp_host"))
+                        && "587".equals(m.get("smtp_port"))
+                        && "user@test.com".equals(m.get("smtp_user"))
+                        && m.containsKey("smtp_password_enc")
+                        && "from@test.com".equals(m.get("smtp_from_email"))
+                        && "true".equals(m.get("smtp_enabled"))
+                        && "3".equals(m.get("step"));
+            }));
+            verify(keyCommands).pexpire(eq("portal:registration:" + REG_ID), eq(1800000L));
+        }
+
+        @Test
+        @DisplayName("exitoso con solo webhook URL")
+        @SuppressWarnings("unchecked")
+        void successWithWebhookOnly() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, null, null, null, null, null,
+                    "https://8.8.8.8/webhook");
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertNull(result.error());
+
+            verify(hashCommands).hset(eq("portal:registration:" + REG_ID), argThat(map -> {
+                @SuppressWarnings("unchecked")
+                var m = (Map<String, String>) map;
+                return "https://8.8.8.8/webhook".equals(m.get("webhook_url"))
+                        && "3".equals(m.get("step"))
+                        && !m.containsKey("smtp_host");
+            }));
+        }
+
+        @Test
+        @DisplayName("falla si webhook URL apunta a red privada (SSRF)")
+        void failsIfWebhookSsrf() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, null, null, null, null, null,
+                    "http://localhost:8080/webhook");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("webhook inválida"));
+        }
+
+        @Test
+        @DisplayName("falla si webhook URL no tiene esquema HTTP/HTTPS")
+        void failsIfWebhookBadScheme() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, null, null, null, null, null,
+                    "ftp://example.com/webhook");
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("webhook inválida"));
+        }
+
+        @Test
+        @DisplayName("exitoso con SMTP y webhook juntos")
+        @SuppressWarnings("unchecked")
+        void successWithSmtpAndWebhook() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "465",
+                    "user", "pass", "from@test.com", "https://8.8.8.8/hook");
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertNull(result.error());
+        }
+
+        @Test
+        @DisplayName("SMTP sin usuario ni contraseña — solo host y puerto")
+        @SuppressWarnings("unchecked")
+        void successSmtpWithOnlyHostPort() {
+            stubExistingRegistration();
+
+            var result = service.saveStep3(REG_ID, "smtp.test.com", "25",
+                    null, null, null, null);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+
+            verify(hashCommands).hset(eq("portal:registration:" + REG_ID), argThat(map -> {
+                @SuppressWarnings("unchecked")
+                var m = (Map<String, String>) map;
+                return "smtp.test.com".equals(m.get("smtp_host"))
+                        && "25".equals(m.get("smtp_port"))
+                        && !m.containsKey("smtp_user")
+                        && !m.containsKey("smtp_password_enc");
+            }));
+        }
+    }
 }

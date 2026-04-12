@@ -937,7 +937,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Cifrar con AES-256-GCM y guardar en sesión temporal
   - Test: upload de certificado válido, rechazo de archivo inválido
 
-- [ ] **T-100** Wizard de autoregistro — Paso 3: SMTP y webhook (opcional)
+- [x] **T-100** Wizard de autoregistro — Paso 3: SMTP y webhook (opcional) ✅ v0.27.3
   - Formulario opcional de SMTP: host, puerto, usuario, contraseña, email remitente
   - Botón "Probar conexión SMTP" (HTMX → POST que verifica conexión)
   - Campo opcional de webhook URL (con validación SSRF)

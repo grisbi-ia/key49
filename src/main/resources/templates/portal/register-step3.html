@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro — SMTP y Webhook — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <script src="/js/htmx.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .register-card {
+            max-width: 520px;
+            width: 100%;
+        }
+
+        .register-card h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .register-card .subtitle {
+            text-align: center;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .steps .step {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 2px solid var(--pico-muted-border-color);
+            color: var(--pico-muted-color);
+        }
+
+        .steps .step.done {
+            border-color: #2ecc40;
+            background: #2ecc40;
+            color: #fff;
+        }
+
+        .steps .step.active {
+            border-color: var(--pico-primary);
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+        }
+
+        .steps .step-line {
+            width: 2rem;
+            height: 2px;
+            background: var(--pico-muted-border-color);
+            align-self: center;
+        }
+
+        .optional-note {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--pico-muted-color);
+        }
+
+        .section-label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        #smtp-test-result {
+            font-size: 0.85rem;
+            min-height: 1.5em;
+            margin-top: 0.5rem;
+        }
+
+        #smtp-test-result.success {
+            color: #2ecc40;
+        }
+
+        #smtp-test-result.error {
+            color: var(--pico-del-color);
+        }
+    </style>
+</head>
+
+<body>
+    <article class="register-card">
+        <h2>Key49</h2>
+        <p class="subtitle">Configuración de email y webhook</p>
+
+        <div class="steps">
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step active">3</span>
+            <span class="step-line"></span>
+            <span class="step">4</span>
+        </div>
+
+        {#if error}
+        <p role="alert" style="color: var(--pico-del-color);">
+            {error}
+        </p>
+        {/if}
+
+        <div class="optional-note">
+            <strong>Este paso es opcional.</strong> Si no configura un servidor SMTP propio,
+            se usará el servicio de email de Key49 para enviar los comprobantes electrónicos.
+        </div>
+
+        <form method="post" action="/portal/register/step3" id="step3-form">
+
+            <p class="section-label">Servidor SMTP propio (opcional)</p>
+
+            <div style="display: flex; gap: 1rem;">
+                <div style="flex: 2;">
+                    <label for="smtpHost">Host SMTP</label>
+                    <input type="text" id="smtpHost" name="smtpHost"
+                           placeholder="smtp.ejemplo.com"
+                           value="{smtpHost ?: ''}"
+                           autocomplete="off">
+                </div>
+                <div style="flex: 1;">
+                    <label for="smtpPort">Puerto</label>
+                    <input type="number" id="smtpPort" name="smtpPort"
+                           placeholder="587" min="1" max="65535"
+                           value="{smtpPort ?: ''}"
+                           autocomplete="off">
+                </div>
+            </div>
+
+            <label for="smtpUser">Usuario SMTP</label>
+            <input type="text" id="smtpUser" name="smtpUser"
+                   placeholder="usuario@ejemplo.com"
+                   value="{smtpUser ?: ''}"
+                   autocomplete="off">
+
+            <label for="smtpPassword">Contraseña SMTP</label>
+            <input type="password" id="smtpPassword" name="smtpPassword"
+                   placeholder="Contraseña del servidor SMTP"
+                   autocomplete="off">
+
+            <label for="smtpFromEmail">Email remitente</label>
+            <input type="email" id="smtpFromEmail" name="smtpFromEmail"
+                   placeholder="facturacion@empresa.com"
+                   value="{smtpFromEmail ?: ''}"
+                   autocomplete="off">
+
+            <button type="button" class="outline"
+                    hx-post="/portal/register/test-smtp"
+                    hx-target="#smtp-test-result"
+                    hx-include="#smtpHost, #smtpPort, #smtpUser, #smtpPassword, #smtpFromEmail"
+                    hx-indicator="#smtp-test-spinner">
+                Probar conexión SMTP
+            </button>
+            <div id="smtp-test-result"></div>
+
+            <hr>
+
+            <p class="section-label">Webhook de notificaciones (opcional)</p>
+
+            <label for="webhookUrl">URL del webhook</label>
+            <input type="url" id="webhookUrl" name="webhookUrl"
+                   placeholder="https://api.empresa.com/webhooks/key49"
+                   value="{webhookUrl ?: ''}"
+                   autocomplete="off">
+            <small style="color: var(--pico-muted-color);">
+                Key49 enviará notificaciones POST a esta URL cuando un documento cambie de estado.
+                Debe ser HTTPS y accesible desde internet.
+            </small>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <a href="/portal/register/step2" role="button" class="outline"
+                   style="flex: 1; text-align: center;">← Atrás</a>
+                <button type="submit" style="flex: 1;">Siguiente →</button>
+            </div>
+        </form>
+    </article>
+</body>
+
+</html>

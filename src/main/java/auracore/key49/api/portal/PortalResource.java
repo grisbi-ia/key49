@@ -92,6 +92,10 @@ public class PortalResource {
     Template registerStep2;
 
     @Inject
+    @Location("portal/register-step3")
+    Template registerStep3;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -326,6 +330,95 @@ public class PortalResource {
                 .data("certMeta", meta)
                 .data("certExpires", certExpires)
                 .data("environment", environment)).build();
+    }
+
+    // ── Register Step 3: SMTP & Webhook ──
+    @GET
+    @Path("/register/step3")
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep3Page(@QueryParam("error") String error) {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+        var data = registrationService.getRegistrationData(regId);
+        if (data == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+        return Response.ok(registerStep3.data("error", error)
+                .data("smtpHost", data.getOrDefault("smtp_host", ""))
+                .data("smtpPort", data.getOrDefault("smtp_port", ""))
+                .data("smtpUser", data.getOrDefault("smtp_user", ""))
+                .data("smtpFromEmail", data.getOrDefault("smtp_from_email", ""))
+                .data("webhookUrl", data.getOrDefault("webhook_url", ""))).build();
+    }
+
+    @POST
+    @Path("/register/step3")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep3(@FormParam("smtpHost") String smtpHost,
+            @FormParam("smtpPort") String smtpPort,
+            @FormParam("smtpUser") String smtpUser,
+            @FormParam("smtpPassword") String smtpPassword,
+            @FormParam("smtpFromEmail") String smtpFromEmail,
+            @FormParam("webhookUrl") String webhookUrl) {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+
+        var result = registrationService.saveStep3(regId, smtpHost, smtpPort,
+                smtpUser, smtpPassword, smtpFromEmail, webhookUrl);
+
+        if (!result.success()) {
+            return Response.ok(registerStep3.data("error", result.error())
+                    .data("smtpHost", smtpHost != null ? smtpHost : "")
+                    .data("smtpPort", smtpPort != null ? smtpPort : "")
+                    .data("smtpUser", smtpUser != null ? smtpUser : "")
+                    .data("smtpFromEmail", smtpFromEmail != null ? smtpFromEmail : "")
+                    .data("webhookUrl", webhookUrl != null ? webhookUrl : "")).build();
+        }
+
+        return Response.seeOther(URI.create("/portal/register/step4")).build();
+    }
+
+    @POST
+    @Path("/register/test-smtp")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public String testSmtpConnection(@FormParam("smtpHost") String smtpHost,
+            @FormParam("smtpPort") String smtpPort,
+            @FormParam("smtpUser") String smtpUser,
+            @FormParam("smtpPassword") String smtpPassword,
+            @FormParam("smtpFromEmail") String smtpFromEmail) {
+        if (smtpHost == null || smtpHost.isBlank() || smtpPort == null || smtpPort.isBlank()) {
+            return "<span class=\"error\">Ingrese host y puerto SMTP para probar la conexión</span>";
+        }
+
+        int port;
+        try {
+            port = Integer.parseInt(smtpPort.strip());
+        } catch (NumberFormatException e) {
+            return "<span class=\"error\">Puerto inválido</span>";
+        }
+
+        try (var socket = new java.net.Socket()) {
+            socket.connect(new java.net.InetSocketAddress(smtpHost.strip(), port), 5000);
+            socket.setSoTimeout(5000);
+            // Leer banner SMTP
+            var reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(socket.getInputStream()));
+            var banner = reader.readLine();
+            if (banner != null && banner.startsWith("220")) {
+                return "<span class=\"success\">✓ Conexión SMTP exitosa (" + escapeHtml(smtpHost.strip()) + ":" + port + ")</span>";
+            }
+            return "<span class=\"error\">✗ Respuesta inesperada del servidor: " + escapeHtml(banner) + "</span>";
+        } catch (Exception e) {
+            log.debugf("SMTP test failed: %s", e.getMessage());
+            return "<span class=\"error\">✗ No se pudo conectar: "
+                    + escapeHtml(e.getMessage()) + "</span>";
+        }
     }
 
     private String getRegistrationId() {

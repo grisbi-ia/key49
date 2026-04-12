@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.3] - 2026-04-12
+
+### Agregado
+
+- **Wizard de autoregistro — Paso 3: SMTP y webhook (opcional)** (T-100)
+  - `RegistrationService.saveStep3()` — valida y almacena configuración opcional de SMTP y webhook
+  - SMTP opcional: host + puerto obligatorios si se configura algún campo, contraseña cifrada con AES-256-GCM
+  - Webhook URL opcional con validación SSRF via `WebhookUrlValidator` (bloquea redes privadas, localhost, cloud metadata)
+  - Si no configura SMTP → mensaje informativo "Se usará el servicio de email de Key49"
+  - Template `register-step3.html`: formulario SMTP (host, puerto, usuario, contraseña, email remitente), botón "Probar conexión SMTP" (HTMX), campo webhook URL
+  - Endpoints: `GET /portal/register/step3`, `POST /portal/register/step3`, `POST /portal/register/test-smtp`
+  - Prueba SMTP via socket con lectura de banner 220, timeout 5 segundos
+  - 14 tests unitarios: sesión expirada, skip total, SMTP parcial, puerto inválido/fuera de rango, email remitente inválido, SMTP completo, webhook SSRF, webhook esquema inválido, SMTP+webhook juntos, SMTP sin auth
+
 ## [0.27.2] - 2026-04-12
 
 ### Agregado
