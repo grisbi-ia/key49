@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.8] - 2026-04-12
+
+### Agregado
+
+- **Reset mensual de cuota — job programado** (T-104)
+  - `PlanExpirationService` — job `@Scheduled` diario (00:05 ECT) que verifica planes expirados (`plan_expires_at <= now()`)
+  - Planes no-Enterprise (DEMO, STARTER, BUSINESS): marca `status = 'expired'`, dispara webhook `plan.expired` y email de notificación
+  - Planes Enterprise con auto-renovación: resetea `documents_used = 0`, extiende `plan_expires_at` 30 días, crea registro en `plan_renewals` como historial, dispara webhook `plan.renewed` y email
+  - Invalidación de caché Redis del tenant en ambos flujos
+  - `TenantRepository.findExpiredActive()` — nuevo método para buscar tenants activos con plan expirado
+  - 25 tests unitarios: sin tenants expirados, flujo mixto expiración+renovación, continuación ante errores, expiración DEMO/STARTER/BUSINESS con invalidación de caché/webhook/sin webhook, auto-renovación Enterprise con reset cuota/extensión periodo/registro historial/webhook, detección de plan Enterprise
+
 ## [0.27.7] - 2026-04-12
 
 ### Agregado

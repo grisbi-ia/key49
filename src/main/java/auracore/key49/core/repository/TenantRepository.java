@@ -1,5 +1,6 @@
 package auracore.key49.core.repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,5 +25,9 @@ public class TenantRepository implements PanacheRepositoryBase<Tenant, UUID> {
 
     public List<Tenant> findAllActive() {
         return find("status", "active").list();
+    }
+
+    public List<Tenant> findExpiredActive(Instant now) {
+        return find("status = 'active' AND planExpiresAt IS NOT NULL AND planExpiresAt <= ?1", now).list();
     }
 }

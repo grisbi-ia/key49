@@ -999,7 +999,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 26: Pulido y Hardening (Semana 7-8)
 
-- [ ] **T-104** Reset mensual de cuota (job programado)
+- [x] **T-104** Reset mensual de cuota (job programado) ✅ v0.27.8
   - Job `@Scheduled` diario que verifica planes con suscripción activa:
     - Si `plan_expires_at <= now()` y plan no es Enterprise → `status = 'expired'`, webhook `plan.expired`
     - Para suscripciones con auto-renovación futura: reset `documents_used = 0`, nueva `plan_expires_at`
