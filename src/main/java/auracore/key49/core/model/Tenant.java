@@ -113,6 +113,25 @@ public class Tenant extends PanacheEntityBase {
     @Column(name = "status", nullable = false, length = 20)
     public String status = "active";
 
+    // ── Plan & Quotas ──
+    @Column(name = "plan_type", nullable = false, length = 20)
+    @ColumnDefault("'demo'")
+    public String planType = "demo";
+
+    @Column(name = "document_quota", nullable = false)
+    @ColumnDefault("25")
+    public int documentQuota = 25;
+
+    @Column(name = "documents_used", nullable = false)
+    @ColumnDefault("0")
+    public int documentsUsed = 0;
+
+    @Column(name = "plan_starts_at")
+    public Instant planStartsAt;
+
+    @Column(name = "plan_expires_at")
+    public Instant planExpiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

@@ -61,15 +61,54 @@ CREATE TABLE tenants (
     schema_name         VARCHAR(63) NOT NULL,                -- schema name (e.g. 'tenant_abc123')
 
     -- Status
-    status              VARCHAR(20) NOT NULL DEFAULT 'active', -- active | suspended | pending
+    status              VARCHAR(20) NOT NULL DEFAULT 'active', -- active | suspended | pending | failed
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
 
+    -- Plan & Quotas (V007)
+    plan_type           VARCHAR(20) NOT NULL DEFAULT 'demo',   -- demo | starter | business | enterprise
+    document_quota      INTEGER NOT NULL DEFAULT 25,           -- documentos permitidos en el periodo
+    documents_used      INTEGER NOT NULL DEFAULT 0,            -- documentos emitidos en el periodo actual
+    plan_starts_at      TIMESTAMP WITH TIME ZONE,              -- inicio del periodo
+    plan_expires_at     TIMESTAMP WITH TIME ZONE,              -- fin del periodo (30 días)
+
     CONSTRAINT uq_tenants_ruc UNIQUE (ruc),
-    CONSTRAINT uq_tenants_schema UNIQUE (schema_name)
+    CONSTRAINT uq_tenants_schema UNIQUE (schema_name),
+    CONSTRAINT chk_tenants_plan_type CHECK (plan_type IN ('demo', 'starter', 'business', 'enterprise')),
+    CONSTRAINT chk_tenants_document_quota CHECK (document_quota > 0),
+    CONSTRAINT chk_tenants_documents_used CHECK (documents_used >= 0),
+    CONSTRAINT chk_tenants_status CHECK (status IN ('active', 'suspended', 'pending', 'failed'))
 );
 
 CREATE INDEX idx_tenants_status ON tenants(status);
+```
+
+### Tabla: plan_renewals
+
+Historial de renovaciones y cambios de plan por tenant.
+
+```sql
+CREATE TABLE plan_renewals (
+    renewal_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id          UUID NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    plan_type          VARCHAR(20) NOT NULL,                 -- nuevo plan solicitado
+    document_quota     INTEGER NOT NULL,                     -- cuota asociada al plan
+    amount             NUMERIC(10,2) NOT NULL DEFAULT 0,     -- monto pagado
+    payment_proof_path VARCHAR(500),                         -- ruta MinIO del comprobante
+    status             VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+    approved_by        VARCHAR(200),                         -- admin que aprobó
+    approved_at        TIMESTAMP WITH TIME ZONE,
+    notes              TEXT,
+    created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+
+    CONSTRAINT chk_renewals_plan_type CHECK (plan_type IN ('demo', 'starter', 'business', 'enterprise')),
+    CONSTRAINT chk_renewals_status CHECK (status IN ('pending', 'approved', 'rejected')),
+    CONSTRAINT chk_renewals_quota CHECK (document_quota > 0),
+    CONSTRAINT chk_renewals_amount CHECK (amount >= 0)
+);
+
+CREATE INDEX idx_plan_renewals_tenant ON plan_renewals(tenant_id);
+CREATE INDEX idx_plan_renewals_status ON plan_renewals(status);
 ```
 
 ### Tabla: api_keys

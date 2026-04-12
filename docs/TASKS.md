@@ -829,7 +829,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 21: Provisioning Automático de Tenants (Semana 1-2)
 
-- [ ] **T-090** Función PL/pgSQL `clone_schema()` y esquema template
+- [x] **T-090** Función PL/pgSQL `clone_schema()` y esquema template ✅ v0.25.9
   - Crear esquema `tenant_template` con todas las tablas (V001–V006) vacías
   - Implementar función `clone_schema(source, target)` en PL/pgSQL que duplique tablas, índices, constraints y sequences
   - Validar que el esquema destino no exista (prevenir sobreescritura)
@@ -837,7 +837,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Test: clonar template, verificar que las tablas existen con estructura idéntica
   - Documentar en `DB-ADMIN.md` el mantenimiento del template (aplicar migraciones nuevas)
 
-- [ ] **T-091** Provisioning automático en `TenantAdminService`
+- [x] **T-091** Provisioning automático en `TenantAdminService` ✅ v0.26.0
   - Modificar `TenantAdminService.create()` para ejecutar `SELECT clone_schema('tenant_template', :schema)` después del INSERT
   - Transición automática a `status = 'active'` tras provisioning exitoso
   - Si falla el clonado: rollback, dejar `status = 'failed'`, log de error detallado
@@ -848,7 +848,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 22: Modelo de Planes y Cuotas (Semana 2-3)
 
-- [ ] **T-092** Schema de planes y cuotas en BD
+- [x] **T-092** Schema de planes y cuotas en BD ✅ v0.26.1
   - Nuevas columnas en `public.tenants`:
     - `plan_type VARCHAR(20) DEFAULT 'demo'` — demo, starter, business, enterprise
     - `document_quota INTEGER DEFAULT 25` — documentos permitidos en el periodo
@@ -919,6 +919,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 - [ ] **T-098** Wizard de autoregistro — Paso 1: Datos de empresa
   - Template Qute: `/portal/register` con formulario multi-paso (Pico CSS + HTMX)
   - Paso 1: RUC, razón social, email, contraseña, confirmar contraseña
+  - Validación de que el RUC no esté ya registrado (HTMX → GET `/v1/tenants/validate-ruc/{ruc}`), devolcer notificación de RUC duplicado o ya registrado
   - Validación client-side (HTMX): verificar RUC con módulo 11, email formato válido
   - Validación server-side: RUC no duplicado, email no duplicado, contraseña mínimo 8 caracteres
   - Al completar paso 1: guardar datos en sesión temporal (Redis, TTL 30 min), no crear tenant aún

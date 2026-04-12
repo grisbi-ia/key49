@@ -5,6 +5,57 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.26.1] - 2026-04-12
+
+### Agregado
+
+- **Schema de planes y cuotas en BD** (T-092)
+  - 5 nuevas columnas en `public.tenants`: `plan_type`, `document_quota`, `documents_used`, `plan_starts_at`, `plan_expires_at`
+  - Nueva tabla `public.plan_renewals`: historial de renovaciones y cambios de plan
+  - 3 CHECK constraints en tenants: `chk_tenants_plan_type`, `chk_tenants_document_quota`, `chk_tenants_documents_used`
+  - 4 CHECK constraints en plan_renewals: plan_type, status, quota, amount
+  - Actualizado `chk_tenants_status` para incluir estado `'failed'` (requerido por T-091)
+  - Enum Java `PlanType` con cuotas por defecto: DEMO(25), STARTER(100), BUSINESS(500), ENTERPRISE(5000)
+  - Entidad `PlanRenewal` y repositorio `PlanRenewalRepository`
+  - Migración `db/migrations/public/V007__add_plans_and_quotas.sql`
+- **22 tests nuevos**:
+  - 14 tests de integración (`PlanQuotaMigrationTest`): defaults, constraints, FK cascade, índices
+  - 8 tests unitarios (`PlanTypeTest`): enum values, fromCode, validaciones
+- Actualizada documentación `DATABASE.md` con nuevas tablas y columnas
+
+## [0.26.0] - 2026-04-11
+
+### Agregado
+
+- **Provisioning automático en `TenantAdminService`** (T-091)
+  - `TenantAdminService.create()` ejecuta `clone_schema('tenant_template', :schema)` tras INSERT
+  - Transición automática a `status = 'active'` tras provisioning exitoso
+  - Si falla el clonado: `status = 'failed'`, lanza `TenantException(PROVISIONING_FAILED, 500)`
+  - Validación de schema_name con `TenantSchemaResolver.validate()` (prevención inyección SQL)
+  - Invalidación de caché Redis del tenant tras activación
+  - JDBC PreparedStatement con conexión separada para DDL
+- **7 tests de integración** para provisioning automático:
+  - Creación + activación, verificación de tablas, accesibilidad con SET search_path
+  - Duplicados de RUC y schema_name, fallo por esquema pre-existente en PG
+- Actualizado Javadoc de `TenantAdminResource` para reflejar provisioning automático
+
+## [0.25.9] - 2026-04-11
+
+### Agregado
+
+- **Función PL/pgSQL `clone_schema()`** (T-090): provisioning automático de tenants
+  - Duplica tablas regulares, particionadas, índices, constraints y sequences
+  - Valida que el esquema destino no exista (previene sobreescritura)
+  - Valida formato del nombre de esquema (inyección SQL)
+  - Maneja tablas particionadas: copia parent, particiones, PK, UNIQUE e índices
+- **Esquema `tenant_template`**: plantilla con tablas V001–V006 en estado final
+  - `documents` particionada por `issue_date` con particiones mensuales
+  - `outbox`, `webhook_deliveries`, `audit_log` con todos sus índices
+- **Migración** `db/migrations/public/V006__create_clone_schema_and_template.sql`
+- **15 tests de integración** para `clone_schema()`: clonación, estructura, errores
+- **Documentación** en `DB-ADMIN.md`: sección de provisioning automático y mantenimiento del template
+- Actualizado `db/init-dev.sh` para usar `clone_schema()` en lugar de scripts manuales
+
 ## [0.25.8] - 2026-04-11
 
 ### Agregado
