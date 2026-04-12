@@ -96,6 +96,14 @@ public class PortalResource {
     Template registerStep3;
 
     @Inject
+    @Location("portal/register-step4")
+    Template registerStep4;
+
+    @Inject
+    @Location("portal/register-success")
+    Template registerSuccess;
+
+    @Inject
     PortalSessionService sessionService;
 
     @Inject
@@ -419,6 +427,74 @@ public class PortalResource {
             return "<span class=\"error\">✗ No se pudo conectar: "
                     + escapeHtml(e.getMessage()) + "</span>";
         }
+    }
+
+    // ── Register Step 4: Confirmation & Creation ──
+    @GET
+    @Path("/register/step4")
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep4Page(@QueryParam("error") String error) {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+        var data = registrationService.getRegistrationData(regId);
+        if (data == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+
+        var certExpiresRaw = data.get("cert_expires_at");
+        String certExpires = "";
+        if (certExpiresRaw != null) {
+            certExpires = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                    .withZone(ZoneId.of("America/Guayaquil"))
+                    .format(Instant.parse(certExpiresRaw));
+        }
+
+        return Response.ok(registerStep4.data("error", error)
+                .data("ruc", data.getOrDefault("ruc", ""))
+                .data("legalName", data.getOrDefault("legal_name", ""))
+                .data("email", data.getOrDefault("email", ""))
+                .data("certSubject", data.getOrDefault("cert_subject", ""))
+                .data("certExpires", certExpires)
+                .data("environment", data.getOrDefault("environment", "TEST"))
+                .data("smtpHost", data.getOrDefault("smtp_host", ""))
+                .data("smtpPort", data.getOrDefault("smtp_port", ""))
+                .data("smtpUser", data.getOrDefault("smtp_user", ""))
+                .data("smtpFrom", data.getOrDefault("smtp_from_email", ""))
+                .data("webhookUrl", data.getOrDefault("webhook_url", ""))).build();
+    }
+
+    @POST
+    @Path("/register/step4")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public Response registerStep4() {
+        var regId = getRegistrationId();
+        if (regId == null) {
+            return Response.seeOther(URI.create("/portal/register?error=session_expired")).build();
+        }
+
+        var result = registrationService.completeRegistration(regId);
+
+        if (!result.success()) {
+            return Response.seeOther(URI.create("/portal/register/step4?error="
+                    + java.net.URLEncoder.encode(result.error(), java.nio.charset.StandardCharsets.UTF_8))).build();
+        }
+
+        // Limpiar cookie de registro
+        var expiredCookie = new NewCookie.Builder("KEY49_REG")
+                .value("")
+                .path("/portal")
+                .maxAge(0)
+                .secure(secureCookie)
+                .httpOnly(true)
+                .sameSite(NewCookie.SameSite.LAX)
+                .build();
+
+        return Response.ok(registerSuccess.data("apiKey", result.rawApiKey()))
+                .cookie(expiredCookie)
+                .build();
     }
 
     private String getRegistrationId() {

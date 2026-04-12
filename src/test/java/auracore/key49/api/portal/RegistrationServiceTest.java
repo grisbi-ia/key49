@@ -1,8 +1,12 @@
 package auracore.key49.api.portal;
 
+import auracore.key49.core.model.ApiKey;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.ApiKeyManagementService;
 import auracore.key49.core.service.PasswordHasher;
+import auracore.key49.core.service.TenantAdminService;
+import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.hash.HashCommands;
 import io.quarkus.redis.datasource.keys.KeyCommands;
@@ -18,7 +22,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -638,6 +644,260 @@ class RegistrationServiceTest {
                         && !m.containsKey("smtp_user")
                         && !m.containsKey("smtp_password_enc");
             }));
+        }
+    }
+
+    @Nested
+    @DisplayName("Completar registro — paso 4")
+    class CompleteRegistration {
+
+        private static final String REG_ID = "reg-test-789";
+        private static final String TEST_MASTER_KEY = "Kt+uSavMguKGLq2ese9Zj0qbk5U97/rGPIaW0TCqask=";
+
+        @Mock
+        TenantAdminService tenantAdminService;
+
+        @Mock
+        ApiKeyManagementService apiKeyManagementService;
+
+        @BeforeEach
+        void injectDependencies() throws Exception {
+            Field mkField = RegistrationService.class.getDeclaredField("masterKeyBase64");
+            mkField.setAccessible(true);
+            mkField.set(service, TEST_MASTER_KEY);
+
+            Field tasField = RegistrationService.class.getDeclaredField("tenantAdminService");
+            tasField.setAccessible(true);
+            tasField.set(service, tenantAdminService);
+
+            Field akmsField = RegistrationService.class.getDeclaredField("apiKeyManagementService");
+            akmsField.setAccessible(true);
+            akmsField.set(service, apiKeyManagementService);
+        }
+
+        private Map<String, String> fullRegistrationData() {
+            var data = new HashMap<String, String>();
+            data.put("ruc", "1790016919001");
+            data.put("legal_name", "Empresa Test S.A.");
+            data.put("email", "admin@test.com");
+            data.put("password_hash", "$2y$12$hashedvalue");
+            data.put("cert_p12_enc", "dGVzdC1jZXJ0LWVuY3J5cHRlZA=="); // base64 test data
+            data.put("cert_password_enc", "dGVzdC1wd2QtZW5jcnlwdGVk"); // base64 test data
+            data.put("cert_subject", "CN=TEST SUBJECT");
+            data.put("cert_serial", "123456789");
+            data.put("cert_expires_at", "2026-12-31T23:59:59Z");
+            data.put("environment", "TEST");
+            data.put("step", "3");
+            return data;
+        }
+
+        @SuppressWarnings("unchecked")
+        private void stubRegistrationData(Map<String, String> data) {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID)).thenReturn(data);
+        }
+
+        private Tenant stubTenantCreation() {
+            var tenant = new Tenant();
+            tenant.id = UUID.randomUUID();
+            tenant.ruc = "1790016919001";
+            tenant.status = "active";
+            when(tenantAdminService.create(any(CreateTenantData.class))).thenReturn(tenant);
+            return tenant;
+        }
+
+        private void stubApiKeyCreation(UUID tenantId) {
+            var apiKey = new ApiKey();
+            apiKey.id = UUID.randomUUID();
+            apiKey.tenantId = tenantId;
+            apiKey.keyPrefix = "fec_test";
+            when(apiKeyManagementService.create(eq(tenantId), any(ApiKeyManagementService.CreateApiKeyData.class)))
+                    .thenReturn(new ApiKeyManagementService.CreatedApiKey(apiKey, "fec_test_rawkey123456789012"));
+        }
+
+        @Test
+        @DisplayName("falla si sesión de registro no existe")
+        @SuppressWarnings("unchecked")
+        void failsIfSessionExpired() {
+            when(hashCommands.hgetall("portal:registration:" + REG_ID)).thenReturn(Map.of());
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("expirada"));
+            assertNull(result.rawApiKey());
+            assertNull(result.tenantId());
+        }
+
+        @Test
+        @DisplayName("falla si paso no es 3")
+        void failsIfStepNotComplete() {
+            var data = fullRegistrationData();
+            data.put("step", "2");
+            stubRegistrationData(data);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("completar todos los pasos"));
+            verifyNoInteractions(tenantAdminService);
+        }
+
+        @Test
+        @DisplayName("falla si datos del paso 1 incompletos")
+        void failsIfStep1DataMissing() {
+            var data = fullRegistrationData();
+            data.remove("ruc");
+            stubRegistrationData(data);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("incompletos"));
+            verifyNoInteractions(tenantAdminService);
+        }
+
+        @Test
+        @DisplayName("falla si datos del certificado incompletos")
+        void failsIfCertDataMissing() {
+            var data = fullRegistrationData();
+            data.remove("cert_p12_enc");
+            stubRegistrationData(data);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("certificado incompletos"));
+            verifyNoInteractions(tenantAdminService);
+        }
+
+        @Test
+        @DisplayName("exitoso — crea tenant, genera API key y limpia Redis")
+        void successfulRegistration() {
+            var data = fullRegistrationData();
+            stubRegistrationData(data);
+            var tenant = stubTenantCreation();
+            stubApiKeyCreation(tenant.id);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertNotNull(result.rawApiKey());
+            assertEquals(tenant.id, result.tenantId());
+            assertTrue(result.rawApiKey().startsWith("fec_test"));
+
+            // Verifica creación de tenant con datos correctos
+            verify(tenantAdminService).create(argThat(d
+                    -> "1790016919001".equals(d.ruc())
+                    && "Empresa Test S.A.".equals(d.legalName())
+                    && "test".equals(d.environment())));
+
+            // Verifica que se generó API key
+            verify(apiKeyManagementService).create(eq(tenant.id), any());
+
+            // Verifica limpieza de Redis
+            verify(keyCommands).del("portal:registration:" + REG_ID);
+
+            // Verifica campos del tenant
+            assertEquals("admin@test.com", tenant.email);
+            assertEquals("$2y$12$hashedvalue", tenant.portalPasswordHash);
+            assertEquals("demo", tenant.planType);
+            assertEquals(25, tenant.documentQuota);
+            assertNotNull(tenant.planStartsAt);
+            assertNotNull(tenant.planExpiresAt);
+            assertEquals("CN=TEST SUBJECT", tenant.certificateSubject);
+        }
+
+        @Test
+        @DisplayName("exitoso con SMTP configurado")
+        void successWithSmtp() {
+            var data = fullRegistrationData();
+            data.put("smtp_enabled", "true");
+            data.put("smtp_host", "smtp.test.com");
+            data.put("smtp_port", "465");
+            data.put("smtp_user", "user@test.com");
+            data.put("smtp_password_enc", "dGVzdC1zbXRwLXB3ZA==");
+            data.put("smtp_from_email", "noreply@test.com");
+            stubRegistrationData(data);
+            var tenant = stubTenantCreation();
+            stubApiKeyCreation(tenant.id);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertEquals("smtp.test.com", tenant.smtpHost);
+            assertEquals(465, tenant.smtpPort);
+            assertEquals("user@test.com", tenant.smtpUser);
+            assertNotNull(tenant.smtpPasswordEnc);
+            assertEquals("noreply@test.com", tenant.smtpFrom);
+            assertTrue(tenant.smtpEnabled);
+        }
+
+        @Test
+        @DisplayName("exitoso con webhook URL configurada")
+        void successWithWebhook() {
+            var data = fullRegistrationData();
+            data.put("webhook_url", "https://example.com/webhook");
+            stubRegistrationData(data);
+            var tenant = stubTenantCreation();
+            stubApiKeyCreation(tenant.id);
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertEquals("https://example.com/webhook", tenant.webhookUrl);
+        }
+
+        @Test
+        @DisplayName("falla si TenantAdminService lanza TenantException")
+        void failsOnTenantException() {
+            stubRegistrationData(fullRegistrationData());
+            when(tenantAdminService.create(any(CreateTenantData.class)))
+                    .thenThrow(new TenantAdminService.TenantException(
+                            "DUPLICATE_RUC", "RUC duplicado", 409));
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("RUC duplicado"));
+            assertNull(result.rawApiKey());
+        }
+
+        @Test
+        @DisplayName("falla si ocurre excepción inesperada")
+        void failsOnUnexpectedException() {
+            stubRegistrationData(fullRegistrationData());
+            when(tenantAdminService.create(any(CreateTenantData.class)))
+                    .thenThrow(new RuntimeException("Database connection lost"));
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertFalse(result.success());
+            assertTrue(result.error().contains("inesperado"));
+            assertNull(result.rawApiKey());
+        }
+
+        @Test
+        @DisplayName("usa environment PRODUCTION para API key")
+        void productionEnvironment() {
+            var data = fullRegistrationData();
+            data.put("environment", "PRODUCTION");
+            stubRegistrationData(data);
+            var tenant = stubTenantCreation();
+
+            var apiKey = new ApiKey();
+            apiKey.id = UUID.randomUUID();
+            apiKey.tenantId = tenant.id;
+            apiKey.keyPrefix = "fec_live";
+            when(apiKeyManagementService.create(eq(tenant.id), any()))
+                    .thenReturn(new ApiKeyManagementService.CreatedApiKey(apiKey, "fec_live_rawkey123456789012"));
+
+            var result = service.completeRegistration(REG_ID);
+
+            assertTrue(result.success(), "Expected success but got: " + result.error());
+            assertTrue(result.rawApiKey().startsWith("fec_live"));
+
+            verify(apiKeyManagementService).create(eq(tenant.id), argThat(d
+                    -> "production".equals(d.environment())));
         }
     }
 }

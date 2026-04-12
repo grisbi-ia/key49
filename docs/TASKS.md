@@ -945,7 +945,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Guardar en sesión temporal
   - Test: configurar SMTP, probar conexión
 
-- [ ] **T-101** Wizard de autoregistro — Paso 4: Confirmación y creación
+- [x] **T-101** Wizard de autoregistro — Paso 4: Confirmación y creación ✅ v0.27.4
   - Resumen de toda la configuración (datos empresa, certificado, ambiente, SMTP)
   - Botón "Crear mi cuenta"
   - Al confirmar:

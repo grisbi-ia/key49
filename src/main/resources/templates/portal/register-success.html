@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro Exitoso — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .success-card {
+            max-width: 560px;
+            width: 100%;
+        }
+
+        .success-card h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-icon {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-card .subtitle {
+            text-align: center;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .api-key-box {
+            background: #1e293b;
+            color: #f1f5f9;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-family: monospace;
+            font-size: 0.95rem;
+            word-break: break-all;
+            position: relative;
+        }
+
+        .api-key-box .label {
+            display: block;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+            font-family: sans-serif;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: #334155;
+            color: #e2e8f0;
+            border: none;
+            border-radius: 0.25rem;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover {
+            background: #475569;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .warning-box strong {
+            color: #856404;
+        }
+
+        .next-steps {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .next-steps h4 {
+            margin-top: 0;
+        }
+
+        .next-steps ol {
+            margin-bottom: 0;
+            padding-left: 1.2rem;
+        }
+
+        .next-steps li {
+            margin-bottom: 0.3rem;
+        }
+
+        .next-steps code {
+            font-size: 0.85rem;
+            background: var(--pico-muted-border-color);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.15rem;
+        }
+    </style>
+</head>
+
+<body>
+    <article class="success-card">
+        <div class="success-icon">✓</div>
+        <h2>¡Cuenta creada exitosamente!</h2>
+        <p class="subtitle">Bienvenido a Key49 — Facturación Electrónica</p>
+
+        <div class="api-key-box">
+            <span class="label">Su API Key (se muestra UNA SOLA VEZ)</span>
+            <span id="api-key-value">{apiKey}</span>
+            <button class="copy-btn" onclick="copyApiKey()" id="copy-btn">Copiar</button>
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠ Importante:</strong> Copie y guarde esta API key en un lugar seguro.
+            No se volverá a mostrar. Si la pierde, deberá generar una nueva desde el portal.
+        </div>
+
+        <div class="next-steps">
+            <h4>Próximos pasos</h4>
+            <ol>
+                <li>Guarde su API key en la configuración de su sistema</li>
+                <li>Use el header <code>Authorization: Bearer {apiKey}</code> en sus peticiones</li>
+                <li>Emita su primera factura via <code>POST /v1/invoices</code></li>
+                <li>Consulte la documentación de la API para más detalles</li>
+            </ol>
+        </div>
+
+        <a href="/portal/login" role="button" style="width: 100%; text-align: center;">
+            Ir al portal →
+        </a>
+    </article>
+
+    <script>
+        function copyApiKey() {
+            var keyValue = document.getElementById('api-key-value').textContent;
+            navigator.clipboard.writeText(keyValue).then(function() {
+                var btn = document.getElementById('copy-btn');
+                btn.textContent = '✓ Copiado';
+                setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+            });
+        }
+    </script>
+</body>
+
+</html>

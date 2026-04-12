@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registro — Confirmación — Key49</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .register-card {
+            max-width: 560px;
+            width: 100%;
+        }
+
+        .register-card h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .register-card .subtitle {
+            text-align: center;
+            color: var(--pico-muted-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .steps .step {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 2px solid var(--pico-muted-border-color);
+            color: var(--pico-muted-color);
+        }
+
+        .steps .step.done {
+            border-color: #2ecc40;
+            background: #2ecc40;
+            color: #fff;
+        }
+
+        .steps .step.active {
+            border-color: var(--pico-primary);
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+        }
+
+        .steps .step-line {
+            width: 2rem;
+            height: 2px;
+            background: var(--pico-muted-border-color);
+            align-self: center;
+        }
+
+        .summary-section {
+            background: var(--pico-card-background-color);
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-section h4 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-section dl {
+            margin: 0;
+        }
+
+        .summary-section dt {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+        }
+
+        .summary-section dd {
+            margin-left: 0;
+            color: var(--pico-muted-color);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <article class="register-card">
+        <h2>Key49</h2>
+        <p class="subtitle">Confirme su registro</p>
+
+        <div class="steps">
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step done">✓</span>
+            <span class="step-line"></span>
+            <span class="step active">4</span>
+        </div>
+
+        {#if error}
+        <p role="alert" style="color: var(--pico-del-color);">
+            {error}
+        </p>
+        {/if}
+
+        <div class="summary-section">
+            <h4>Empresa</h4>
+            <dl>
+                <dt>RUC</dt>
+                <dd>{ruc}</dd>
+                <dt>Razón Social</dt>
+                <dd>{legalName}</dd>
+                <dt>Email</dt>
+                <dd>{email}</dd>
+            </dl>
+        </div>
+
+        <div class="summary-section">
+            <h4>Certificado</h4>
+            <dl>
+                <dt>Sujeto</dt>
+                <dd>{certSubject}</dd>
+                <dt>Expira</dt>
+                <dd>{certExpires}</dd>
+                <dt>Ambiente</dt>
+                <dd>{#if environment == 'TEST'}Pruebas (SRI Celcer){#else}Producción{/if}</dd>
+            </dl>
+        </div>
+
+        <div class="summary-section">
+            <h4>Email y Notificaciones</h4>
+            <dl>
+                {#if smtpHost}
+                <dt>Servidor SMTP</dt>
+                <dd>{smtpHost}:{smtpPort}</dd>
+                {#if smtpUser}
+                <dt>Usuario</dt>
+                <dd>{smtpUser}</dd>
+                {/if}
+                {#if smtpFrom}
+                <dt>Email remitente</dt>
+                <dd>{smtpFrom}</dd>
+                {/if}
+                {#else}
+                <dt>SMTP</dt>
+                <dd>Se usará el servicio de email de Key49</dd>
+                {/if}
+                {#if webhookUrl}
+                <dt>Webhook</dt>
+                <dd>{webhookUrl}</dd>
+                {/if}
+            </dl>
+        </div>
+
+        <div class="summary-section" style="background: #f0f9ff; border-color: #bae6fd;">
+            <h4 style="color: var(--pico-primary);">Plan DEMO</h4>
+            <dl>
+                <dt>Documentos</dt>
+                <dd>25 comprobantes electrónicos</dd>
+                <dt>Duración</dt>
+                <dd>30 días</dd>
+            </dl>
+        </div>
+
+        <form method="post" action="/portal/register/step4">
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <a href="/portal/register/step3" role="button" class="outline"
+                   style="flex: 1; text-align: center;">← Atrás</a>
+                <button type="submit" style="flex: 1;">Crear mi cuenta</button>
+            </div>
+        </form>
+    </article>
+</body>
+
+</html>

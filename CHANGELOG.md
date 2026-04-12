@@ -5,6 +5,26 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.4] - 2026-04-12
+
+### Agregado
+
+- **Wizard de autoregistro — Paso 4: Confirmación y creación** (T-101)
+  - `RegistrationService.completeRegistration()` — orquesta creación completa del tenant desde datos en Redis
+  - Crea tenant con plan DEMO (25 documentos, 30 días) via `TenantAdminService.create()`
+  - Provisioning automático de esquema PostgreSQL (`clone_schema('tenant_template', ?)`)
+  - Configura credenciales del portal (email + password hash del paso 1)
+  - Almacena certificado cifrado (AES-256-GCM) desde datos del paso 2
+  - Configura SMTP si fue proporcionado en paso 3
+  - Configura webhook URL si fue proporcionada en paso 3
+  - Genera API key via `ApiKeyManagementService.create()` — se muestra una sola vez
+  - Limpia sesión temporal de Redis tras éxito
+  - Template `register-step4.html`: resumen de configuración (empresa, certificado, ambiente, SMTP/webhook, plan DEMO) con botón "Crear mi cuenta"
+  - Template `register-success.html`: muestra API key con botón copiar, advertencia de visibilidad única, próximos pasos de integración
+  - Endpoints: `GET /portal/register/step4`, `POST /portal/register/step4`
+  - Cookie `KEY49_REG` eliminada tras registro exitoso
+  - 10 tests unitarios: sesión expirada, paso incompleto, datos faltantes (paso 1, certificado), registro exitoso, con SMTP, con webhook, TenantException, excepción inesperada, environment PRODUCTION
+
 ## [0.27.3] - 2026-04-12
 
 ### Agregado

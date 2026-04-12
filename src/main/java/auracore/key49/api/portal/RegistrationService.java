@@ -1,7 +1,10 @@
 package auracore.key49.api.portal;
 
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.ApiKeyManagementService;
 import auracore.key49.core.service.PasswordHasher;
+import auracore.key49.core.service.TenantAdminService;
+import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import auracore.key49.core.validation.SriValidator;
 import auracore.key49.notify.webhook.WebhookUrlValidator;
 import auracore.key49.signer.CertificateEncryptor;
@@ -17,6 +20,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +52,12 @@ public class RegistrationService {
     @Inject
     PasswordHasher passwordHasher;
 
+    @Inject
+    TenantAdminService tenantAdminService;
+
+    @Inject
+    ApiKeyManagementService apiKeyManagementService;
+
     @ConfigProperty(name = "key49.master-key")
     String masterKeyBase64;
 
@@ -69,6 +79,13 @@ public class RegistrationService {
      * Resultado de validación del paso 3.
      */
     public record Step3Result(boolean success, String error) {
+
+    }
+
+    /**
+     * Resultado del registro completo (paso 4).
+     */
+    public record RegistrationResult(boolean success, String error, String rawApiKey, UUID tenantId) {
 
     }
 
@@ -358,6 +375,138 @@ public class RegistrationService {
         log.infof("Registration step 3 saved | registrationId=%s smtp=%s webhook=%s",
                 registrationId, hasSmtp, !trimmedWebhook.isEmpty());
         return new Step3Result(true, null);
+    }
+
+    /**
+     * Completa el registro: crea tenant, sube certificado, configura SMTP,
+     * genera API key y limpia la sesión temporal de Redis.
+     *
+     * @param registrationId ID de la sesión de registro
+     * @return resultado con la API key raw (se muestra una sola vez)
+     */
+    public RegistrationResult completeRegistration(String registrationId) {
+        var regData = getRegistrationData(registrationId);
+        if (regData == null) {
+            return new RegistrationResult(false,
+                    "Sesión de registro expirada. Inicie el registro nuevamente.", null, null);
+        }
+
+        // Verificar que se completaron los pasos previos
+        var step = regData.getOrDefault("step", "0");
+        if (!"3".equals(step)) {
+            return new RegistrationResult(false,
+                    "Debe completar todos los pasos anteriores antes de crear la cuenta.", null, null);
+        }
+
+        // Datos del paso 1
+        var ruc = regData.get("ruc");
+        var legalName = regData.get("legal_name");
+        var email = regData.get("email");
+        var passwordHash = regData.get("password_hash");
+
+        if (ruc == null || legalName == null || email == null || passwordHash == null) {
+            return new RegistrationResult(false,
+                    "Datos de registro incompletos. Inicie el registro nuevamente.", null, null);
+        }
+
+        // Datos del paso 2
+        var certP12Enc = regData.get("cert_p12_enc");
+        var certPasswordEnc = regData.get("cert_password_enc");
+        var certSubject = regData.get("cert_subject");
+        var certSerial = regData.get("cert_serial");
+        var certExpiresAt = regData.get("cert_expires_at");
+        var environment = regData.getOrDefault("environment", "TEST");
+
+        if (certP12Enc == null || certPasswordEnc == null) {
+            return new RegistrationResult(false,
+                    "Datos del certificado incompletos. Inicie el registro nuevamente.", null, null);
+        }
+
+        // Generar schema name seguro
+        var schemaName = "tenant_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+
+        try {
+            // 1. Crear tenant con plan DEMO
+            var createData = new CreateTenantData(
+                    ruc,
+                    legalName,
+                    null, // tradeName
+                    legalName, // mainAddress (se actualizará después)
+                    false, // requiredAccounting
+                    null, // specialTaxpayer
+                    false, // microEnterpriseRegime
+                    null, // withholdingAgent
+                    environment.toLowerCase(),
+                    schemaName);
+
+            var tenant = tenantAdminService.create(createData);
+
+            // 2. Configurar plan DEMO (25 docs, 30 días)
+            tenant.planType = "demo";
+            tenant.documentQuota = 25;
+            tenant.planStartsAt = Instant.now();
+            tenant.planExpiresAt = Instant.now().plus(Duration.ofDays(30));
+
+            // 3. Portal credentials (usar hash ya generado en paso 1)
+            tenant.email = email;
+            tenant.portalPasswordHash = passwordHash;
+
+            // 4. Subir certificado cifrado
+            tenant.certificateP12 = Base64.getDecoder().decode(certP12Enc);
+            tenant.certificatePasswordEnc = Base64.getDecoder().decode(certPasswordEnc);
+            tenant.certificateSubject = certSubject;
+            tenant.certificateSerial = certSerial;
+            if (certExpiresAt != null) {
+                tenant.certificateExpiration = Instant.parse(certExpiresAt);
+            }
+
+            // 5. Configurar SMTP si fue proporcionado
+            if ("true".equals(regData.get("smtp_enabled"))) {
+                tenant.smtpHost = regData.get("smtp_host");
+                var portStr = regData.get("smtp_port");
+                if (portStr != null) {
+                    tenant.smtpPort = Integer.parseInt(portStr);
+                }
+                tenant.smtpUser = regData.get("smtp_user");
+                var smtpPwdEnc = regData.get("smtp_password_enc");
+                if (smtpPwdEnc != null) {
+                    tenant.smtpPasswordEnc = Base64.getDecoder().decode(smtpPwdEnc);
+                }
+                tenant.smtpFrom = regData.get("smtp_from_email");
+                tenant.smtpEnabled = true;
+            }
+
+            // 6. Configurar webhook si fue proporcionado
+            var webhookUrl = regData.get("webhook_url");
+            if (webhookUrl != null && !webhookUrl.isBlank()) {
+                tenant.webhookUrl = webhookUrl;
+            }
+
+            tenant.updatedAt = Instant.now();
+
+            // 7. Generar API key
+            var apiKeyEnv = "test".equals(environment.toLowerCase()) ? "test" : "production";
+            var createdKey = apiKeyManagementService.create(tenant.id,
+                    new ApiKeyManagementService.CreateApiKeyData(
+                            "Portal - Registro automático", apiKeyEnv, "*", null));
+
+            // 8. Limpiar sesión de registro en Redis
+            KeyCommands<String> keys = redisDS.key(String.class);
+            keys.del(REG_PREFIX + registrationId);
+
+            log.infof("Registration completed | tenantId=%s ruc=%s schema=%s",
+                    tenant.id, ruc, schemaName);
+            return new RegistrationResult(true, null, createdKey.rawKey(), tenant.id);
+
+        } catch (TenantAdminService.TenantException e) {
+            log.errorf("Registration failed | registrationId=%s error=%s", registrationId, e.getMessage());
+            return new RegistrationResult(false,
+                    "Error al crear la cuenta: " + e.getMessage(), null, null);
+        } catch (Exception e) {
+            log.errorf(e, "Registration failed unexpectedly | registrationId=%s", registrationId);
+            return new RegistrationResult(false,
+                    "Error inesperado al crear la cuenta. Intente nuevamente.", null, null);
+        }
     }
 
     /**
