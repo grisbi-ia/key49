@@ -1,12 +1,16 @@
 package auracore.key49.core.service;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import javax.sql.DataSource;
+
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.tenant.TenantSchemaResolver;
 import auracore.key49.core.validation.SriValidator;
 import auracore.key49.signer.CertificateCacheService;
 import io.quarkus.logging.Log;
@@ -29,10 +33,14 @@ public class TenantAdminService {
     @Inject
     CertificateCacheService certificateCacheService;
 
-    // ── Crear tenant ──
+    @Inject
+    DataSource dataSource;
+
+    // ── Crear tenant con provisioning automático ──
     @Transactional
     public Tenant create(CreateTenantData data) {
         validateCreateData(data);
+        TenantSchemaResolver.validate(data.schemaName());
 
         Tenant existing = tenantRepository.findByRuc(data.ruc());
         if (existing != null) {
@@ -63,7 +71,39 @@ public class TenantAdminService {
 
         Log.infof("Creating tenant | ruc=%s schema=%s", data.ruc(), data.schemaName());
         tenantRepository.persist(tenant);
+        tenantRepository.flush();
+
+        // Provisioning: clonar esquema desde tenant_template
+        try {
+            cloneSchema(data.schemaName());
+            tenant.status = "active";
+            tenant.updatedAt = Instant.now();
+            Log.infof("Tenant provisioned | id=%s schema=%s status=active", tenant.id, data.schemaName());
+            tenantCacheService.invalidate(tenant.id, tenant.schemaName);
+        } catch (Exception e) {
+            tenant.status = "failed";
+            tenant.updatedAt = Instant.now();
+            Log.errorf(e, "Tenant provisioning failed | id=%s schema=%s", tenant.id, data.schemaName());
+            throw new TenantException("PROVISIONING_FAILED",
+                    "Schema provisioning failed for '" + data.schemaName() + "': " + e.getMessage(), 500);
+        }
+
         return tenant;
+    }
+
+    /**
+     * Ejecuta clone_schema() vía JDBC directo. Usa conexión separada para que
+     * el DDL (CREATE SCHEMA) sea visible inmediatamente, independiente de la
+     * transacción JPA.
+     */
+    private void cloneSchema(String schemaName) {
+        TenantSchemaResolver.validate(schemaName);
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement("SELECT clone_schema('tenant_template', ?)")) {
+            ps.setString(1, schemaName);
+            ps.execute();
+        } catch (SQLException e) {
+            throw new RuntimeException("clone_schema failed: " + e.getMessage(), e);
+        }
     }
 
     // ── Obtener tenant por ID ──

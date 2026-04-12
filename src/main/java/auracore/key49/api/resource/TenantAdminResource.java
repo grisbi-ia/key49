@@ -42,7 +42,8 @@ import jakarta.ws.rs.core.Response;
  *
  * <p>
  * Estos endpoints son para uso interno del administrador de la plataforma. La
- * creación del esquema PostgreSQL y sus tablas es responsabilidad del DBA.
+ * creación del esquema PostgreSQL se realiza automáticamente mediante
+ * {@code clone_schema('tenant_template', schema)} al crear un tenant.
  */
 @Path("/v1/admin/tenants")
 @Produces(MediaType.APPLICATION_JSON)

@@ -45,15 +45,15 @@ Key49 es una plataforma SaaS multi-tenant que emite comprobantes electrónicos a
         └──────────┘
 ```
 
-| Componente | Rol | Puerto |
-|---|---|---|
-| **Key49 (Quarkus)** | API REST, consumers, procesamiento | 8080 |
-| **PostgreSQL** | Base de datos relacional, multi-tenant por esquema | 5432 |
-| **PgBouncer** | Pool de conexiones entre Key49 y PostgreSQL | 6432 |
-| **RabbitMQ** | Colas de mensajes para procesamiento asíncrono | 5672 / 15672 (admin) |
-| **Redis** | Caché de API keys, sesiones del portal, rate limiting | 6379 |
-| **MinIO** | Almacenamiento S3 de XML firmados, autorizados y RIDE PDF | 9000 / 9001 (console) |
-| **SRI** | Servicio web SOAP del gobierno (Recepción + Autorización) | externo |
+| Componente          | Rol                                                       | Puerto                |
+| ------------------- | --------------------------------------------------------- | --------------------- |
+| **Key49 (Quarkus)** | API REST, consumers, procesamiento                        | 8080                  |
+| **PostgreSQL**      | Base de datos relacional, multi-tenant por esquema        | 5432                  |
+| **PgBouncer**       | Pool de conexiones entre Key49 y PostgreSQL               | 6432                  |
+| **RabbitMQ**        | Colas de mensajes para procesamiento asíncrono            | 5672 / 15672 (admin)  |
+| **Redis**           | Caché de API keys, sesiones del portal, rate limiting     | 6379                  |
+| **MinIO**           | Almacenamiento S3 de XML firmados, autorizados y RIDE PDF | 9000 / 9001 (console) |
+| **SRI**             | Servicio web SOAP del gobierno (Recepción + Autorización) | externo               |
 
 ---
 
@@ -145,21 +145,22 @@ El **OutboxPoller** (cada 500ms) lee el evento `doc.sign` de la tabla `outbox` y
 #### 6. Consulta posterior
 
 El integrador puede:
+
 - **Webhook**: recibe `document.authorized` o `document.rejected` en su URL configurada.
 - **Polling**: `GET /v1/invoices/{id}` retorna el estado actual del documento.
 - **Portal web**: consulta visual en `/portal/documents/{id}`.
 
 ### Tiempos típicos
 
-| Etapa | Tiempo típico | Bottleneck |
-|---|---|---|
-| API → CREATED | < 50ms | Validación JSON + INSERT |
-| OutboxPoller | 0–500ms | Intervalo de polling |
-| SIGN | 100–300ms | Firma criptográfica |
-| SEND (SOAP) | 500ms–3s | Red + respuesta SRI |
-| AUTHORIZE (SOAP) | 500ms–5s | Red + respuesta SRI |
-| NOTIFY | 200ms–2s | RIDE PDF + MinIO upload |
-| **Total (happy path)** | **~2–10s** | **SRI es el cuello de botella** |
+| Etapa                  | Tiempo típico | Bottleneck                      |
+| ---------------------- | ------------- | ------------------------------- |
+| API → CREATED          | < 50ms        | Validación JSON + INSERT        |
+| OutboxPoller           | 0–500ms       | Intervalo de polling            |
+| SIGN                   | 100–300ms     | Firma criptográfica             |
+| SEND (SOAP)            | 500ms–3s      | Red + respuesta SRI             |
+| AUTHORIZE (SOAP)       | 500ms–5s      | Red + respuesta SRI             |
+| NOTIFY                 | 200ms–2s      | RIDE PDF + MinIO upload         |
+| **Total (happy path)** | **~2–10s**    | **SRI es el cuello de botella** |
 
 ---
 
@@ -210,13 +211,13 @@ El campo `tenantSchemaName` permite al consumer ejecutar `SET search_path` sin c
 
 El prefetch controla cuántos mensajes el consumer toma de la cola antes de confirmarlos. Un prefetch alto aumenta throughput pero consume más memoria.
 
-| Consumer | Prefetch | Justificación |
-|---|---|---|
-| **SignConsumer** | 10 | CPU-bound (firma criptográfica), puede paralelizar |
-| **SendConsumer** | 5 | I/O-bound + `@Blocking` (SOAP con timeout 3s), SRI es bottleneck |
-| **AuthorizeConsumer** | 5 | I/O-bound + `@Blocking` (SOAP con timeout 5s) |
-| **NotifyConsumer** | 10 | CPU-heavy (RIDE PDF) pero paralelizable |
-| **DlqConsumer** | 5 | Bajo volumen, solo errores terminales |
+| Consumer              | Prefetch | Justificación                                                    |
+| --------------------- | -------- | ---------------------------------------------------------------- |
+| **SignConsumer**      | 10       | CPU-bound (firma criptográfica), puede paralelizar               |
+| **SendConsumer**      | 5        | I/O-bound + `@Blocking` (SOAP con timeout 3s), SRI es bottleneck |
+| **AuthorizeConsumer** | 5        | I/O-bound + `@Blocking` (SOAP con timeout 5s)                    |
+| **NotifyConsumer**    | 10       | CPU-heavy (RIDE PDF) pero paralelizable                          |
+| **DlqConsumer**       | 5        | Bajo volumen, solo errores terminales                            |
 
 Configuración vía variables de entorno:
 
@@ -231,6 +232,7 @@ KEY49_RABBITMQ_PREFETCH_DLQ=5
 ### InFlightTracker
 
 Cada consumer registra sus mensajes en procesamiento mediante `InFlightTracker`. Esto permite:
+
 - Monitorear cuántos mensajes están siendo procesados por consumer.
 - En shutdown graceful, saber cuántos mensajes faltan por completar.
 
@@ -248,25 +250,25 @@ Solo los **errores de infraestructura** se reintentan. Los **errores de negocio*
 
 ### Errores que SÍ se reintentan
 
-| Error | Consumer afectado | Causa |
-|---|---|---|
-| `TimeoutException` | Send, Authorize | SRI no respondió a tiempo |
-| `CircuitBreakerOpenException` | Send, Authorize | Circuito abierto por fallos previos |
-| Conexión rechazada | Send, Authorize | SRI caído o red inaccesible |
-| HTTP 500 del SRI | Send, Authorize | Error interno del servidor SRI |
-| Código SRI 43 | Send | Clave duplicada (se puede regenerar) |
+| Error                         | Consumer afectado | Causa                                |
+| ----------------------------- | ----------------- | ------------------------------------ |
+| `TimeoutException`            | Send, Authorize   | SRI no respondió a tiempo            |
+| `CircuitBreakerOpenException` | Send, Authorize   | Circuito abierto por fallos previos  |
+| Conexión rechazada            | Send, Authorize   | SRI caído o red inaccesible          |
+| HTTP 500 del SRI              | Send, Authorize   | Error interno del servidor SRI       |
+| Código SRI 43                 | Send              | Clave duplicada (se puede regenerar) |
 
 ### Errores que NO se reintentan (van a REJECTED o FAILED)
 
-| Código SRI | Significado | Estado final |
-|---|---|---|
-| 35 | Comprobante ya registrado | REJECTED |
-| 45 | Fecha fuera de rango permitido | REJECTED |
-| 52 | Estructura XML inválida | REJECTED |
-| 65 | Fecha futura | REJECTED |
-| Otros errores de negocio | Validación de datos SRI | REJECTED |
-| Certificado inválido/expirado | Error en firma | FAILED |
-| XML no generado | Error en builder | FAILED |
+| Código SRI                    | Significado                    | Estado final |
+| ----------------------------- | ------------------------------ | ------------ |
+| 35                            | Comprobante ya registrado      | REJECTED     |
+| 45                            | Fecha fuera de rango permitido | REJECTED     |
+| 52                            | Estructura XML inválida        | REJECTED     |
+| 65                            | Fecha futura                   | REJECTED     |
+| Otros errores de negocio      | Validación de datos SRI        | REJECTED     |
+| Certificado inválido/expirado | Error en firma                 | FAILED       |
+| XML no generado               | Error en builder               | FAILED       |
 
 ### Secuencia de backoff
 
@@ -369,26 +371,26 @@ Cada documento tiene un estado (`status`) que solo puede cambiar mediante transi
 
 ### Tabla de transiciones válidas
 
-| Estado actual | → Estado destino | Trigger | Responsable |
-|---|---|---|---|
-| CREATED | SIGNED | XML generado, clave de acceso calculada, firma XAdES-BES aplicada | SignConsumer |
-| CREATED | FAILED | Error irrecuperable en generación XML o firma | SignConsumer |
-| SIGNED | SENT | XML enviado al SRI vía SOAP Recepción | SendConsumer |
-| SIGNED | RETRY | Error de infra al enviar (timeout, conexión, circuit breaker) | SendConsumer |
-| SIGNED | REJECTED | SRI devuelve DEVUELTA con error de negocio | SendConsumer |
-| SENT | RECEIVED | SRI confirma RECIBIDA | SendConsumer |
-| RECEIVED | AUTHORIZED | SRI devuelve AUTORIZADO | AuthorizeConsumer |
-| RECEIVED | REJECTED | SRI devuelve NO AUTORIZADO | AuthorizeConsumer |
-| RECEIVED | RETRY | Error de infra al consultar autorización | AuthorizeConsumer |
-| AUTHORIZED | NOTIFIED | RIDE generado + email enviado + webhook disparado | NotifyConsumer |
-| AUTHORIZED | VOIDED | Anulación local solicitada por el tenant | API REST |
-| NOTIFIED | VOIDED | Anulación local solicitada por el tenant | API REST |
-| RETRY | SIGNED | Re-procesamiento (vuelve a firmar si necesario) | RetryPoller |
-| RETRY | SENT | Re-envío al SRI | RetryPoller |
-| RETRY | FAILED | Reintentos agotados (máximo 6) | RetryPoller |
-| REJECTED | CREATED | Reciclaje: cliente reenvía con datos corregidos | API REST |
-| FAILED | CREATED | Reciclaje: cliente reenvía con datos corregidos | API REST |
-| VOIDED | — | Estado terminal absoluto, sin transiciones | — |
+| Estado actual | → Estado destino | Trigger                                                           | Responsable       |
+| ------------- | ---------------- | ----------------------------------------------------------------- | ----------------- |
+| CREATED       | SIGNED           | XML generado, clave de acceso calculada, firma XAdES-BES aplicada | SignConsumer      |
+| CREATED       | FAILED           | Error irrecuperable en generación XML o firma                     | SignConsumer      |
+| SIGNED        | SENT             | XML enviado al SRI vía SOAP Recepción                             | SendConsumer      |
+| SIGNED        | RETRY            | Error de infra al enviar (timeout, conexión, circuit breaker)     | SendConsumer      |
+| SIGNED        | REJECTED         | SRI devuelve DEVUELTA con error de negocio                        | SendConsumer      |
+| SENT          | RECEIVED         | SRI confirma RECIBIDA                                             | SendConsumer      |
+| RECEIVED      | AUTHORIZED       | SRI devuelve AUTORIZADO                                           | AuthorizeConsumer |
+| RECEIVED      | REJECTED         | SRI devuelve NO AUTORIZADO                                        | AuthorizeConsumer |
+| RECEIVED      | RETRY            | Error de infra al consultar autorización                          | AuthorizeConsumer |
+| AUTHORIZED    | NOTIFIED         | RIDE generado + email enviado + webhook disparado                 | NotifyConsumer    |
+| AUTHORIZED    | VOIDED           | Anulación local solicitada por el tenant                          | API REST          |
+| NOTIFIED      | VOIDED           | Anulación local solicitada por el tenant                          | API REST          |
+| RETRY         | SIGNED           | Re-procesamiento (vuelve a firmar si necesario)                   | RetryPoller       |
+| RETRY         | SENT             | Re-envío al SRI                                                   | RetryPoller       |
+| RETRY         | FAILED           | Reintentos agotados (máximo 6)                                    | RetryPoller       |
+| REJECTED      | CREATED          | Reciclaje: cliente reenvía con datos corregidos                   | API REST          |
+| FAILED        | CREATED          | Reciclaje: cliente reenvía con datos corregidos                   | API REST          |
+| VOIDED        | —                | Estado terminal absoluto, sin transiciones                        | —                 |
 
 ### Reciclaje de documentos
 
@@ -426,11 +428,11 @@ Key49 usa MicroProfile Fault Tolerance (`@CircuitBreaker`) para proteger las lla
 
 ### Parámetros por servicio
 
-| Servicio | Volume Threshold | Failure Ratio | Delay | Success Threshold | Timeout |
-|---|---|---|---|---|---|
-| **SRI Recepción** | 10 requests | 50% | 30s | 3 éxitos | 3s |
-| **SRI Autorización** | 10 requests | 50% | 30s | 3 éxitos | 5s |
-| **MinIO** | 10 requests | 50% | 30s | 3 éxitos | 30s (write) |
+| Servicio             | Volume Threshold | Failure Ratio | Delay | Success Threshold | Timeout     |
+| -------------------- | ---------------- | ------------- | ----- | ----------------- | ----------- |
+| **SRI Recepción**    | 10 requests      | 50%           | 30s   | 3 éxitos          | 3s          |
+| **SRI Autorización** | 10 requests      | 50%           | 30s   | 3 éxitos          | 5s          |
+| **MinIO**            | 10 requests      | 50%           | 30s   | 3 éxitos          | 30s (write) |
 
 ### ¿Qué pasa cuando el circuito se abre?
 
@@ -443,6 +445,7 @@ Key49 usa MicroProfile Fault Tolerance (`@CircuitBreaker`) para proteger las lla
 ### Implicación práctica
 
 Con el circuito abierto:
+
 - Los documentos nuevos siguen entrando (se crean con estado CREATED).
 - El SignConsumer sigue funcionando (no depende del SRI).
 - Los documentos firmados (SIGNED) que intentan enviarse van a RETRY automáticamente.
@@ -457,27 +460,27 @@ Redis funciona como **caché y session store**. No almacena datos críticos — 
 
 ### Qué se almacena en Redis
 
-| Funcionalidad | Clave | TTL | Descripción |
-|---|---|---|---|
-| **API key cache** | `key49:apikey:{sha256_hash}` | 300s (5 min) | Datos del API key + tenant para evitar query a BD en cada request |
-| **Sesiones portal** | `session:{session_id}` | 30 min | tenant_id, schema_name, legal_name del usuario logueado |
-| **Rate limiting** | `ratelimit:{api_key_prefix}:{window}` | 60s | Contador sliding window por ventana de 1 minuto |
-| **Estado de alertas** | `key49:alert:{rule}:{dimension}` | 7 días | Flag on/off para evitar alertas duplicadas |
+| Funcionalidad         | Clave                                 | TTL          | Descripción                                                       |
+| --------------------- | ------------------------------------- | ------------ | ----------------------------------------------------------------- |
+| **API key cache**     | `key49:apikey:{sha256_hash}`          | 300s (5 min) | Datos del API key + tenant para evitar query a BD en cada request |
+| **Sesiones portal**   | `session:{session_id}`                | 30 min       | tenant_id, schema_name, legal_name del usuario logueado           |
+| **Rate limiting**     | `ratelimit:{api_key_prefix}:{window}` | 60s          | Contador sliding window por ventana de 1 minuto                   |
+| **Estado de alertas** | `key49:alert:{rule}:{dimension}`      | 7 días       | Flag on/off para evitar alertas duplicadas                        |
 
 ### Comportamiento si Redis no está disponible
 
-| Funcionalidad | Fallback | Impacto |
-|---|---|---|
-| **API key cache** | Consulta directa a PostgreSQL | +1-2ms por request (mínimo) |
-| **Sesiones portal** | Se pierden las sesiones activas | Usuarios deben re-autenticarse |
-| **Rate limiting** | Se desactiva (permisivo) | Sin control de tasa temporal |
+| Funcionalidad         | Fallback                           | Impacto                                  |
+| --------------------- | ---------------------------------- | ---------------------------------------- |
+| **API key cache**     | Consulta directa a PostgreSQL      | +1-2ms por request (mínimo)              |
+| **Sesiones portal**   | Se pierden las sesiones activas    | Usuarios deben re-autenticarse           |
+| **Rate limiting**     | Se desactiva (permisivo)           | Sin control de tasa temporal             |
 | **Estado de alertas** | Alertas pueden enviarse duplicadas | Alertas repetidas hasta que Redis vuelva |
 
 La implementación usa un patrón de **degradación graceful**: cada operación Redis está envuelta en try/catch. Si Redis falla, se registra un warning y se usa el fallback.
 
 ```
 Flujo normal:    Request → Redis (HIT) → Respuesta
-Cache miss:      Request → Redis (MISS) → PostgreSQL → Guardar en Redis → Respuesta  
+Cache miss:      Request → Redis (MISS) → PostgreSQL → Guardar en Redis → Respuesta
 Redis caído:     Request → Redis (ERROR, log warning) → PostgreSQL → Respuesta
 ```
 
@@ -494,6 +497,7 @@ MinIO almacena los artefactos generados durante el procesamiento de cada comprob
 ```
 
 Ejemplo:
+
 ```
 key49-documents/
   tenant_abc123/
@@ -508,11 +512,11 @@ key49-documents/
 
 ### Artefactos por documento
 
-| Archivo | Generado en | Tamaño típico |
-|---|---|---|
-| `signed.xml` | NotifyConsumer (fase 2) | 5–50 KB |
-| `authorized.xml` | NotifyConsumer (fase 2) | 5–50 KB |
-| `ride.pdf` | NotifyConsumer (fase 2) | 50–200 KB |
+| Archivo          | Generado en             | Tamaño típico |
+| ---------------- | ----------------------- | ------------- |
+| `signed.xml`     | NotifyConsumer (fase 2) | 5–50 KB       |
+| `authorized.xml` | NotifyConsumer (fase 2) | 5–50 KB       |
+| `ride.pdf`       | NotifyConsumer (fase 2) | 50–200 KB     |
 
 ### Circuit breaker en MinIO
 
@@ -520,11 +524,11 @@ MinIO tiene su propio circuit breaker (10 requests / 50% fallos / 30s delay) en 
 
 ### Timeouts de MinIO
 
-| Operación | Timeout |
-|---|---|
-| Conexión | 5 segundos |
+| Operación | Timeout     |
+| --------- | ----------- |
+| Conexión  | 5 segundos  |
 | Escritura | 30 segundos |
-| Lectura | 15 segundos |
+| Lectura   | 15 segundos |
 
 ### ¿Qué pasa si MinIO está caído?
 
@@ -580,11 +584,11 @@ Si se usara `SET search_path` (sin LOCAL), el cambio persistiría en la conexió
 
 ### Sizing del pool
 
-| Componente | Parámetro | Valor default | Variable de entorno |
-|---|---|---|---|
-| **Agroal** (app) | pool max | 20 | `KEY49_DB_POOL_MAX` |
-| **PgBouncer** | default_pool_size | 50 | Config PgBouncer |
-| **PostgreSQL** | max_connections | 100 | Config PostgreSQL |
+| Componente       | Parámetro         | Valor default | Variable de entorno |
+| ---------------- | ----------------- | ------------- | ------------------- |
+| **Agroal** (app) | pool max          | 20            | `KEY49_DB_POOL_MAX` |
+| **PgBouncer**    | default_pool_size | 50            | Config PgBouncer    |
+| **PostgreSQL**   | max_connections   | 100           | Config PostgreSQL   |
 
 Regla: `Agroal max` ≤ `PgBouncer pool_size` ≤ `PostgreSQL max_connections`.
 
@@ -638,12 +642,12 @@ Sin outbox, después de persistir un documento podría fallar la publicación a 
 
 Enruta eventos al producer correcto según `event_type`:
 
-| event_type | Producer | Cola destino |
-|---|---|---|
-| `doc.sign` | `DocumentEventProducer.sendToSign()` | `key49.sign` |
-| `doc.send` | `DocumentEventProducer.sendToSend()` | `key49.send` |
+| event_type      | Producer                                  | Cola destino      |
+| --------------- | ----------------------------------------- | ----------------- |
+| `doc.sign`      | `DocumentEventProducer.sendToSign()`      | `key49.sign`      |
+| `doc.send`      | `DocumentEventProducer.sendToSend()`      | `key49.send`      |
 | `doc.authorize` | `DocumentEventProducer.sendToAuthorize()` | `key49.authorize` |
-| `doc.notify` | `DocumentEventProducer.sendToNotify()` | `key49.notify` |
+| `doc.notify`    | `DocumentEventProducer.sendToNotify()`    | `key49.notify`    |
 
 #### OutboxCleanup (2:00 AM Ecuador)
 
@@ -664,10 +668,10 @@ KEY49_OUTBOX_BATCH_SIZE=50          # Eventos por ciclo por tenant
 
 ### Métricas
 
-| Métrica | Tipo | Descripción |
-|---|---|---|
-| `key49.outbox.events.polled` | Counter | Total de eventos publicados |
-| `key49.outbox.poll.duration` | Timer | Duración de cada ciclo del poller |
+| Métrica                      | Tipo    | Descripción                       |
+| ---------------------------- | ------- | --------------------------------- |
+| `key49.outbox.events.polled` | Counter | Total de eventos publicados       |
+| `key49.outbox.poll.duration` | Timer   | Duración de cada ciclo del poller |
 
 ---
 
@@ -733,23 +737,23 @@ Cada intento se registra en la tabla `webhook_deliveries` con: `response_status`
 
 ### Timeouts de webhook
 
-| Parámetro | Valor |
-|---|---|
-| Connect timeout | 5 segundos |
-| Read timeout | 10 segundos |
+| Parámetro       | Valor       |
+| --------------- | ----------- |
+| Connect timeout | 5 segundos  |
+| Read timeout    | 10 segundos |
 
 ### Tipos de evento
 
-| Evento | Cuándo se dispara |
-|---|---|
-| `document.authorized` | Documento autorizado por el SRI |
-| `document.rejected` | Documento rechazado por el SRI |
-| `document.failed` | Reintentos agotados |
-| `certificate.expiring` | Certificado vence en < 30 días |
-| `certificate.expired` | Certificado ya venció |
-| `system.incident` | Servicio SRI pasó de UP a DOWN |
-| `system.resolved` | Servicio SRI se recuperó (DOWN a UP) |
-| `system.maintenance` | Ventana de mantenimiento programado |
+| Evento                 | Cuándo se dispara                    |
+| ---------------------- | ------------------------------------ |
+| `document.authorized`  | Documento autorizado por el SRI      |
+| `document.rejected`    | Documento rechazado por el SRI       |
+| `document.failed`      | Reintentos agotados                  |
+| `certificate.expiring` | Certificado vence en < 30 días       |
+| `certificate.expired`  | Certificado ya venció                |
+| `system.incident`      | Servicio SRI pasó de UP a DOWN       |
+| `system.resolved`      | Servicio SRI se recuperó (DOWN a UP) |
+| `system.maintenance`   | Ventana de mantenimiento programado  |
 
 ---
 
@@ -772,11 +776,11 @@ La clave de idempotencia se almacena como campo `idempotency_key` en la tabla `d
 
 ### Escenarios
 
-| Escenario | Resultado |
-|---|---|
-| Primera vez con X-Idempotency-Key | Se procesa normalmente, HTTP 202 |
-| Mismo X-Idempotency-Key por segunda vez | Se retorna el documento existente, HTTP 200 |
-| Sin header X-Idempotency-Key | Se procesa normalmente (sin protección) |
+| Escenario                                        | Resultado                                           |
+| ------------------------------------------------ | --------------------------------------------------- |
+| Primera vez con X-Idempotency-Key                | Se procesa normalmente, HTTP 202                    |
+| Mismo X-Idempotency-Key por segunda vez          | Se retorna el documento existente, HTTP 200         |
+| Sin header X-Idempotency-Key                     | Se procesa normalmente (sin protección)             |
 | Mismo contenido pero diferente X-Idempotency-Key | Se crea un nuevo documento (son requests distintos) |
 
 ### Unicidad del documento
@@ -789,14 +793,14 @@ Complementariamente, la tabla `documents` tiene un constraint UNIQUE sobre `(doc
 
 ### Tabla de escenarios de fallo
 
-| Componente caído | Impacto | Recuperación |
-|---|---|---|
-| **PostgreSQL** | **Sistema detenido**. No se pueden recibir requests ni procesar documentos. Health check falla. | Al recuperarse, el sistema retoma operación normal. Los mensajes en RabbitMQ se procesan. No se pierden datos. |
-| **RabbitMQ** | Los consumers dejan de recibir mensajes. Los documentos se crean (CREATED) pero no avanzan. El OutboxPoller falla al publicar. | Al recuperarse, el OutboxPoller publica los eventos pendientes. Los documentos se procesan en orden. |
-| **Redis** | Degradación menor. API key cache se bypasea (consulta BD). Sesiones del portal se pierden. Rate limiting se desactiva. | Al recuperarse, el caché se repuebla automáticamente. Usuarios del portal deben re-autenticarse. |
-| **MinIO** | Los documentos se autorizan pero no se generan artefactos (XML/PDF). NotifyConsumer falla y hace retry. | Al recuperarse, los documentos en RETRY se procesan. Los artefactos se generan normalmente. |
-| **SRI (SOAP)** | El circuit breaker se abre. Los documentos firmados van a RETRY. Los nuevos documentos se crean y firman normalmente. | Al recuperarse, el circuito pasa a semi-abierto. Tras 3 éxitos, se cierra. RetryPoller re-encola los documentos pendientes. |
-| **Email (SMTP)** | Los documentos llegan a NOTIFIED pero sin email. El `emailStatus` queda como "failed". | El email no es bloqueante. El documento ya está notificado por webhook. Se puede reenviar manualmente. |
+| Componente caído | Impacto                                                                                                                        | Recuperación                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL**   | **Sistema detenido**. No se pueden recibir requests ni procesar documentos. Health check falla.                                | Al recuperarse, el sistema retoma operación normal. Los mensajes en RabbitMQ se procesan. No se pierden datos.              |
+| **RabbitMQ**     | Los consumers dejan de recibir mensajes. Los documentos se crean (CREATED) pero no avanzan. El OutboxPoller falla al publicar. | Al recuperarse, el OutboxPoller publica los eventos pendientes. Los documentos se procesan en orden.                        |
+| **Redis**        | Degradación menor. API key cache se bypasea (consulta BD). Sesiones del portal se pierden. Rate limiting se desactiva.         | Al recuperarse, el caché se repuebla automáticamente. Usuarios del portal deben re-autenticarse.                            |
+| **MinIO**        | Los documentos se autorizan pero no se generan artefactos (XML/PDF). NotifyConsumer falla y hace retry.                        | Al recuperarse, los documentos en RETRY se procesan. Los artefactos se generan normalmente.                                 |
+| **SRI (SOAP)**   | El circuit breaker se abre. Los documentos firmados van a RETRY. Los nuevos documentos se crean y firman normalmente.          | Al recuperarse, el circuito pasa a semi-abierto. Tras 3 éxitos, se cierra. RetryPoller re-encola los documentos pendientes. |
+| **Email (SMTP)** | Los documentos llegan a NOTIFIED pero sin email. El `emailStatus` queda como "failed".                                         | El email no es bloqueante. El documento ya está notificado por webhook. Se puede reenviar manualmente.                      |
 
 ### Principios de diseño
 
