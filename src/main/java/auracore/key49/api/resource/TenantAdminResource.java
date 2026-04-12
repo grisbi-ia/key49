@@ -501,6 +501,45 @@ public class TenantAdminResource {
                 .build();
     }
 
+    /**
+     * PUT /v1/admin/tenants/:id/portal-credentials — Configurar email y
+     * contraseña del portal.
+     */
+    @PUT
+    @Path("/{id}/portal-credentials")
+    public Response setPortalCredentials(
+            @PathParam("id") UUID id,
+            auracore.key49.api.dto.PortalCredentialsRequest request,
+            @Context HttpServerRequest httpRequest) {
+
+        String requestId = generateRequestId();
+
+        if (request.email() == null || request.email().isBlank()) {
+            return errorResponse(requestId, "VALIDATION_ERROR", "email is required", 400);
+        }
+        if (request.password() == null || request.password().length() < 8) {
+            return errorResponse(requestId, "VALIDATION_ERROR",
+                    "password must be at least 8 characters", 400);
+        }
+
+        var tenant = tenantService.setPortalCredentials(id, request.email(), request.password());
+
+        auditService.record(id, "admin", "portal.credentials_set", "tenant",
+                id, AuditService.resolveIp(httpRequest),
+                """
+                {"email":"%s"}""".formatted(tenant.email));
+
+        record PortalCredentialsResult(String email, boolean passwordConfigured) {
+        }
+        var result = new PortalCredentialsResult(tenant.email,
+                tenant.portalPasswordHash != null);
+        var body = ApiResponse.of(result, requestId);
+        return Response.ok()
+                .header("X-Request-Id", requestId)
+                .entity(body)
+                .build();
+    }
+
     private void sendTestEmail(auracore.key49.core.model.Tenant tenant) {
         var masterKey = CertificateEncryptor.decodeMasterKey(
                 masterKeyBase64.orElseThrow(()

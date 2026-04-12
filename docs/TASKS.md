@@ -908,7 +908,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 24: Portal de Autoregistro (Semana 4-6)
 
-- [ ] **T-097** Autenticación del portal por contraseña (además de API key)
+- [x] **T-097** Autenticación del portal por contraseña (además de API key) ✅ v0.27.0
   - Nueva columna `portal_password_hash VARCHAR(255)` en `public.tenants` (bcrypt)
   - Nueva columna `email VARCHAR(255)` y `email_verified BOOLEAN DEFAULT false`
   - Modificar `PortalAuthFilter` para soportar login por email + contraseña (además del API key existente)

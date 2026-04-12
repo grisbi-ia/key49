@@ -18,6 +18,10 @@ public class TenantRepository implements PanacheRepositoryBase<Tenant, UUID> {
         return find("schemaName", schemaName).firstResult();
     }
 
+    public Tenant findByEmail(String email) {
+        return find("email", email).firstResult();
+    }
+
     public List<Tenant> findAllActive() {
         return find("status", "active").list();
     }

@@ -5,6 +5,22 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.0] - 2026-04-11
+
+### Agregado
+
+- **Autenticación del portal por contraseña** (T-097)
+  - Nuevas columnas en `public.tenants`: `email` (UNIQUE parcial), `email_verified`, `portal_password_hash`
+  - Migración `V010__add_portal_auth_columns.sql`
+  - `PasswordHasher` — BCrypt cost 12 con BouncyCastle (reutiliza dependencia existente)
+  - `PortalSessionService.loginWithPassword(email, password)` — autenticación por email+contraseña
+  - `POST /portal/login` ahora acepta email+contraseña además de API key
+  - Login template actualizado con pestañas: "Email y Contraseña" / "API Key"
+  - Endpoint `PUT /v1/admin/tenants/{id}/portal-credentials` para configurar email y contraseña
+  - Sesión Redis existente se reutiliza (30 min TTL, misma cookie `KEY49_SESSION`)
+  - Refactor: método `createSession()` extraído para evitar duplicación
+  - 12 tests: PasswordHasher (5), PortalSessionService (7)
+
 ## [0.26.5] - 2026-04-11
 
 ### Agregado

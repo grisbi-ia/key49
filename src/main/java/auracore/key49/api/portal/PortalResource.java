@@ -117,8 +117,19 @@ public class PortalResource {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public Response doLogin(@FormParam("api_key") String apiKey,
+            @FormParam("email") String email,
+            @FormParam("password") String password,
             @Context HttpServerRequest httpRequest) {
-        var sessionId = sessionService.login(apiKey);
+
+        String sessionId;
+        if (apiKey != null && !apiKey.isBlank()) {
+            sessionId = sessionService.login(apiKey);
+        } else if (email != null && !email.isBlank() && password != null && !password.isBlank()) {
+            sessionId = sessionService.loginWithPassword(email, password);
+        } else {
+            sessionId = null;
+        }
+
         if (sessionId == null) {
             return Response.seeOther(URI.create("/portal/login?error=invalid"))
                     .build();

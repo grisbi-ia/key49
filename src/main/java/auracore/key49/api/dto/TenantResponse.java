@@ -32,6 +32,9 @@ public record TenantResponse(
         String emailSenderName,
         String replyEmail,
         boolean emailNotificationsEnabled,
+        String email,
+        boolean emailVerified,
+        boolean portalPasswordConfigured,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -76,6 +79,8 @@ public record TenantResponse(
                 t.rateLimitWriteRpm, t.rateLimitReadRpm,
                 t.emailSenderName, t.replyEmail,
                 t.emailNotificationsEnabled,
+                t.email, t.emailVerified,
+                t.portalPasswordHash != null,
                 t.createdAt, t.updatedAt);
     }
 }

@@ -1,6 +1,7 @@
 package auracore.key49.api.portal;
 
 import auracore.key49.core.service.ApiKeyService;
+import auracore.key49.core.service.PasswordHasher;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.hash.HashCommands;
 import io.quarkus.redis.datasource.keys.KeyCommands;
@@ -36,6 +37,9 @@ public class PortalSessionService {
 
     @Inject
     DataSource dataSource;
+
+    @Inject
+    PasswordHasher passwordHasher;
 
     /**
      * Autentica con API key y crea una sesión en Redis.
@@ -73,26 +77,74 @@ public class PortalSessionService {
                 var schemaName = rs.getString("schema_name");
                 var legalName = rs.getString("legal_name");
 
-                var sessionId = UUID.randomUUID().toString();
-                var key = SESSION_PREFIX + sessionId;
-
-                HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
-                hash.hset(key, Map.of(
-                        "tenant_id", tenantId,
-                        "schema_name", schemaName,
-                        "legal_name", legalName != null ? legalName : ""
-                ));
-
-                KeyCommands<String> keys = redisDS.key(String.class);
-                keys.pexpire(key, SESSION_TTL.toMillis());
-
-                log.infof("Portal session created | tenant=%s", tenantId);
-                return sessionId;
+                return createSession(tenantId, schemaName, legalName);
             }
         } catch (SQLException e) {
             log.errorf(e, "Portal login: database error");
             return null;
         }
+    }
+
+    /**
+     * Autentica con email + contraseña y crea una sesión en Redis.
+     *
+     * @return sessionId si el login es exitoso, null si falla
+     */
+    public String loginWithPassword(String email, String password) {
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            return null;
+        }
+
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement("""
+                     SELECT tenant_id, schema_name, legal_name, status,
+                            portal_password_hash
+                     FROM tenants
+                     WHERE email = ? AND status = 'active'""")) {
+
+            stmt.setString(1, email.strip().toLowerCase());
+            try (var rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    log.debug("Portal login: email not found");
+                    return null;
+                }
+
+                var hash = rs.getString("portal_password_hash");
+                if (hash == null || !passwordHasher.verify(password, hash)) {
+                    log.debug("Portal login: invalid password");
+                    return null;
+                }
+
+                var tenantId = rs.getObject("tenant_id", UUID.class).toString();
+                var schemaName = rs.getString("schema_name");
+                var legalName = rs.getString("legal_name");
+
+                return createSession(tenantId, schemaName, legalName);
+            }
+        } catch (SQLException e) {
+            log.errorf(e, "Portal login: database error");
+            return null;
+        }
+    }
+
+    /**
+     * Crea una sesión en Redis y retorna el sessionId.
+     */
+    private String createSession(String tenantId, String schemaName, String legalName) {
+        var sessionId = UUID.randomUUID().toString();
+        var key = SESSION_PREFIX + sessionId;
+
+        HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+        hash.hset(key, Map.of(
+                "tenant_id", tenantId,
+                "schema_name", schemaName,
+                "legal_name", legalName != null ? legalName : ""
+        ));
+
+        KeyCommands<String> keys = redisDS.key(String.class);
+        keys.pexpire(key, SESSION_TTL.toMillis());
+
+        log.infof("Portal session created | tenant=%s", tenantId);
+        return sessionId;
     }
 
     /**

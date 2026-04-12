@@ -157,6 +157,17 @@ public class Tenant extends PanacheEntityBase {
     @ColumnDefault("true")
     public boolean emailNotificationsEnabled = true;
 
+    // ── Portal authentication ──
+    @Column(name = "email", length = 255)
+    public String email;
+
+    @Column(name = "email_verified", nullable = false)
+    @ColumnDefault("false")
+    public boolean emailVerified;
+
+    @Column(name = "portal_password_hash", length = 255)
+    public String portalPasswordHash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

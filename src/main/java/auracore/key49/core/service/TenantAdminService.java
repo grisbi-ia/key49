@@ -34,6 +34,9 @@ public class TenantAdminService {
     CertificateCacheService certificateCacheService;
 
     @Inject
+    PasswordHasher passwordHasher;
+
+    @Inject
     DataSource dataSource;
 
     // ── Crear tenant con provisioning automático ──
@@ -325,6 +328,41 @@ public class TenantAdminService {
         Log.infof("SMTP config updated | tenantId=%s host=%s port=%s enabled=%s emailNotifications=%s",
                 id, tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled,
                 tenant.emailNotificationsEnabled);
+        tenantCacheService.invalidate(id, tenant.schemaName);
+        return tenant;
+    }
+
+    // ── Portal credentials ──
+    @Transactional
+    public Tenant setPortalCredentials(UUID id, String email, String password) {
+        Tenant tenant = tenantRepository.findById(id);
+        if (tenant == null) {
+            throw new TenantException("TENANT_NOT_FOUND",
+                    "Tenant not found: " + id, 404);
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new TenantException("VALIDATION_ERROR", "email is required", 400);
+        }
+        if (password == null || password.length() < 8) {
+            throw new TenantException("VALIDATION_ERROR",
+                    "password must be at least 8 characters", 400);
+        }
+
+        var normalizedEmail = email.strip().toLowerCase();
+
+        // Check uniqueness
+        Tenant existing = tenantRepository.findByEmail(normalizedEmail);
+        if (existing != null && !existing.id.equals(id)) {
+            throw new TenantException("DUPLICATE_EMAIL",
+                    "Email already in use by another tenant", 409);
+        }
+
+        tenant.email = normalizedEmail;
+        tenant.portalPasswordHash = passwordHasher.hash(password);
+        tenant.updatedAt = Instant.now();
+
+        Log.infof("Portal credentials set | tenantId=%s email=%s", id, normalizedEmail);
         tenantCacheService.invalidate(id, tenant.schemaName);
         return tenant;
     }
