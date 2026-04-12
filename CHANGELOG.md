@@ -5,6 +5,19 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.10] - 2026-04-12
+
+### Agregado
+
+- **Rate limiting por plan** (T-106)
+  - `PlanType` enum: nuevos campos `writeRpm()`, `readRpm()`, `totalRpm()` con límites por plan:
+    - DEMO: 10 write / 30 read rpm
+    - STARTER: 30 write / 100 read rpm
+    - BUSINESS: 60 write / 200 read rpm
+    - ENTERPRISE: 200 write / 600 read rpm
+  - Rate limits se aplican automáticamente al registrar tenant (DEMO), aprobar renovación de plan (`RenewalAdminService`), y al crear tenant vía autoregistro
+  - Tests: 4 nuevos tests de rate limits en `PlanTypeTest`, 1 nuevo test en `RenewalAdminServiceTest`, assertion de rate limits en `RegistrationServiceTest` (121 tests total, 0 failures)
+
 ## [0.27.9] - 2026-04-12
 
 ### Agregado

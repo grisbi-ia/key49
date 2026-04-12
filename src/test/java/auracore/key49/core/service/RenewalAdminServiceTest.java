@@ -1,28 +1,37 @@
 package auracore.key49.core.service;
 
-import auracore.key49.core.model.PlanRenewal;
-import auracore.key49.core.model.Tenant;
-import auracore.key49.core.repository.PlanRenewalRepository;
-import auracore.key49.core.repository.TenantRepository;
-import auracore.key49.notify.plan.PlanAlertService;
-import org.jboss.logging.Logger;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import org.jboss.logging.Logger;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import auracore.key49.core.model.PlanRenewal;
+import auracore.key49.core.model.Tenant;
+import auracore.key49.core.repository.PlanRenewalRepository;
+import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.notify.plan.PlanAlertService;
 
 /**
  * Tests unitarios para RenewalAdminService — aprobar/rechazar renovaciones de
@@ -202,6 +211,20 @@ class RenewalAdminServiceTest {
             assertEquals(0, testTenant.documentsUsed);
             assertNotNull(testTenant.planStartsAt);
             assertNotNull(testTenant.planExpiresAt);
+        }
+
+        @Test
+        @DisplayName("Ajusta rate limits según nuevo plan al aprobar")
+        void updatesRateLimitsOnApproval() {
+            when(renewalRepository.findById(renewalId)).thenReturn(pendingRenewal);
+            when(tenantRepository.findById(tenantId)).thenReturn(testTenant);
+
+            service.approve(renewalId, "admin");
+
+            // business plan: write=60, read=200
+            assertEquals(60, testTenant.rateLimitWriteRpm);
+            assertEquals(200, testTenant.rateLimitReadRpm);
+            assertEquals(260, testTenant.rateLimitRpm);
         }
 
         @Test

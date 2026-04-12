@@ -9,6 +9,7 @@ import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.PlanRenewal;
 import auracore.key49.core.model.Tenant;
+import auracore.key49.core.model.enums.PlanType;
 import auracore.key49.core.repository.PlanRenewalRepository;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.notify.plan.PlanAlertService;
@@ -122,6 +123,12 @@ public class RenewalAdminService {
         tenant.planStartsAt = Instant.now();
         tenant.planExpiresAt = Instant.now().plus(30, ChronoUnit.DAYS);
         tenant.updatedAt = Instant.now();
+
+        // Ajustar rate limits según nuevo plan
+        var planType = PlanType.fromCode(renewal.planType);
+        tenant.rateLimitRpm = planType.totalRpm();
+        tenant.rateLimitWriteRpm = planType.writeRpm();
+        tenant.rateLimitReadRpm = planType.readRpm();
 
         // Invalidar caché Redis del tenant
         tenantCacheService.invalidate(tenant.id, tenant.schemaName);

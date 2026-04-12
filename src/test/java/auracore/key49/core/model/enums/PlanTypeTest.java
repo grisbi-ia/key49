@@ -19,10 +19,26 @@ class PlanTypeTest {
     }
 
     @Test
+    @DisplayName("DEMO rate limits: write=10, read=30")
+    void demoRateLimits() {
+        assertEquals(10, PlanType.DEMO.writeRpm());
+        assertEquals(30, PlanType.DEMO.readRpm());
+        assertEquals(40, PlanType.DEMO.totalRpm());
+    }
+
+    @Test
     @DisplayName("STARTER tiene code 'starter' y cuota 100")
     void starterDefaults() {
         assertEquals("starter", PlanType.STARTER.code());
         assertEquals(100, PlanType.STARTER.defaultQuota());
+    }
+
+    @Test
+    @DisplayName("STARTER rate limits: write=30, read=100")
+    void starterRateLimits() {
+        assertEquals(30, PlanType.STARTER.writeRpm());
+        assertEquals(100, PlanType.STARTER.readRpm());
+        assertEquals(130, PlanType.STARTER.totalRpm());
     }
 
     @Test
@@ -33,10 +49,26 @@ class PlanTypeTest {
     }
 
     @Test
+    @DisplayName("BUSINESS rate limits: write=60, read=200")
+    void businessRateLimits() {
+        assertEquals(60, PlanType.BUSINESS.writeRpm());
+        assertEquals(200, PlanType.BUSINESS.readRpm());
+        assertEquals(260, PlanType.BUSINESS.totalRpm());
+    }
+
+    @Test
     @DisplayName("ENTERPRISE tiene code 'enterprise' y cuota 5000")
     void enterpriseDefaults() {
         assertEquals("enterprise", PlanType.ENTERPRISE.code());
         assertEquals(5000, PlanType.ENTERPRISE.defaultQuota());
+    }
+
+    @Test
+    @DisplayName("ENTERPRISE rate limits: write=200, read=600")
+    void enterpriseRateLimits() {
+        assertEquals(200, PlanType.ENTERPRISE.writeRpm());
+        assertEquals(600, PlanType.ENTERPRISE.readRpm());
+        assertEquals(800, PlanType.ENTERPRISE.totalRpm());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package auracore.key49.api.portal;
 
+import auracore.key49.core.model.enums.PlanType;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.ApiKeyManagementService;
 import auracore.key49.core.service.PasswordHasher;
@@ -449,6 +450,11 @@ public class RegistrationService {
             tenant.documentQuota = 25;
             tenant.planStartsAt = Instant.now();
             tenant.planExpiresAt = Instant.now().plus(Duration.ofDays(30));
+
+            // Rate limits según plan
+            tenant.rateLimitRpm = PlanType.DEMO.totalRpm();
+            tenant.rateLimitWriteRpm = PlanType.DEMO.writeRpm();
+            tenant.rateLimitReadRpm = PlanType.DEMO.readRpm();
 
             // 3. Portal credentials (usar hash ya generado en paso 1)
             tenant.email = email;

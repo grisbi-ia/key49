@@ -1013,7 +1013,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Después de verificar → provisioning automático → `status = 'active'`
   - Test: generar token, verificar, confirmar activación
 
-- [ ] **T-106** Rate limiting por plan
+- [x] **T-106** Rate limiting por plan ✅
   - Ajustar `rate_limit_rpm` según el plan del tenant:
     - DEMO: 10 rpm (solicitudes por minuto)
     - STARTER: 30 rpm

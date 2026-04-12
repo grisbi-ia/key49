@@ -819,6 +819,11 @@ class RegistrationServiceTest {
             assertNotNull(tenant.planStartsAt);
             assertNotNull(tenant.planExpiresAt);
             assertEquals("CN=TEST SUBJECT", tenant.certificateSubject);
+
+            // Verifica rate limits según plan DEMO
+            assertEquals(10, tenant.rateLimitWriteRpm);
+            assertEquals(30, tenant.rateLimitReadRpm);
+            assertEquals(40, tenant.rateLimitRpm);
         }
 
         @Test
