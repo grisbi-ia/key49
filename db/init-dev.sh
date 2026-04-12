@@ -22,16 +22,27 @@ echo "→ Conectando a $DB_HOST:$DB_PORT/$DB_NAME..."
 
 # ── 1. Crear tablas del esquema public ──
 echo ""
-echo "▸ [1/5] Creando tablas en esquema public..."
+echo "▸ [1/6] Creando tablas en esquema public..."
 $PSQL -f db/migrations/public/V001__create_tenants.sql 2>/dev/null || echo "  (tenants ya existe, continuando)"
 $PSQL -f db/migrations/public/V002__create_api_keys.sql 2>/dev/null || echo "  (api_keys ya existe, continuando)"
+for f in db/migrations/public/V003__add_granular_rate_limits.sql \
+         db/migrations/public/V004__create_audit_log.sql \
+         db/migrations/public/V005__add_pending_certificate.sql; do
+    $PSQL -f "$f" 2>/dev/null || echo "  ($(basename $f) ya aplicada)"
+done
 echo "  ✓ Tablas public listas"
 
-# ── 2. Crear tenant de demo ──
+# ── 2. Crear clone_schema() y tenant_template ──
+echo ""
+echo "▸ [2/6] Creando función clone_schema() y esquema tenant_template..."
+$PSQL -f db/migrations/public/V006__create_clone_schema_and_template.sql 2>/dev/null || echo "  (clone_schema/template ya existe)"
+echo "  ✓ clone_schema() y tenant_template listos"
+
+# ── 3. Crear tenant de demo ──
 TENANT_ID="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 SCHEMA_NAME="tenant_demo"
 echo ""
-echo "▸ [2/5] Creando tenant de demo..."
+echo "▸ [3/6] Creando tenant de demo..."
 $PSQL <<SQL
 INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, environment, schema_name, rate_limit_rpm)
 VALUES (
@@ -48,28 +59,19 @@ ON CONFLICT (tenant_id) DO NOTHING;
 SQL
 echo "  ✓ Tenant: Empresa Demo S.A. (RUC: 1790016919001)"
 
-# ── 3. Crear esquema del tenant y sus tablas ──
+# ── 4. Crear esquema del tenant vía clone_schema ──
 echo ""
-echo "▸ [3/5] Creando esquema $SCHEMA_NAME y tablas..."
-$PSQL -c "CREATE SCHEMA IF NOT EXISTS $SCHEMA_NAME;" 2>/dev/null
-$PSQL -c "SET search_path TO $SCHEMA_NAME, public;" \
-     -f db/migrations/tenant/V001__create_documents.sql 2>/dev/null || echo "  (documents ya existe)"
-$PSQL <<SQL
-SET search_path TO $SCHEMA_NAME, public;
-SQL
-# Ejecutar cada script de tenant
-for f in db/migrations/tenant/V002__create_outbox.sql db/migrations/tenant/V003__create_webhook_deliveries.sql db/migrations/tenant/V004__create_audit_log.sql; do
-    $PSQL -c "SET search_path TO $SCHEMA_NAME;" -f "$f" 2>/dev/null || echo "  ($(basename $f) ya existe)"
-done
+echo "▸ [4/6] Creando esquema $SCHEMA_NAME vía clone_schema()..."
+$PSQL -c "SELECT clone_schema('tenant_template', '$SCHEMA_NAME');" 2>/dev/null || echo "  ($SCHEMA_NAME ya existe, continuando)"
 echo "  ✓ Esquema $SCHEMA_NAME listo con todas las tablas"
 
-# ── 4. Crear API key de demo ──
+# ── 5. Crear API key de demo ──
 # API key conocida para desarrollo: fec_test_DemoKey49DevLocalTest00
 # SHA-256 hash se calcula aquí
 DEMO_RAW_KEY="fec_test_DemoKey49DevLocalTest00"
 DEMO_HASH=$(echo -n "$DEMO_RAW_KEY" | sha256sum | cut -d' ' -f1)
 echo ""
-echo "▸ [4/5] Creando API key de demo..."
+echo "▸ [5/6] Creando API key de demo..."
 $PSQL <<SQL
 INSERT INTO api_keys (api_key_id, tenant_id, key_prefix, key_hash, name, permissions, status)
 VALUES (
@@ -85,9 +87,9 @@ ON CONFLICT (api_key_id) DO NOTHING;
 SQL
 echo "  ✓ API key creada"
 
-# ── 5. Crear bucket en MinIO ──
+# ── 6. Crear bucket en MinIO ──
 echo ""
-echo "▸ [5/5] Creando bucket en MinIO..."
+echo "▸ [6/6] Creando bucket en MinIO..."
 if command -v mc &>/dev/null; then
     mc alias set key49minio http://localhost:9000 minioadmin minioadmin --api s3v4 2>/dev/null
     mc mb key49minio/key49-documents 2>/dev/null || echo "  (bucket ya existe)"

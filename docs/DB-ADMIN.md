@@ -8,16 +8,17 @@ Operaciones comunes de administración de PostgreSQL para Key49.
 
 1. [Conexión](#conexión)
 2. [Gestión de tenants](#gestión-de-tenants)
-3. [Gestión de API Keys](#gestión-de-api-keys)
-4. [Consulta de documentos](#consulta-de-documentos)
-5. [Anulación de documentos](#anulación-de-documentos)
-6. [Outbox y colas](#outbox-y-colas)
-7. [Webhooks](#webhooks)
-8. [Monitoreo y diagnóstico](#monitoreo-y-diagnóstico)
-9. [Particionamiento de documents](#particionamiento-de-documents)
-10. [Mantenimiento automatizado](#mantenimiento-automatizado)
-11. [Monitoreo de queries (pg_stat_statements)](#monitoreo-de-queries-pg_stat_statements)
-12. [Mantenimiento manual](#mantenimiento-manual)
+3. [Provisioning automático (clone_schema)](#provisioning-automático-clone_schema)
+4. [Gestión de API Keys](#gestión-de-api-keys)
+5. [Consulta de documentos](#consulta-de-documentos)
+6. [Anulación de documentos](#anulación-de-documentos)
+7. [Outbox y colas](#outbox-y-colas)
+8. [Webhooks](#webhooks)
+9. [Monitoreo y diagnóstico](#monitoreo-y-diagnóstico)
+10. [Particionamiento de documents](#particionamiento-de-documents)
+11. [Mantenimiento automatizado](#mantenimiento-automatizado)
+12. [Monitoreo de queries (pg_stat_statements)](#monitoreo-de-queries-pg_stat_statements)
+13. [Mantenimiento manual](#mantenimiento-manual)
 
 ---
 
@@ -39,9 +40,41 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME
 
 ## Gestión de tenants
 
-### Crear un nuevo tenant
+### Crear un nuevo tenant (método automatizado)
 
-El proceso es manual y consta de 4 pasos:
+Desde la Fase 8, la creación de tenants es automática mediante `clone_schema()`. La aplicación lo hace a través de `TenantAdminService.create()`, pero también puede hacerse manualmente:
+
+```sql
+-- 1. Insertar el tenant
+INSERT INTO tenants (
+    tenant_id, ruc, legal_name, trade_name, main_address,
+    environment, schema_name, rate_limit_rpm, status
+) VALUES (
+    gen_random_uuid(),
+    '0991234567001',
+    'Empresa Nueva S.A.',
+    'NuevaCorp',
+    'Guayaquil, Av. 9 de Octubre 100',
+    'test',
+    'tenant_nuevacorp',
+    100,
+    'pending'
+)
+RETURNING tenant_id, schema_name;
+
+-- 2. Clonar el esquema desde el template
+SELECT clone_schema('tenant_template', 'tenant_nuevacorp');
+
+-- 3. Activar el tenant
+UPDATE tenants SET status = 'active', updated_at = now()
+WHERE schema_name = 'tenant_nuevacorp';
+```
+
+### Crear un nuevo tenant (método manual — legacy)
+
+> **Nota**: Este método se mantiene como referencia. Para nuevos tenants, usar `clone_schema()` (método automatizado arriba).
+
+El proceso manual consta de 4 pasos:
 
 #### Paso 1: Insertar en `public.tenants`
 
@@ -160,6 +193,129 @@ SET
     updated_at = now()
 WHERE ruc = '0991234567001';
 ```
+
+---
+
+## Provisioning automático (clone_schema)
+
+A partir de la Fase 8, Key49 usa un esquema template (`tenant_template`) y una función PL/pgSQL (`clone_schema()`) para crear esquemas de tenant automáticamente.
+
+### Arquitectura
+
+```
+tenant_template (esquema plantilla, vacío, con estructura de V001-V006)
+       │
+       ▼  clone_schema('tenant_template', 'tenant_xxx')
+tenant_xxx (esquema nuevo con tablas, índices, particiones idénticas)
+```
+
+- **`tenant_template`**: esquema que contiene todas las tablas del tenant en su estado final (V001–V006). Las tablas están vacías.
+- **`clone_schema(source, target)`**: función PL/pgSQL que copia la estructura completa: tablas regulares, tablas particionadas, particiones, índices, constraints y sequences.
+
+### Crear un tenant con clone_schema
+
+```sql
+-- Rápido: un solo comando clona toda la estructura
+SELECT clone_schema('tenant_template', 'tenant_nuevacorp');
+
+-- Verificar resultado
+SET search_path TO tenant_nuevacorp;
+\dt
+-- Resultado: audit_log, documents (particionada), outbox, webhook_deliveries
+```
+
+### Mantenimiento del template
+
+Cuando se crea una nueva migración de tenant (ej. V007), se debe aplicar también al template:
+
+```bash
+# 1. Aplicar migración a todos los tenants existentes
+for schema in $(psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
+  -t -c "SELECT schema_name FROM tenants WHERE status = 'active'"); do
+    psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
+      -c "SET search_path TO $schema;" \
+      -f db/migrations/tenant/V007__nueva_migracion.sql
+done
+
+# 2. Aplicar la misma migración al template
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \
+  -c "SET search_path TO tenant_template;" \
+  -f db/migrations/tenant/V007__nueva_migracion.sql
+```
+
+### Mantenimiento de particiones del template
+
+El template tiene particiones mensuales para el año en que fue creado. Cada año nuevo:
+
+```sql
+-- Crear particiones del nuevo año en el template
+SET search_path TO tenant_template;
+DO $$
+DECLARE
+    yr       INT := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
+    m        INT;
+    start_d  DATE;
+    end_d    DATE;
+    part_name TEXT;
+BEGIN
+    FOR m IN 1..12 LOOP
+        start_d := make_date(yr, m, 1);
+        IF m = 12 THEN
+            end_d := make_date(yr + 1, 1, 1);
+        ELSE
+            end_d := make_date(yr, m + 1, 1);
+        END IF;
+        part_name := format('documents_%s_%s', yr, lpad(m::text, 2, '0'));
+        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = part_name) THEN
+            EXECUTE format(
+                'CREATE TABLE %I PARTITION OF documents FOR VALUES FROM (%L) TO (%L)',
+                part_name, start_d, end_d
+            );
+        END IF;
+    END LOOP;
+END $$;
+```
+
+> **Nota**: El script `db/maintenance/create_monthly_partitions.sh` ya gestiona las particiones para tenants activos. Asegurarse de incluir `tenant_template` en su lógica.
+
+### Validar estado del template
+
+```sql
+-- Verificar que el template tiene todas las tablas esperadas
+SELECT c.relname, c.relkind
+FROM pg_class c
+JOIN pg_namespace n ON c.relnamespace = n.oid
+WHERE n.nspname = 'tenant_template'
+  AND c.relkind IN ('r', 'p')
+  AND NOT c.relispartition
+ORDER BY c.relname;
+
+-- Resultado esperado:
+--  audit_log          | r  (regular)
+--  documents          | p  (partitioned)
+--  outbox             | r
+--  webhook_deliveries | r
+
+-- Contar particiones de documents en el template
+SELECT COUNT(*)
+FROM pg_inherits i
+JOIN pg_class parent ON i.inhparent = parent.oid
+JOIN pg_namespace n ON parent.relnamespace = n.oid
+WHERE n.nspname = 'tenant_template' AND parent.relname = 'documents';
+-- Resultado: >= 13 (12 meses + default)
+```
+
+### Validaciones de seguridad de clone_schema
+
+La función tiene las siguientes protecciones:
+
+| Validación                            | Error si falla                     |
+| ------------------------------------- | ---------------------------------- |
+| Source schema debe existir            | `Source schema "X" does not exist` |
+| Target schema NO debe existir         | `Target schema "X" already exists` |
+| Nombre target: solo `[a-z][a-z0-9_]*` | `Invalid schema name "X"`          |
+| Longitud máxima: 63 caracteres        | `Invalid schema name "X"`          |
+| Parámetros no NULL                    | `must not be NULL`                 |
 
 ---
 
