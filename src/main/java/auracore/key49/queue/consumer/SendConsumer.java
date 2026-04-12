@@ -18,6 +18,7 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
@@ -31,6 +32,7 @@ import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 /**
  * Consumidor que envía documentos firmados al SRI vía SOAP Recepción.
@@ -60,6 +62,9 @@ public class SendConsumer {
 
     @Inject
     DocumentMetrics documentMetrics;
+
+    @Inject
+    QuotaService quotaService;
 
     @Inject
     InFlightTracker tracker;
@@ -156,6 +161,7 @@ public class SendConsumer {
                 var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
                         ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
                 doc.transitionTo(targetStatus);
+                quotaService.releaseQuota(em, event.tenantSchemaName());
                 doc.lastErrorCode = extractFirstErrorCode(response.messages());
                 doc.lastErrorMessage = extractErrorSummary(response.messages());
                 documentMetrics.recordRejected(event.tenantSchemaName(),
@@ -164,7 +170,8 @@ public class SendConsumer {
                         doc.id, targetStatus, doc.lastErrorMessage);
 
             } else {
-                handleRetryTransition(doc, extractErrorSummary(response.messages()), "SendConsumer");
+                handleRetryTransition(doc, em, event.tenantSchemaName(),
+                        extractErrorSummary(response.messages()), "SendConsumer");
             }
             return null;
         });
@@ -178,12 +185,14 @@ public class SendConsumer {
             if (doc == null) {
                 return null;
             }
-            handleRetryTransition(doc, ex.getMessage(), "SendConsumer");
+            handleRetryTransition(doc, em, event.tenantSchemaName(),
+                    ex.getMessage(), "SendConsumer");
             return null;
         });
     }
 
-    private void handleRetryTransition(Document doc, String errorMessage, String consumer) {
+    private void handleRetryTransition(Document doc, EntityManager em,
+            String schemaName, String errorMessage, String consumer) {
         doc.retryCount++;
         doc.lastErrorMessage = errorMessage;
         doc.updatedAt = Instant.now();
@@ -191,6 +200,7 @@ public class SendConsumer {
         if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
             try {
                 doc.transitionTo(DocumentStatus.FAILED);
+                quotaService.releaseQuota(em, schemaName);
             } catch (InvalidStateTransitionException e) {
                 log.warnf("%s: cannot transition to FAILED from %s for document %s",
                         consumer, doc.status, doc.id);
@@ -220,6 +230,7 @@ public class SendConsumer {
             }
             try {
                 doc.transitionTo(DocumentStatus.FAILED);
+                quotaService.releaseQuota(em, event.tenantSchemaName());
             } catch (InvalidStateTransitionException e) {
                 log.warnf("SendConsumer: cannot transition to FAILED from %s", doc.status);
             }

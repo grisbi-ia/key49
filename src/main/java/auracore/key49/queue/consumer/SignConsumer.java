@@ -13,6 +13,7 @@ import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.model.enums.SriEnvironment;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
@@ -78,6 +79,9 @@ public class SignConsumer {
 
     @Inject
     CertificateCacheService certificateCacheService;
+
+    @Inject
+    QuotaService quotaService;
 
     @Inject
     InFlightTracker tracker;
@@ -157,6 +161,7 @@ public class SignConsumer {
             log.errorf(e, "SignConsumer: error signing document %s", doc.id);
             try {
                 doc.transitionTo(DocumentStatus.FAILED);
+                quotaService.releaseQuota(em, tenant.schemaName);
             } catch (InvalidStateTransitionException iste) {
                 log.warnf("SignConsumer: cannot transition to FAILED from %s for document %s",
                         doc.status, doc.id);

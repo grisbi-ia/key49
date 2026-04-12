@@ -9,6 +9,7 @@ import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.DocumentRepository;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -37,6 +38,9 @@ public class RetryPoller {
     @Inject
     DocumentRepository documentRepository;
 
+    @Inject
+    QuotaService quotaService;
+
     @Scheduled(every = "${key49.retry.poll-interval:5s}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void pollRetries() {
         try {
@@ -59,7 +63,7 @@ public class RetryPoller {
                 log.infof("RetryPoller: %d retry-ready documents for tenant=%s",
                         docs.size(), schemaName);
                 for (var doc : docs) {
-                    requeueDocument(doc, em);
+                    requeueDocument(doc, em, schemaName);
                 }
                 return null;
             });
@@ -68,11 +72,12 @@ public class RetryPoller {
         }
     }
 
-    private void requeueDocument(Document doc, EntityManager em) {
+    private void requeueDocument(Document doc, EntityManager em, String schemaName) {
         if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
             log.warnf("RetryPoller: retries exhausted for document %s (retryCount=%d, maxRetries=%d)",
                     doc.id, doc.retryCount, doc.maxRetries);
             doc.transitionTo(DocumentStatus.FAILED);
+            quotaService.releaseQuota(em, schemaName);
             doc.lastErrorMessage = "Max retries exhausted (%d/%d)".formatted(doc.retryCount, doc.maxRetries);
             doc.updatedAt = Instant.now();
             return;

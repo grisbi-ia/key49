@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.26.2] - 2026-04-13
+
+### Agregado
+
+- **Validación de cuota en emisión de documentos** (T-093)
+  - `QuotaService` centralizado: `reserveQuota()` con SELECT + UPDATE atómico, `releaseQuota()` con GREATEST para evitar negativos
+  - Integrado en los 7 servicios de creación: Invoice, CreditNote, DebitNote, Withholding, Waybill, PurchaseClearance, RawDocument
+  - HTTP 402 `PLAN_EXPIRED` cuando `plan_expires_at < now()`
+  - HTTP 402 `QUOTA_EXHAUSTED` cuando `documents_used >= document_quota`
+  - Liberación automática de cuota en todos los consumers al transicionar a REJECTED o FAILED (SignConsumer, SendConsumer, AuthorizeConsumer, ConsumerErrorHandler, DlqConsumer, RetryPoller)
+- **10 tests nuevos** (`QuotaServiceTest`):
+  - Reserva exitosa, cuota agotada (402), plan expirado (402), sin expiración, expiración futura, múltiples reservas hasta límite
+  - Concurrencia: 10 hilos con 1 cuota restante → solo 1 éxito
+  - Liberación correcta, no baja de 0
+
 ## [0.26.1] - 2026-04-12
 
 ### Agregado

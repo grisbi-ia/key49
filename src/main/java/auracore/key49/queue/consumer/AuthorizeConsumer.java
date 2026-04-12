@@ -18,6 +18,7 @@ import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
@@ -31,6 +32,7 @@ import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 /**
  * Consumidor que consulta la autorización del SRI vía SOAP Autorización.
@@ -60,6 +62,9 @@ public class AuthorizeConsumer {
 
     @Inject
     DocumentMetrics documentMetrics;
+
+    @Inject
+    QuotaService quotaService;
 
     @Inject
     InFlightTracker tracker;
@@ -160,6 +165,7 @@ public class AuthorizeConsumer {
                 var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
                         ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
                 doc.transitionTo(targetStatus);
+                quotaService.releaseQuota(em, event.tenantSchemaName());
                 doc.lastErrorCode = SendConsumer.extractFirstErrorCode(response.messages());
                 doc.lastErrorMessage = SendConsumer.extractErrorSummary(response.messages());
                 documentMetrics.recordRejected(event.tenantSchemaName(),
@@ -168,7 +174,7 @@ public class AuthorizeConsumer {
                         doc.id, targetStatus, doc.lastErrorMessage);
 
             } else {
-                handleRetryTransition(doc,
+                handleRetryTransition(doc, em, event.tenantSchemaName(),
                         SendConsumer.extractErrorSummary(response.messages()),
                         "AuthorizeConsumer");
             }
@@ -184,12 +190,14 @@ public class AuthorizeConsumer {
             if (doc == null) {
                 return null;
             }
-            handleRetryTransition(doc, ex.getMessage(), "AuthorizeConsumer");
+            handleRetryTransition(doc, em, event.tenantSchemaName(),
+                    ex.getMessage(), "AuthorizeConsumer");
             return null;
         });
     }
 
-    private void handleRetryTransition(Document doc, String errorMessage, String consumer) {
+    private void handleRetryTransition(Document doc, EntityManager em,
+            String schemaName, String errorMessage, String consumer) {
         doc.retryCount++;
         doc.lastErrorMessage = errorMessage;
         doc.updatedAt = Instant.now();
@@ -197,6 +205,7 @@ public class AuthorizeConsumer {
         if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
             try {
                 doc.transitionTo(DocumentStatus.FAILED);
+                quotaService.releaseQuota(em, schemaName);
             } catch (InvalidStateTransitionException e) {
                 log.warnf("%s: cannot transition to FAILED from %s for document %s",
                         consumer, doc.status, doc.id);

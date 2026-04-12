@@ -10,6 +10,7 @@ import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -37,6 +38,9 @@ public class DlqConsumer {
     DocumentMetrics documentMetrics;
 
     @Inject
+    QuotaService quotaService;
+
+    @Inject
     InFlightTracker tracker;
 
     @Incoming("doc-dlq-in")
@@ -61,6 +65,7 @@ public class DlqConsumer {
                     if (!doc.status.isTerminal()) {
                         try {
                             doc.transitionTo(DocumentStatus.FAILED);
+                            quotaService.releaseQuota(em, event.tenantSchemaName());
                         } catch (InvalidStateTransitionException e) {
                             log.warnf("DLQ: cannot transition to FAILED from %s for document %s",
                                     doc.status, doc.id);

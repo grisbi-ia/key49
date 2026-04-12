@@ -19,6 +19,7 @@ import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.Key49Constants;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -58,6 +59,9 @@ public class RawDocumentService {
 
     @Inject
     DocumentMetrics documentMetrics;
+
+    @Inject
+    QuotaService quotaService;
 
     /**
      * Procesa un XML raw: valida, extrae datos, genera clave de acceso,
@@ -187,11 +191,13 @@ public class RawDocumentService {
                 .getResultStream().findFirst().orElse(null);
 
         if (existing == null) {
+            quotaService.reserveQuota(em, tenantContext.getTenantId());
             return persistDocument(em, metadata, documentType, accessKey,
                     finalXml, idempotencyKey, requestIp);
         }
 
         if (existing.status.isRetryableTerminal()) {
+            quotaService.reserveQuota(em, tenantContext.getTenantId());
             return recycleDocument(em, existing, metadata, documentType,
                     accessKey, finalXml, idempotencyKey, requestIp);
         }

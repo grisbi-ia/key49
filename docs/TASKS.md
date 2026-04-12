@@ -864,7 +864,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Script SQL en `db/migrations/public/`
   - Test: verificar defaults y constraints
 
-- [ ] **T-093** Validación de cuota en emisión de documentos
+- [x] **T-093** Validación de cuota en emisión de documentos ✅ v0.26.2
   - En cada servicio de creación (Invoice, CreditNote, DebitNote, Waybill, Withholding, PurchaseClearance, RawDocument):
     - Antes de INSERT: verificar `documents_used < document_quota`
     - Si excede → HTTP 402 Payment Required con mensaje "Cuota de documentos agotada. Renueve su plan."

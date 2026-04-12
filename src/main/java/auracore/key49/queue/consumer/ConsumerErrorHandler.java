@@ -8,6 +8,7 @@ import org.jboss.logging.Logger;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.webhook.WebhookDispatcher;
@@ -32,6 +33,9 @@ public class ConsumerErrorHandler {
 
     @Inject
     TenantCacheService tenantCacheService;
+
+    @Inject
+    QuotaService quotaService;
 
     @Inject
     WebhookDispatcher webhookDispatcher;
@@ -59,6 +63,7 @@ public class ConsumerErrorHandler {
                 if (!doc.status.isTerminal()) {
                     try {
                         doc.transitionTo(DocumentStatus.FAILED);
+                        quotaService.releaseQuota(em, tenantSchemaName);
                         transitionedToFailed = true;
                     } catch (InvalidStateTransitionException iste) {
                         log.warnf("%s: cannot transition to FAILED from %s for document %s",

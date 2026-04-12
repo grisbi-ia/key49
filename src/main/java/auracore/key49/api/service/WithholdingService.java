@@ -8,6 +8,7 @@ import auracore.key49.api.exception.BusinessException.FieldError;
 import auracore.key49.api.exception.DuplicateDocumentException;
 import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.Key49Constants;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
@@ -57,6 +58,9 @@ public class WithholdingService {
     @Inject
     DocumentMetrics documentMetrics;
 
+    @Inject
+    QuotaService quotaService;
+
     // ── Crear comprobante de retención ──
     public Document createWithholding(CreateWithholdingRequest request,
             String idempotencyKey, String requestIp) {
@@ -100,10 +104,12 @@ public class WithholdingService {
                 .getResultStream().findFirst().orElse(null);
 
         if (existing == null) {
+            quotaService.reserveQuota(em, tenantContext.getTenantId());
             return persistNewDocument(em, request, idempotencyKey, requestIp);
         }
 
         if (existing.status.isRetryableTerminal()) {
+            quotaService.reserveQuota(em, tenantContext.getTenantId());
             return recycleDocument(em, existing, request, idempotencyKey, requestIp);
         }
 
