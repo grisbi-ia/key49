@@ -15,16 +15,16 @@ import org.jboss.logging.Logger;
 import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 
+import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.exception.DuplicateDocumentException;
-import auracore.key49.admin.metrics.DocumentMetrics;
 import auracore.key49.core.Key49Constants;
-import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.model.enums.SriEnvironment;
+import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.core.tenant.TenantContext;
 import auracore.key49.xml.accesskey.AccessKeyGenerator;

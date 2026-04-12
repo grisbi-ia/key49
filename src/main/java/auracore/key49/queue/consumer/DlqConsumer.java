@@ -6,11 +6,11 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.admin.metrics.DocumentMetrics;
-import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.service.QuotaService;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import io.smallrye.common.annotation.Blocking;

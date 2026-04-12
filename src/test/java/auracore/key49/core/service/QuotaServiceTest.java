@@ -13,27 +13,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
 
-import auracore.key49.api.exception.BusinessException;
-
+import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import auracore.key49.api.exception.BusinessException;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 /**
- * Tests de integración para QuotaService: verificación de cuota,
- * incremento atómico, expiración de plan y liberación de cuota.
+ * Tests de integración para QuotaService: verificación de cuota, incremento
+ * atómico, expiración de plan y liberación de cuota.
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -94,7 +92,6 @@ class QuotaServiceTest {
     }
 
     // ── Reserve Quota ──
-
     @Test
     @Transactional
     @DisplayName("reserveQuota incrementa documents_used correctamente")
@@ -172,7 +169,6 @@ class QuotaServiceTest {
     }
 
     // ── Concurrency ──
-
     @Test
     @DisplayName("reserveQuota atómico — 10 hilos con 1 cuota restante → solo 1 éxito")
     void reserveQuotaConcurrency() throws Exception {
@@ -193,8 +189,8 @@ class QuotaServiceTest {
                             try (var stmt = conn.createStatement()) {
                                 var rs = stmt.executeQuery(
                                         "SELECT plan_expires_at, documents_used, document_quota "
-                                                + "FROM public.tenants WHERE tenant_id = '%s'"
-                                                        .formatted(tenantId));
+                                        + "FROM public.tenants WHERE tenant_id = '%s'"
+                                                .formatted(tenantId));
                                 rs.next();
                                 int used = rs.getInt("documents_used");
                                 int quota = rs.getInt("document_quota");
@@ -207,9 +203,9 @@ class QuotaServiceTest {
 
                                 int updated = stmt.executeUpdate(
                                         "UPDATE public.tenants SET documents_used = documents_used + 1, "
-                                                + "updated_at = now() "
-                                                + "WHERE tenant_id = '%s' AND documents_used < document_quota"
-                                                        .formatted(tenantId));
+                                        + "updated_at = now() "
+                                        + "WHERE tenant_id = '%s' AND documents_used < document_quota"
+                                                .formatted(tenantId));
                                 conn.commit();
                                 if (updated > 0) {
                                     successes.incrementAndGet();
@@ -237,7 +233,6 @@ class QuotaServiceTest {
     }
 
     // ── Release Quota ──
-
     @Test
     @Transactional
     @DisplayName("releaseQuota decrementa documents_used correctamente")
@@ -263,7 +258,6 @@ class QuotaServiceTest {
     }
 
     // ── Helpers ──
-
     private UUID insertTestTenant(String planType, int quota, int used,
             Instant expiresAt) throws Exception {
         return insertTestTenantWithSchema(planType, quota, used, expiresAt,
@@ -274,14 +268,13 @@ class QuotaServiceTest {
             Instant expiresAt, String schemaName) throws Exception {
         var id = UUID.randomUUID();
         var ruc = "09%011d".formatted(Math.abs(id.hashCode()) % 99999999999L);
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(
-                        "INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, "
-                                + "required_accounting, micro_enterprise_regime, environment, "
-                                + "emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, "
-                                + "schema_name, status, plan_type, document_quota, documents_used, "
-                                + "plan_expires_at, created_at, updated_at) "
-                                + "VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())")) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, "
+                + "required_accounting, micro_enterprise_regime, environment, "
+                + "emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, "
+                + "schema_name, status, plan_type, document_quota, documents_used, "
+                + "plan_expires_at, created_at, updated_at) "
+                + "VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())")) {
             ps.setString(1, id.toString());
             ps.setString(2, ruc);
             ps.setString(3, "Test Tenant");
@@ -319,16 +312,15 @@ class QuotaServiceTest {
         em.flush();
         em.clear();
         var result = em.createNativeQuery(
-                        "SELECT documents_used FROM public.tenants WHERE tenant_id = ?1")
+                "SELECT documents_used FROM public.tenants WHERE tenant_id = ?1")
                 .setParameter(1, tenantId)
                 .getSingleResult();
         return ((Number) result).intValue();
     }
 
     private int getDocumentsUsedJdbc(UUID tenantId) throws Exception {
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(
-                        "SELECT documents_used FROM public.tenants WHERE tenant_id = ?::uuid")) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT documents_used FROM public.tenants WHERE tenant_id = ?::uuid")) {
             ps.setString(1, tenantId.toString());
             var rs = ps.executeQuery();
             rs.next();

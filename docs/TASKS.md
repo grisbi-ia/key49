@@ -875,7 +875,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Test: emitir documentos hasta agotar cuota, verificar 402
   - Test: concurrencia — 10 requests simultáneos con 1 documento restante → solo 1 éxito
 
-- [ ] **T-094** Alertas de cuota por webhook y email
+- [x] **T-094** Alertas de cuota por webhook y email ✅ `v0.26.3`
   - Webhook `plan.quota_warning` cuando `documents_used >= 80%` de `document_quota`
   - Webhook `plan.quota_exhausted` cuando se agota la cuota
   - Webhook `plan.expiring` 7 días antes de `plan_expires_at`

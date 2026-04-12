@@ -13,15 +13,17 @@ import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.persistence.EntityManager;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 
 /**
- * Poller que busca documentos en estado RETRY cuyo {@code nextRetryAt} ha vencido
- * y los re-encola al pipeline creando un evento de outbox.
+ * Poller que busca documentos en estado RETRY cuyo {@code nextRetryAt} ha
+ * vencido y los re-encola al pipeline creando un evento de outbox.
  *
- * <p>Ejecuta cada 5s (configurable). Determina el tipo de reintento según el estado
- * del documento: si ya fue enviado al SRI → doc.authorize, de lo contrario → doc.send.
+ * <p>
+ * Ejecuta cada 5s (configurable). Determina el tipo de reintento según el
+ * estado del documento: si ya fue enviado al SRI → doc.authorize, de lo
+ * contrario → doc.send.
  */
 @ApplicationScoped
 public class RetryPoller {
@@ -91,9 +93,9 @@ public class RetryPoller {
     }
 
     /**
-     * Determina a qué cola reenviar el documento según su contexto.
-     * Si ya fue enviado al SRI (sriSubmissionDate != null) → doc.authorize.
-     * Si no fue enviado → doc.send.
+     * Determina a qué cola reenviar el documento según su contexto. Si ya fue
+     * enviado al SRI (sriSubmissionDate != null) → doc.authorize. Si no fue
+     * enviado → doc.send.
      */
     static String resolveRetryEventType(Document doc) {
         if (doc.sriSubmissionDate != null) {

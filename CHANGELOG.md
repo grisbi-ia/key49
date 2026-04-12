@@ -5,6 +5,26 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.26.3] - 2026-04-13
+
+### Agregado
+
+- **Alertas de cuota por webhook y email** (T-094)
+  - `PlanAlertService` en paquete `notify.plan`: dispara webhooks y emails al cruzar umbrales de cuota
+  - Evento `plan.quota_warning` al alcanzar 80% de `document_quota`
+  - Evento `plan.quota_exhausted` al agotar la cuota
+  - Evento `plan.expiring` para planes que vencen en ≤7 días
+  - Job `@Scheduled` diario (08:00 ECT) para verificar planes próximos a vencer
+  - Integración con `QuotaService.reserveQuota()` — alertas se disparan automáticamente tras cada reserva
+  - Webhooks con HMAC-SHA256 (headers `X-Key49-Event`, `X-Key49-Signature`), validación SSRF
+  - Emails en texto plano con cuerpo descriptivo en español
+- **20 tests nuevos** (`PlanAlertServiceTest`):
+  - Detección de umbrales: `crossedWarningThreshold` (4 variantes), `justExhausted` (2)
+  - Alertas end-to-end: warning, exhausted, ambos simultáneos, sin email, plan expiring
+  - Planes no alertados: >7 días, ya expirados
+  - Payloads: formato JSON correcto, `escapeJson`, `computeHmac` HMAC-SHA256
+  - Observable `firedAlerts` para verificación sin dependencia de MockMailbox
+
 ## [0.26.2] - 2026-04-13
 
 ### Agregado
