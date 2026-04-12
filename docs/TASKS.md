@@ -885,7 +885,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
 
 ### Sprint 23: SMTP por Tenant (Semana 3-4)
 
-- [ ] **T-095** Configuración SMTP por tenant
+- [x] **T-095** Configuración SMTP por tenant ✅ v0.26.4
   - Nuevas columnas en `public.tenants`:
     - `smtp_host VARCHAR(255)`, `smtp_port INTEGER`, `smtp_user VARCHAR(255)`
     - `smtp_password_enc BYTEA` (cifrado AES-256-GCM, misma clave maestra)

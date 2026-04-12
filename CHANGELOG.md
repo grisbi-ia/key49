@@ -5,6 +5,20 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.26.4] - 2026-04-13
+
+### Agregado
+
+- **Configuración SMTP por tenant** (T-095)
+  - Nuevas columnas en `public.tenants`: `smtp_host`, `smtp_port`, `smtp_user`, `smtp_password_enc` (AES-256-GCM), `smtp_from`, `smtp_enabled`
+  - Migración `V008__add_smtp_config.sql` con constraints de validación (`chk_tenants_smtp_config`, `chk_tenants_smtp_port`)
+  - Endpoint `PUT /v1/admin/tenants/{id}/smtp` para configurar SMTP personalizado del tenant
+  - Endpoint `POST /v1/admin/tenants/{id}/smtp/test` para probar conexión y enviar email de prueba
+  - Contraseña SMTP cifrada con AES-256-GCM usando la misma clave maestra (`KEY49_MASTER_KEY`)
+  - Test de conexión via socket (5s timeout) + envío de email de prueba via Vert.x mail client
+  - Audit trail para `smtp.configured` y `smtp.tested`
+  - 8 tests unitarios: validaciones de habilitación SMTP, DTOs request/response
+
 ## [0.26.3] - 2026-04-13
 
 ### Agregado

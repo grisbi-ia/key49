@@ -275,6 +275,55 @@ public class TenantAdminService {
         return tenant;
     }
 
+    // ── Configurar SMTP por tenant ──
+    @Transactional
+    public Tenant updateSmtpConfig(UUID id, String smtpHost, Integer smtpPort,
+            String smtpUser, byte[] encryptedPassword, String smtpFrom, Boolean enabled) {
+        Tenant tenant = tenantRepository.findById(id);
+        if (tenant == null) {
+            throw new TenantException("TENANT_NOT_FOUND",
+                    "Tenant not found: " + id, 404);
+        }
+
+        if (smtpHost != null) {
+            tenant.smtpHost = smtpHost;
+        }
+        if (smtpPort != null) {
+            tenant.smtpPort = smtpPort;
+        }
+        if (smtpUser != null) {
+            tenant.smtpUser = smtpUser;
+        }
+        if (encryptedPassword != null) {
+            tenant.smtpPasswordEnc = encryptedPassword;
+        }
+        if (smtpFrom != null) {
+            tenant.smtpFrom = smtpFrom;
+        }
+        if (enabled != null) {
+            if (enabled) {
+                // Validate required fields before enabling
+                var host = smtpHost != null ? smtpHost : tenant.smtpHost;
+                var port = smtpPort != null ? smtpPort : tenant.smtpPort;
+                if (host == null || host.isBlank()) {
+                    throw new TenantException("VALIDATION_ERROR",
+                            "smtp_host is required when enabling SMTP", 400);
+                }
+                if (port == null) {
+                    throw new TenantException("VALIDATION_ERROR",
+                            "smtp_port is required when enabling SMTP", 400);
+                }
+            }
+            tenant.smtpEnabled = enabled;
+        }
+        tenant.updatedAt = Instant.now();
+
+        Log.infof("SMTP config updated | tenantId=%s host=%s port=%s enabled=%s",
+                id, tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled);
+        tenantCacheService.invalidate(id, tenant.schemaName);
+        return tenant;
+    }
+
     // ── Validaciones ──
     private void validateCreateData(CreateTenantData data) {
         if (data.ruc() == null || !SriValidator.isValidRuc(data.ruc())) {

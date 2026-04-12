@@ -9,10 +9,10 @@ import java.util.UUID;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,8 +23,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 
 /**
- * Tests de integración para PlanAlertService: umbrales de cuota,
- * envío de emails, y job de planes por vencer.
+ * Tests de integración para PlanAlertService: umbrales de cuota, envío de
+ * emails, y job de planes por vencer.
  */
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -83,7 +83,6 @@ class PlanAlertServiceTest {
     }
 
     // ── Threshold detection (unit logic) ────────────────────────────────────
-
     @Test
     @DisplayName("crossedWarningThreshold detecta cruce del 80%")
     void crossedWarningThreshold() {
@@ -124,7 +123,6 @@ class PlanAlertServiceTest {
     }
 
     // ── fireAlert observable ────────────────────────────────────────────────
-
     @Test
     @DisplayName("fireAlert registra evento en firedAlerts")
     void fireAlertRecordsEvent() {
@@ -135,7 +133,6 @@ class PlanAlertServiceTest {
     }
 
     // ── checkQuotaThresholds with email ─────────────────────────────────────
-
     @Test
     @DisplayName("checkQuotaThresholds dispara WARNING al cruzar 80%")
     void checkQuotaThresholdsSendsWarningAlert() throws Exception {
@@ -194,7 +191,6 @@ class PlanAlertServiceTest {
     }
 
     // ── checkExpiringPlans (scheduled job) ──────────────────────────────────
-
     @Test
     @DisplayName("checkExpiringPlans dispara alerta para planes que vencen en ≤7 días")
     void checkExpiringPlansSendsAlert() throws Exception {
@@ -229,7 +225,6 @@ class PlanAlertServiceTest {
     }
 
     // ── Payload builders ────────────────────────────────────────────────────
-
     @Test
     @DisplayName("quotaPayload genera JSON válido con campos correctos")
     void quotaPayloadFormat() {
@@ -271,21 +266,19 @@ class PlanAlertServiceTest {
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-
     private UUID insertTestTenant(String planType, int quota, int used,
             Instant expiresAt, String email) throws Exception {
         var id = UUID.randomUUID();
         var ruc = "09%011d".formatted(Math.abs(id.hashCode()) % 99999999999L);
         var schema = "tenant_pa_" + UUID.randomUUID().toString().substring(0, 8);
 
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(
-                        "INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, "
-                                + "required_accounting, micro_enterprise_regime, environment, "
-                                + "emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, "
-                                + "schema_name, status, plan_type, document_quota, documents_used, "
-                                + "plan_expires_at, reply_email, created_at, updated_at) "
-                                + "VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())")) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, "
+                + "required_accounting, micro_enterprise_regime, environment, "
+                + "emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, "
+                + "schema_name, status, plan_type, document_quota, documents_used, "
+                + "plan_expires_at, reply_email, created_at, updated_at) "
+                + "VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())")) {
             ps.setString(1, id.toString());
             ps.setString(2, ruc);
             ps.setString(3, "Test Company S.A.");

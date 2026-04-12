@@ -133,6 +133,26 @@ public class Tenant extends PanacheEntityBase {
     @Column(name = "plan_expires_at")
     public Instant planExpiresAt;
 
+    // ── SMTP per-tenant ──
+    @Column(name = "smtp_host", length = 255)
+    public String smtpHost;
+
+    @Column(name = "smtp_port")
+    public Integer smtpPort;
+
+    @Column(name = "smtp_user", length = 255)
+    public String smtpUser;
+
+    @Column(name = "smtp_password_enc")
+    public byte[] smtpPasswordEnc;
+
+    @Column(name = "smtp_from", length = 255)
+    public String smtpFrom;
+
+    @Column(name = "smtp_enabled", nullable = false)
+    @ColumnDefault("false")
+    public boolean smtpEnabled;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

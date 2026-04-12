@@ -85,7 +85,6 @@ public class PlanAlertService {
     boolean ssrfValidation;
 
     // ── Quota threshold detection ───────────────────────────────────────────
-
     /**
      * Verifica si el umbral de 80% fue cruzado por esta reserva.
      */
@@ -102,15 +101,14 @@ public class PlanAlertService {
     }
 
     // ── Public API ──────────────────────────────────────────────────────────
-
     /**
      * Evalúa umbrales de cuota y dispara alertas si corresponde. Llamado desde
      * {@code QuotaService} después de una reserva exitosa.
      *
-     * @param tenantId   UUID del tenant
+     * @param tenantId UUID del tenant
      * @param usedBefore documentos usados antes de la reserva
-     * @param usedAfter  documentos usados después de la reserva
-     * @param quota      cuota total del plan
+     * @param usedAfter documentos usados después de la reserva
+     * @param quota cuota total del plan
      */
     public void checkQuotaThresholds(UUID tenantId, int usedBefore, int usedAfter, int quota) {
         boolean warning = crossedWarningThreshold(usedBefore, usedAfter, quota);
@@ -120,10 +118,9 @@ public class PlanAlertService {
             return;
         }
 
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(
-                        "SELECT legal_name, ruc, reply_email, webhook_url, webhook_secret "
-                                + "FROM public.tenants WHERE tenant_id = ?::uuid")) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT legal_name, ruc, reply_email, webhook_url, webhook_secret "
+                + "FROM public.tenants WHERE tenant_id = ?::uuid")) {
             ps.setString(1, tenantId.toString());
             try (var rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -164,7 +161,6 @@ public class PlanAlertService {
     }
 
     // ── Scheduled job ───────────────────────────────────────────────────────
-
     /**
      * Job diario (08:00 ECT) que verifica planes próximos a vencer y notifica
      * al tenant con webhook {@code plan.expiring} y email.
@@ -174,14 +170,13 @@ public class PlanAlertService {
         log.info("Checking for expiring plans...");
         var threshold = Instant.now().plus(PLAN_EXPIRING_DAYS, ChronoUnit.DAYS);
 
-        try (var conn = dataSource.getConnection();
-                var ps = conn.prepareStatement(
-                        "SELECT tenant_id, legal_name, ruc, reply_email, plan_expires_at, "
-                                + "webhook_url, webhook_secret "
-                                + "FROM public.tenants "
-                                + "WHERE status = 'active' AND plan_expires_at IS NOT NULL "
-                                + "AND plan_expires_at <= ? AND plan_expires_at > now() "
-                                + "ORDER BY plan_expires_at ASC")) {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT tenant_id, legal_name, ruc, reply_email, plan_expires_at, "
+                + "webhook_url, webhook_secret "
+                + "FROM public.tenants "
+                + "WHERE status = 'active' AND plan_expires_at IS NOT NULL "
+                + "AND plan_expires_at <= ? AND plan_expires_at > now() "
+                + "ORDER BY plan_expires_at ASC")) {
 
             ps.setTimestamp(1, Timestamp.from(threshold));
             try (var rs = ps.executeQuery()) {
@@ -215,7 +210,6 @@ public class PlanAlertService {
     }
 
     // ── Alert dispatch ──────────────────────────────────────────────────────
-
     void fireAlert(String event, String webhookUrl, String webhookSecret,
             String webhookPayload, String email, String emailSubject, String emailBody) {
         firedAlerts.add(event);
@@ -272,7 +266,6 @@ public class PlanAlertService {
     }
 
     // ── Payload builders ────────────────────────────────────────────────────
-
     String quotaPayload(String event, UUID tenantId, String legalName,
             int used, int quota, int usagePercent) {
         return """
@@ -293,7 +286,6 @@ public class PlanAlertService {
     }
 
     // ── Email body builders ─────────────────────────────────────────────────
-
     private String quotaWarningEmail(String legalName, String ruc, int used, int quota,
             int usagePercent) {
         return """
@@ -348,7 +340,6 @@ public class PlanAlertService {
     }
 
     // ── Utilities ───────────────────────────────────────────────────────────
-
     static String computeHmac(String body, String secret) {
         try {
             var mac = Mac.getInstance(HMAC_ALGORITHM);
