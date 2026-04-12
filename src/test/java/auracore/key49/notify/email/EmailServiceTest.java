@@ -43,6 +43,7 @@ class EmailServiceTest {
 
         service = new EmailService();
         service.reactiveMailer = reactiveMailer;
+        service.smtpClientFactory = mock(SmtpClientFactory.class);
         service.documentDeliveryTemplate = template;
         service.fromAddress = "facturacion@key49.ec";
         service.emailEnabled = true;
@@ -195,6 +196,27 @@ class EmailServiceTest {
         verify(reactiveMailer).send(captor.capture());
 
         assertTrue(captor.getValue().getAttachments().isEmpty());
+    }
+
+    @Test
+    void shouldUseSharedSmtpWhenTenantSmtpDisabled() {
+        var tenant = new auracore.key49.core.model.Tenant();
+        tenant.smtpEnabled = false;
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        service.sendDocumentDelivery(data, tenant);
+
+        // Should use shared mailer, not tenant SMTP
+        verify(reactiveMailer).send(any(Mail.class));
+    }
+
+    @Test
+    void shouldUseSharedSmtpWhenTenantIsNull() {
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        service.sendDocumentDelivery(data, null);
+
+        verify(reactiveMailer).send(any(Mail.class));
     }
 
     private EmailData createEmailData(List<String> emails, byte[] ridePdf, byte[] authorizedXml) {

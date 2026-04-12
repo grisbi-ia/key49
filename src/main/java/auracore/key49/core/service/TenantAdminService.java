@@ -278,7 +278,8 @@ public class TenantAdminService {
     // ── Configurar SMTP por tenant ──
     @Transactional
     public Tenant updateSmtpConfig(UUID id, String smtpHost, Integer smtpPort,
-            String smtpUser, byte[] encryptedPassword, String smtpFrom, Boolean enabled) {
+            String smtpUser, byte[] encryptedPassword, String smtpFrom,
+            Boolean enabled, Boolean emailNotificationsEnabled) {
         Tenant tenant = tenantRepository.findById(id);
         if (tenant == null) {
             throw new TenantException("TENANT_NOT_FOUND",
@@ -316,10 +317,14 @@ public class TenantAdminService {
             }
             tenant.smtpEnabled = enabled;
         }
+        if (emailNotificationsEnabled != null) {
+            tenant.emailNotificationsEnabled = emailNotificationsEnabled;
+        }
         tenant.updatedAt = Instant.now();
 
-        Log.infof("SMTP config updated | tenantId=%s host=%s port=%s enabled=%s",
-                id, tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled);
+        Log.infof("SMTP config updated | tenantId=%s host=%s port=%s enabled=%s emailNotifications=%s",
+                id, tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled,
+                tenant.emailNotificationsEnabled);
         tenantCacheService.invalidate(id, tenant.schemaName);
         return tenant;
     }

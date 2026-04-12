@@ -896,7 +896,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Test de conexión SMTP antes de guardar (validar host:port accesible)
   - Test: configurar SMTP, enviar email de prueba, verificar recepción
 
-- [ ] **T-096** Envío de email con SMTP del tenant
+- [x] **T-096** Envío de email con SMTP del tenant ✅ v0.26.5
   - Modificar `EmailService` para resolver el SMTP correcto:
     - Si `tenant.smtp_enabled = true` → usar SMTP del tenant
     - Si `tenant.smtp_enabled = false` → usar SMTP compartido de Key49
@@ -904,6 +904,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Descifrar `smtp_password_enc` solo al momento de enviar (no cachear contraseña en claro)
   - Fallback: si SMTP del tenant falla 3 veces → usar SMTP de Key49 + log warning
   - Test: enviar email con SMTP custom, verificar headers From
+  - **Extra**: flag `email_notifications_enabled` por tenant para desactivar envío de email (estado `SKIPPED`)
 
 ### Sprint 24: Portal de Autoregistro (Semana 4-6)
 

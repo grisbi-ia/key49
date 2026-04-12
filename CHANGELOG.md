@@ -5,6 +5,26 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.26.5] - 2026-04-11
+
+### Agregado
+
+- **Envío de email con SMTP del tenant** (T-096)
+  - `SmtpClientFactory` con caché LRU (máx. 50 entradas) de clientes Vert.x `MailClient` por tenant
+  - Descifra `smtp_password_enc` (AES-256-GCM) solo al momento de crear el cliente, no cachea en claro
+  - Detección automática de cambio de configuración SMTP (hash de config) para invalidar caché
+  - Fallback: si SMTP del tenant falla 3 veces → usa SMTP compartido de Key49 con log warning
+  - `@PreDestroy` cierra todos los clientes SMTP al apagar la aplicación
+  - `EmailService` reescrito para soportar envío tanto con SMTP compartido como con SMTP del tenant
+- **Notificaciones de email opcionales por tenant**
+  - Nueva columna `email_notifications_enabled` en `public.tenants` (default `true`)
+  - Migración `V009__add_email_notifications_enabled.sql`
+  - Si `emailNotificationsEnabled = false`, el `NotifyConsumer` salta Phase 4 (email) y marca `emailStatus = "SKIPPED"`
+  - El documento transiciona a `NOTIFIED` normalmente sin intentar envío de email
+  - Campo configurable desde `PUT /v1/admin/tenants/{id}/smtp` junto con el resto de la config SMTP
+  - Invalidación de caché `SmtpClientFactory` al cambiar configuración desde admin endpoint
+  - 19 tests nuevos/actualizados: SmtpClientFactory (5), EmailService (2), NotifyConsumer (1), TenantAdminService (2), TenantDto (ajustados)
+
 ## [0.26.4] - 2026-04-13
 
 ### Agregado

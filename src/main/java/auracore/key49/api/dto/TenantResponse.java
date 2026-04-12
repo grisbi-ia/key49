@@ -31,6 +31,7 @@ public record TenantResponse(
         Integer rateLimitReadRpm,
         String emailSenderName,
         String replyEmail,
+        boolean emailNotificationsEnabled,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -74,6 +75,7 @@ public record TenantResponse(
                 cert, t.webhookUrl, t.rateLimitRpm,
                 t.rateLimitWriteRpm, t.rateLimitReadRpm,
                 t.emailSenderName, t.replyEmail,
+                t.emailNotificationsEnabled,
                 t.createdAt, t.updatedAt);
     }
 }

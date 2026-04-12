@@ -7,12 +7,12 @@ import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
 import auracore.key49.admin.metrics.DocumentMetrics;
-import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
 import auracore.key49.core.service.TenantCacheService;
+import auracore.key49.core.tenant.MdcContext;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.email.EmailData;
 import auracore.key49.notify.email.EmailService;
@@ -163,8 +163,14 @@ public class NotifyConsumer {
                 });
 
                 // Fase 4 (post-commit): enviar email sin afectar NOTIFIED
-                sendEmailAndUpdateStatus(
-                        buildEmailData(doc, tenant, ridePdf, authorizedXmlBytes), event);
+                if (!tenant.emailNotificationsEnabled) {
+                    log.infof("NotifyConsumer: email notifications disabled for tenant %s, skipping email for document %s",
+                            event.tenantSchemaName(), event.documentId());
+                    markEmailSkipped(event);
+                } else {
+                    sendEmailAndUpdateStatus(
+                            buildEmailData(doc, tenant, ridePdf, authorizedXmlBytes), tenant, event);
+                }
 
             } catch (Exception ex) {
                 errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
@@ -203,9 +209,9 @@ public class NotifyConsumer {
      * separada. Si el envío falla, registra el error pero NO afecta el estado
      * NOTIFIED.
      */
-    private void sendEmailAndUpdateStatus(EmailData emailData, DocumentEvent event) {
+    private void sendEmailAndUpdateStatus(EmailData emailData, Tenant tenant, DocumentEvent event) {
         try {
-            emailService.sendDocumentDelivery(emailData);
+            emailService.sendDocumentDelivery(emailData, tenant);
             documentMetrics.recordEmailSent(event.tenantSchemaName());
             connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                 var doc = em.find(Document.class, event.documentId());
@@ -234,6 +240,26 @@ public class NotifyConsumer {
                 log.errorf(updateEx, "NotifyConsumer: failed to update email error status for document %s",
                         event.documentId());
             }
+        }
+    }
+
+    /**
+     * Marca el documento con emailStatus = "SKIPPED" cuando el tenant tiene
+     * deshabilitadas las notificaciones por email.
+     */
+    private void markEmailSkipped(DocumentEvent event) {
+        try {
+            connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                var doc = em.find(Document.class, event.documentId());
+                if (doc != null) {
+                    doc.emailStatus = "SKIPPED";
+                    doc.updatedAt = Instant.now();
+                }
+                return null;
+            });
+        } catch (Exception ex) {
+            log.errorf(ex, "NotifyConsumer: failed to set emailStatus=SKIPPED for document %s",
+                    event.documentId());
         }
     }
 

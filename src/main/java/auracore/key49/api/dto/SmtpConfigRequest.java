@@ -10,7 +10,10 @@ public record SmtpConfigRequest(
         Integer port,
         String user,
         String password,
-        @JsonProperty("from") String fromAddress,
-        Boolean enabled) {
+        @JsonProperty("from")
+        String fromAddress,
+        Boolean enabled,
+        @JsonProperty("email_notifications_enabled")
+        Boolean emailNotificationsEnabled) {
 
 }

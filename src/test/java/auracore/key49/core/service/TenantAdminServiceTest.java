@@ -1,9 +1,5 @@
 package auracore.key49.core.service;
 
-import auracore.key49.core.service.TenantAdminService.CreateTenantData;
-import auracore.key49.core.service.TenantAdminService.TenantException;
-import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -11,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import auracore.key49.core.service.TenantAdminService.CreateTenantData;
+import auracore.key49.core.service.TenantAdminService.TenantException;
+import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
 
 /**
  * Tests unitarios para validaciones de TenantAdminService. Las operaciones de
@@ -286,8 +286,16 @@ class TenantAdminServiceTest {
             validateSmtpEnable(tenant, null, null, false);
         }
 
+        @Test
+        @DisplayName("emailNotificationsEnabled por defecto es true")
+        void emailNotificationsEnabledDefaultTrue() {
+            var tenant = new auracore.key49.core.model.Tenant();
+            assertTrue(tenant.emailNotificationsEnabled);
+        }
+
         /**
-         * Simulates the SMTP enable validation from updateSmtpConfig without DB.
+         * Simulates the SMTP enable validation from updateSmtpConfig without
+         * DB.
          */
         private void validateSmtpEnable(auracore.key49.core.model.Tenant tenant,
                 String newHost, Integer newPort, boolean enable) {
@@ -316,26 +324,28 @@ class TenantAdminServiceTest {
         void requestPreservesFields() {
             var req = new auracore.key49.api.dto.SmtpConfigRequest(
                     "smtp.example.com", 587, "user@example.com",
-                    "secret123", "noreply@example.com", true);
+                    "secret123", "noreply@example.com", true, true);
             assertEquals("smtp.example.com", req.host());
             assertEquals(587, req.port());
             assertEquals("user@example.com", req.user());
             assertEquals("secret123", req.password());
             assertEquals("noreply@example.com", req.fromAddress());
             assertTrue(req.enabled());
+            assertTrue(req.emailNotificationsEnabled());
         }
 
         @Test
         @DisplayName("SmtpConfigRequest soporta campos null (parcial)")
         void requestPartialFields() {
             var req = new auracore.key49.api.dto.SmtpConfigRequest(
-                    "smtp.example.com", 465, null, null, null, null);
+                    "smtp.example.com", 465, null, null, null, null, null);
             assertEquals("smtp.example.com", req.host());
             assertEquals(465, req.port());
             assertEquals(null, req.user());
             assertEquals(null, req.password());
             assertEquals(null, req.fromAddress());
             assertEquals(null, req.enabled());
+            assertEquals(null, req.emailNotificationsEnabled());
         }
 
         @Test
@@ -343,13 +353,23 @@ class TenantAdminServiceTest {
         void responsePasswordConfigured() {
             var withPw = new auracore.key49.api.dto.SmtpConfigResponse(
                     "smtp.example.com", 587, "user", true,
-                    "noreply@example.com", true);
+                    "noreply@example.com", true, true);
             assertTrue(withPw.passwordConfigured());
+            assertTrue(withPw.emailNotificationsEnabled());
 
             var noPw = new auracore.key49.api.dto.SmtpConfigResponse(
                     "smtp.example.com", 587, "user", false,
-                    "noreply@example.com", false);
+                    "noreply@example.com", false, false);
             assertEquals(false, noPw.passwordConfigured());
+            assertEquals(false, noPw.emailNotificationsEnabled());
+        }
+
+        @Test
+        @DisplayName("SmtpConfigRequest emailNotificationsEnabled=false deshabilita email")
+        void requestEmailNotificationsDisabled() {
+            var req = new auracore.key49.api.dto.SmtpConfigRequest(
+                    null, null, null, null, null, null, false);
+            assertEquals(false, req.emailNotificationsEnabled());
         }
     }
 

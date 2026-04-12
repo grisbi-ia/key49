@@ -153,6 +153,10 @@ public class Tenant extends PanacheEntityBase {
     @ColumnDefault("false")
     public boolean smtpEnabled;
 
+    @Column(name = "email_notifications_enabled", nullable = false)
+    @ColumnDefault("true")
+    public boolean emailNotificationsEnabled = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     public Instant createdAt;
 

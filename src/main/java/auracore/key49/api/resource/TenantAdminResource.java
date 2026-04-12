@@ -63,6 +63,9 @@ public class TenantAdminResource {
     AuditService auditService;
 
     @Inject
+    auracore.key49.notify.email.SmtpClientFactory smtpClientFactory;
+
+    @Inject
     Vertx vertx;
 
     @ConfigProperty(name = "key49.master-key")
@@ -409,18 +412,23 @@ public class TenantAdminResource {
 
         var tenant = tenantService.updateSmtpConfig(
                 id, request.host(), request.port(), request.user(),
-                encryptedPassword, request.fromAddress(), request.enabled());
+                encryptedPassword, request.fromAddress(), request.enabled(),
+                request.emailNotificationsEnabled());
+
+        // Invalidate cached SMTP client if config changed
+        smtpClientFactory.invalidate(id);
 
         auditService.record(id, "admin", "smtp.configured", "tenant",
                 id, AuditService.resolveIp(httpRequest),
                 """
-                {"smtp_host":"%s","smtp_port":%s,"smtp_enabled":%s}""".formatted(
-                        tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled));
+                {"smtp_host":"%s","smtp_port":%s,"smtp_enabled":%s,"email_notifications":%s}""".formatted(
+                        tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled,
+                        tenant.emailNotificationsEnabled));
 
         var smtpResponse = new SmtpConfigResponse(
                 tenant.smtpHost, tenant.smtpPort, tenant.smtpUser,
                 tenant.smtpPasswordEnc != null && tenant.smtpPasswordEnc.length > 0,
-                tenant.smtpFrom, tenant.smtpEnabled);
+                tenant.smtpFrom, tenant.smtpEnabled, tenant.emailNotificationsEnabled);
         var body = ApiResponse.of(smtpResponse, requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)

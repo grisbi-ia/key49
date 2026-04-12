@@ -9,8 +9,12 @@ public record SmtpConfigResponse(
         String host,
         Integer port,
         String user,
-        @JsonProperty("password_configured") boolean passwordConfigured,
-        @JsonProperty("from") String fromAddress,
-        boolean enabled) {
+        @JsonProperty("password_configured")
+        boolean passwordConfigured,
+        @JsonProperty("from")
+        String fromAddress,
+        boolean enabled,
+        @JsonProperty("email_notifications_enabled")
+        boolean emailNotificationsEnabled) {
 
 }

@@ -156,7 +156,7 @@ class NotifyConsumerTest {
             // RIDE path remains null since generation failed
             assertNull(doc.ridePath);
             // Email should still be attempted (with null ridePdf)
-            verify(emailService).sendDocumentDelivery(any(EmailData.class));
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
         }
     }
 
@@ -181,7 +181,7 @@ class NotifyConsumerTest {
             assertNull(doc.authorizedXmlPath);
             assertNull(doc.ridePath);
             // Email still attempted
-            verify(emailService).sendDocumentDelivery(any(EmailData.class));
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
         }
     }
 
@@ -202,7 +202,7 @@ class NotifyConsumerTest {
                     anyString(), eq(DocumentArtifact.RIDE), any(byte[].class)))
                     .thenReturn("path/ride.pdf");
             doThrow(new EmailSendException("SMTP error", null))
-                    .when(emailService).sendDocumentDelivery(any(EmailData.class));
+                    .when(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
 
             notifyConsumer.process(buildEvent(docId));
 
@@ -225,7 +225,7 @@ class NotifyConsumerTest {
                     .thenReturn("path/file");
             var longMessage = "X".repeat(700);
             doThrow(new EmailSendException(longMessage, null))
-                    .when(emailService).sendDocumentDelivery(any(EmailData.class));
+                    .when(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
 
             notifyConsumer.process(buildEvent(docId));
 
@@ -336,7 +336,7 @@ class NotifyConsumerTest {
 
             // Should not attempt RIDE, email, or webhook
             verify(rideDataMapper, never()).generateRide(any(), any());
-            verify(emailService, never()).sendDocumentDelivery(any());
+            verify(emailService, never()).sendDocumentDelivery(any(), any());
         }
 
         @Test
@@ -352,7 +352,23 @@ class NotifyConsumerTest {
             notifyConsumer.process(buildEvent(docId));
 
             assertEquals(DocumentStatus.NOTIFIED, doc.status);
-            verify(emailService).sendDocumentDelivery(any(EmailData.class));
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
+        }
+
+        @Test
+        @DisplayName("email se salta cuando emailNotificationsEnabled=false")
+        void shouldSkipEmailWhenNotificationsDisabled() {
+            tenant.emailNotificationsEnabled = false;
+            setupMocks();
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
+
+            notifyConsumer.process(buildEvent(docId));
+
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
+            verify(emailService, never()).sendDocumentDelivery(any(), any());
         }
     }
 
@@ -428,6 +444,7 @@ class NotifyConsumerTest {
         t.webhookUrl = "https://example.com/webhook";
         t.webhookSecret = "secret123";
         t.status = "active";
+        t.emailNotificationsEnabled = true;
         return t;
     }
 }
