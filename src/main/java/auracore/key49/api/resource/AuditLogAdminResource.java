@@ -2,12 +2,11 @@ package auracore.key49.api.resource;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.util.Optional;
 import java.util.UUID;
 
 import auracore.key49.api.dto.AuditLogResponse;
 import auracore.key49.api.dto.PagedResponse;
+import auracore.key49.core.Key49Constants;
 import auracore.key49.core.repository.AuditLogRepository;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -64,8 +63,7 @@ public class AuditLogAdminResource {
         }
         var date = LocalDate.parse(dateStr);
         return endOfDay
-                ? date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC)
-                : date.atStartOfDay().toInstant(ZoneOffset.UTC);
+                ? date.plusDays(1).atStartOfDay(Key49Constants.EC_ZONE).toInstant()
+                : date.atStartOfDay(Key49Constants.EC_ZONE).toInstant();
     }
 }
-                    

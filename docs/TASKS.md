@@ -1027,3 +1027,9 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Actualizar `DEVELOPER-GUIDE.md` con flujo de autoregistro
   - Crear `docs/PLANS.md` con detalle de planes, precios placeholder, y políticas
   - Actualizar `OPERATIONS.md` con flujo de renovación y panel admin
+
+- [x] **T-108** Corregir 14 tests fallidos en suite completa ✅
+  - Fix conflicto Prometheus: renombrar contador global `key49.documents.failed` → `key49.documents.failed.global` para evitar colisión de tag keys con contadores dimensionados
+  - Fix timezone `AuditLogAdminResource.parseDate()`: usar `Key49Constants.EC_ZONE` en vez de `ZoneOffset.UTC`
+  - Fix polución de `search_path` en connection pool: calificar tablas con `public.` en `QuotaServiceTest`/`ApiKeyCacheServiceTest`; agregar `RESET search_path` en cleanup de `QueryOptimizationTest`, `DocumentPartitionTest`, `PostgresMaintenanceTest`
+  - Test: 2308 tests, 0 failures, 0 errors

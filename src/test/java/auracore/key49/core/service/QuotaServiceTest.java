@@ -54,11 +54,11 @@ class QuotaServiceTest {
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var stmt = conn.createStatement()) {
-                safeExec(stmt, "ALTER TABLE tenants ADD CONSTRAINT chk_tenants_plan_type "
+                safeExec(stmt, "ALTER TABLE public.tenants ADD CONSTRAINT chk_tenants_plan_type "
                         + "CHECK (plan_type IN ('demo', 'starter', 'business', 'enterprise'))");
-                safeExec(stmt, "ALTER TABLE tenants ADD CONSTRAINT chk_tenants_document_quota "
+                safeExec(stmt, "ALTER TABLE public.tenants ADD CONSTRAINT chk_tenants_document_quota "
                         + "CHECK (document_quota > 0)");
-                safeExec(stmt, "ALTER TABLE tenants ADD CONSTRAINT chk_tenants_documents_used "
+                safeExec(stmt, "ALTER TABLE public.tenants ADD CONSTRAINT chk_tenants_documents_used "
                         + "CHECK (documents_used >= 0)");
             }
         }
@@ -76,7 +76,7 @@ class QuotaServiceTest {
     void cleanupTenants() throws Exception {
         try (var conn = dataSource.getConnection(); var stmt = conn.createStatement()) {
             for (UUID id : createdTenantIds) {
-                stmt.execute("DELETE FROM tenants WHERE tenant_id = '%s'".formatted(id));
+                stmt.execute("DELETE FROM public.tenants WHERE tenant_id = '%s'".formatted(id));
             }
         }
         createdTenantIds.clear();
@@ -86,7 +86,7 @@ class QuotaServiceTest {
     void finalCleanup() throws Exception {
         try (var conn = dataSource.getConnection(); var stmt = conn.createStatement()) {
             for (UUID id : createdTenantIds) {
-                stmt.execute("DELETE FROM tenants WHERE tenant_id = '%s'".formatted(id));
+                stmt.execute("DELETE FROM public.tenants WHERE tenant_id = '%s'".formatted(id));
             }
         }
     }
@@ -269,7 +269,7 @@ class QuotaServiceTest {
         var id = UUID.randomUUID();
         var ruc = "09%011d".formatted(Math.abs(id.hashCode()) % 99999999999L);
         try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
-                "INSERT INTO tenants (tenant_id, ruc, legal_name, main_address, "
+                "INSERT INTO public.tenants (tenant_id, ruc, legal_name, main_address, "
                 + "required_accounting, micro_enterprise_regime, environment, "
                 + "emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, "
                 + "schema_name, status, plan_type, document_quota, documents_used, "

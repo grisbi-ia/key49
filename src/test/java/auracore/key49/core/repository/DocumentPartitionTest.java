@@ -94,6 +94,7 @@ class DocumentPartitionTest {
     @AfterAll
     void cleanup() throws Exception {
         try (var conn = dataSource.getConnection(); var stmt = conn.createStatement()) {
+            stmt.execute("RESET search_path");
             stmt.execute("DROP SCHEMA IF EXISTS " + TEST_SCHEMA + " CASCADE");
         }
     }

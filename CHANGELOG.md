@@ -5,6 +5,17 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.12] - 2026-04-12
+
+### Corregido
+
+- **14 tests fallidos en suite completa** (T-108)
+  - `DocumentMetrics`: renombrado contador global `key49.documents.failed` → `key49.documents.failed.global` para evitar `IllegalArgumentException` de Prometheus por colisión de tag keys con contadores dimensionados (`tenant`, `reason`). Corrige fallos en `SendConsumer`, `AuthorizeConsumer`, `DlqConsumer` y `DocumentMetricsTest`
+  - `AuditLogAdminResource.parseDate()`: cambiado `ZoneOffset.UTC` → `Key49Constants.EC_ZONE` para que el filtro de fecha use zona Ecuador. Corrige fallo nocturno en `AuditLogAdminResourceTest`
+  - Tests de repositorio (`QueryOptimizationTest`, `DocumentPartitionTest`, `PostgresMaintenanceTest`): agregado `RESET search_path` en `@AfterAll` para evitar polución del connection pool
+  - `QuotaServiceTest` y `ApiKeyCacheServiceTest`: calificadas tablas con `public.` para prevenir dependencia de `search_path`. Corrige 10 errores por `relation "tenants" does not exist`
+  - Suite completa: 2308 tests, 0 failures, 0 errors
+
 ## [0.27.11] - 2026-04-12
 
 ### Agregado

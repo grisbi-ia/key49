@@ -41,7 +41,7 @@ public class DocumentMetrics {
                 .description("Total documents rejected by SRI (business errors)")
                 .register(registry);
 
-        this.failedCounter = Counter.builder("key49.documents.failed")
+        this.failedCounter = Counter.builder("key49.documents.failed.global")
                 .description("Total documents that failed after retries exhausted")
                 .register(registry);
     }

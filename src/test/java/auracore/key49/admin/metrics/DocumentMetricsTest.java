@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
-
 class DocumentMetricsTest {
 
     SimpleMeterRegistry registry;
@@ -24,7 +23,6 @@ class DocumentMetricsTest {
     }
 
     // ── Global counters ──
-
     @Nested
     class GlobalCounters {
 
@@ -44,7 +42,7 @@ class DocumentMetricsTest {
 
         @Test
         void shouldRegisterGlobalFailedCounter() {
-            var counter = registry.find("key49.documents.failed").counter();
+            var counter = registry.find("key49.documents.failed.global").counter();
             assertNotNull(counter);
             assertEquals(0.0, counter.count());
         }
@@ -65,12 +63,11 @@ class DocumentMetricsTest {
         @Test
         void shouldIncrementFailed() {
             metrics.incrementFailed();
-            assertEquals(1.0, registry.find("key49.documents.failed").counter().count());
+            assertEquals(1.0, registry.find("key49.documents.failed.global").counter().count());
         }
     }
 
     // ── Tenant-dimensioned counters ──
-
     @Nested
     class TenantCounters {
 
@@ -156,7 +153,6 @@ class DocumentMetricsTest {
     }
 
     // ── SRI timers ──
-
     @Nested
     class SriTimers {
 
@@ -197,7 +193,6 @@ class DocumentMetricsTest {
     }
 
     // ── Notification counters ──
-
     @Nested
     class NotificationCounters {
 
@@ -246,7 +241,6 @@ class DocumentMetricsTest {
     }
 
     // ── Deprecated timers ──
-
     @SuppressWarnings("deprecation")
     @Nested
     class DeprecatedTimers {
@@ -269,7 +263,6 @@ class DocumentMetricsTest {
     }
 
     // ── Tenant isolation ──
-
     @Nested
     class TenantIsolation {
 

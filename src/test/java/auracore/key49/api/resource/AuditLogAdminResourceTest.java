@@ -1,7 +1,6 @@
 package auracore.key49.api.resource;
 
 import java.sql.SQLException;
-import java.time.Instant;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -24,7 +23,6 @@ import jakarta.inject.Inject;
  * Test de integración para el endpoint GET /v1/admin/audit-log. Inserta
  * entradas de audit_log vía AuditService y verifica filtros y paginación.
  */
-
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -138,8 +136,8 @@ class AuditLogAdminResourceTest {
     @Test
     @Order(5)
     void filtersByDateRange() {
-        // Use today's date to capture records inserted in @BeforeAll
-        var today = java.time.LocalDate.now().toString();
+        // Use today's date (Ecuador timezone) to capture records inserted in @BeforeAll
+        var today = java.time.LocalDate.now(auracore.key49.core.Key49Constants.EC_ZONE).toString();
         RestAssured.given()
                 .header("X-Admin-Token", ADMIN_TOKEN)
                 .queryParam("date_from", today)

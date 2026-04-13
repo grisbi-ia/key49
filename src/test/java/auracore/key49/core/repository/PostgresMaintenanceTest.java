@@ -3,10 +3,9 @@ package auracore.key49.core.repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.AfterAll;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -22,7 +21,6 @@ import jakarta.inject.Inject;
  * PostgreSQL: VACUUM ANALYZE, autovacuum tuning, monitoreo de dead tuples, y
  * REINDEX CONCURRENTLY.
  */
-
 @QuarkusTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -68,6 +66,7 @@ class PostgresMaintenanceTest {
     void cleanup() throws Exception {
         try (var conn = dataSource.getConnection(); var stmt = conn.createStatement()) {
             conn.setAutoCommit(true);
+            stmt.execute("RESET search_path");
             stmt.execute("DROP SCHEMA IF EXISTS " + TEST_SCHEMA + " CASCADE");
         }
     }

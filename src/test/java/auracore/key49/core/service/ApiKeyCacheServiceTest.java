@@ -1,15 +1,14 @@
 package auracore.key49.core.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.sql.SQLException;
 import java.util.UUID;
 
 import javax.sql.DataSource;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -54,7 +53,7 @@ class ApiKeyCacheServiceTest {
 
         try (var conn = dataSource.getConnection()) {
             try (var ps = conn.prepareStatement("""
-                    INSERT INTO tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
+                    INSERT INTO public.tenants (tenant_id, ruc, legal_name, trade_name, main_address, schema_name,
                         required_accounting, micro_enterprise_regime, environment,
                         emission_type, rate_limit_rpm, rate_limit_write_rpm, rate_limit_read_rpm, status, created_at, updated_at)
                     VALUES (?::uuid, ?, ?, ?, ?, ?, false, false, 'test', 1, 500, 10000, 10000, 'active', now(), now())
@@ -69,7 +68,7 @@ class ApiKeyCacheServiceTest {
             }
 
             try (var ps = conn.prepareStatement("""
-                    INSERT INTO api_keys (api_key_id, tenant_id, key_prefix, key_hash, name, permissions, status, created_at)
+                    INSERT INTO public.api_keys (api_key_id, tenant_id, key_prefix, key_hash, name, permissions, status, created_at)
                     VALUES (?::uuid, ?::uuid, ?, ?, ?, '*', 'active', now())
                     """)) {
                 ps.setObject(1, UUID.randomUUID().toString());
