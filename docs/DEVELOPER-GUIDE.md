@@ -24,6 +24,7 @@
 15. [Catálogo de Errores](#catálogo-de-errores)
 16. [Webhooks](#webhooks)
 17. [Ejemplos por Lenguaje](#ejemplos-por-lenguaje)
+18. [Autoregistro y Planes](#autoregistro-y-planes)
 
 ---
 
@@ -822,12 +823,25 @@ X-Idempotency-Key: mi-clave-unica-12345
 
 ## Rate Limiting
 
-- **Límite default**: 100 requests/minuto por API key (configurable por tenant)
-- **Headers de respuesta**:
+Los límites de tasa se aplican **por API key** y dependen del plan del tenant. Se implementan con ventana deslizante en Redis (sorted sets).
+
+### Límites por plan
+
+| Plan       | Write RPM | Read RPM | Total RPM |
+| ---------- | --------- | -------- | --------- |
+| DEMO       | 10        | 30       | 40        |
+| STARTER    | 30        | 100      | 130       |
+| BUSINESS   | 60        | 200      | 260       |
+| ENTERPRISE | 200       | 600      | 800       |
+
+- **Write RPM**: aplica a operaciones de creación (`POST /v1/invoices`, `POST /v1/credit-notes`, etc.)
+- **Read RPM**: aplica a consultas (`GET /v1/invoices`, `GET /v1/documents`, etc.)
+
+### Headers de respuesta
 
 ```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
+X-RateLimit-Limit: 30
+X-RateLimit-Remaining: 25
 X-RateLimit-Reset: 1712234567
 ```
 
@@ -841,6 +855,8 @@ Al exceder el límite: HTTP 429 con header `Retry-After`:
   }
 }
 ```
+
+Los límites se asignan automáticamente al crear un tenant (plan DEMO) y se ajustan al aprobar una renovación de plan.
 
 ---
 
@@ -1158,6 +1174,53 @@ var getRequest = HttpRequest.newBuilder()
 var getResponse = client.send(getRequest, HttpResponse.BodyHandlers.ofString());
 System.out.println(getResponse.body());
 ```
+
+---
+
+## Autoregistro y Planes
+
+### Flujo de autoregistro
+
+El portal web permite a nuevos contribuyentes registrarse de forma autónoma mediante un wizard de 4 pasos:
+
+1. **Paso 1 — Datos del contribuyente**: RUC (validado con módulo 11), razón social, nombre comercial, dirección, email, teléfono.
+2. **Paso 2 — Configuración de emisión**: código de establecimiento (3 dígitos), punto de emisión (3 dígitos), dirección del establecimiento.
+3. **Paso 3 — Configuración SMTP**: host, puerto, usuario, contraseña, email remitente. Incluye botón para probar la conexión SMTP en tiempo real.
+4. **Paso 4 — Selección de plan**: el usuario elige entre los planes disponibles (DEMO, STARTER, BUSINESS, ENTERPRISE).
+
+### Verificación de email
+
+Al completar el registro, el sistema:
+
+1. Crea el tenant con estado `pending`
+2. Envía un email de verificación con un enlace que contiene un token UUID
+3. El token tiene vigencia de **24 horas** (almacenado en Redis)
+4. Al hacer clic en el enlace (`/portal/verify?token=...`), el sistema activa el tenant (`status = 'active'`, `email_verified = true`)
+5. Rate limit: máximo 3 solicitudes de verificación por email por hora
+
+### Planes comerciales
+
+Cada tenant opera bajo un plan que define su cuota de documentos y límites de rate limiting:
+
+| Plan       | Cuota mensual | Write RPM | Read RPM | Total RPM |
+| ---------- | ------------- | --------- | -------- | --------- |
+| DEMO       | 25            | 10        | 30       | 40        |
+| STARTER    | 100           | 30        | 100      | 130       |
+| BUSINESS   | 500           | 60        | 200      | 260       |
+| ENTERPRISE | 5,000         | 200       | 600      | 800       |
+
+Para más detalles sobre planes, precios y políticas, ver `docs/PLANS.md`.
+
+### Renovación de plan
+
+Los tenants pueden solicitar renovación o cambio de plan desde el portal (`/portal/plan`):
+
+1. El usuario selecciona el nuevo plan y adjunta comprobante de pago
+2. Se crea una solicitud de renovación con estado `pending`
+3. Un administrador revisa y aprueba o rechaza via API (`/v1/admin/renewals`)
+4. Al aprobar, se actualiza el plan, la cuota de documentos, y los rate limits automáticamente
+
+Los tenants ENTERPRISE se auto-renuevan automáticamente al vencer (job diario `PlanExpirationService`). Los demás planes pasan a estado `expired` si no renuevan antes del vencimiento.
 
 ---
 

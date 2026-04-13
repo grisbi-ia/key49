@@ -1022,7 +1022,7 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Aplicar automáticamente al cambiar de plan
   - Test: verificar 429 con plan DEMO a más de 10 rpm
 
-- [ ] **T-107** Documentación de planes y autoregistro
+- [x] **T-107** Documentación de planes y autoregistro
   - Actualizar `API.md` con endpoints de renovación y planes
   - Actualizar `DEVELOPER-GUIDE.md` con flujo de autoregistro
   - Crear `docs/PLANS.md` con detalle de planes, precios placeholder, y políticas

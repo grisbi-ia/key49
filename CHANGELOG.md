@@ -5,6 +5,16 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.27.11] - 2026-04-12
+
+### Agregado
+
+- **Documentación de planes y autoregistro** (T-107)
+  - `API.md`: sección Rate Limiting actualizada con tabla de límites por plan (DEMO/STARTER/BUSINESS/ENTERPRISE); nueva sección "Gestión de Planes y Renovación" con endpoints de portal y admin; tabla de rutas del Portal ampliada con autoregistro (wizard 4 pasos) y verificación de email
+  - `DEVELOPER-GUIDE.md`: sección Rate Limiting actualizada con límites por plan; nueva sección "Autoregistro y Planes" con flujo del wizard, verificación de email, tabla de planes, y ciclo de renovación; TOC actualizado
+  - `PLANS.md` (nuevo): detalle de planes comerciales — cuotas, rate limits, precios placeholder, políticas de renovación, auto-renovación ENTERPRISE, ciclo de vida del plan, referencia al enum `PlanType`
+  - `OPERATIONS.md`: nueva sección "Gestión de tenants y planes" — ciclo de vida del tenant, job de expiración, flujo de renovación, administración de renovaciones, verificación de email, rate limits por plan; índice actualizado
+
 ## [0.27.10] - 2026-04-12
 
 ### Agregado

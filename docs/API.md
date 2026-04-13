@@ -29,9 +29,29 @@ curl -s http://localhost:8080/v1/tenant/profile \
 
 ## Rate Limiting
 
-- Default: 100 requests/minuto por API key (configurable por tenant)
-- Headers de respuesta: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
-- Al exceder: HTTP 429 con header `Retry-After` y error code `RATE_LIMIT_EXCEEDED`
+Los límites de tasa se aplican **por API key** según el plan del tenant. Existen dos categorías:
+
+- **Write RPM**: operaciones de escritura (`POST /v1/invoices`, etc.)
+- **Read RPM**: operaciones de lectura (`GET /v1/invoices`, `GET /v1/documents`, etc.)
+
+| Plan       | Write RPM | Read RPM | Total RPM |
+| ---------- | --------- | -------- | --------- |
+| DEMO       | 10        | 30       | 40        |
+| STARTER    | 30        | 100      | 130       |
+| BUSINESS   | 60        | 200      | 260       |
+| ENTERPRISE | 200       | 600      | 800       |
+
+**Headers de respuesta:**
+
+```
+X-RateLimit-Limit: 30
+X-RateLimit-Remaining: 25
+X-RateLimit-Reset: 1712234567
+```
+
+Al exceder el límite: HTTP 429 con header `Retry-After` y error code `RATE_LIMIT_EXCEEDED`.
+
+Los límites se ajustan automáticamente al cambiar de plan (aprobación de renovación).
 
 ## Idempotencia
 
@@ -927,6 +947,67 @@ curl -s http://localhost:8080/v1/metrics/summary \
 
 ---
 
+### 14. Gestión de Planes y Renovación
+
+#### Portal: Página de plan actual
+
+```
+GET /portal/plan
+```
+
+Página HTML que muestra el plan actual del tenant, planes disponibles, y permite solicitar renovación/cambio de plan.
+
+#### Portal: Solicitar renovación
+
+```
+POST /portal/plan/renew
+Content-Type: multipart/form-data
+```
+
+| Campo           | Tipo   | Descripción                                          |
+| --------------- | ------ | ---------------------------------------------------- |
+| `requestedPlan` | string | Código del plan: `starter`, `business`, `enterprise` |
+| `paymentProof`  | file   | Comprobante de pago (imagen/PDF)                     |
+| `notes`         | string | Notas adicionales (opcional)                         |
+
+**Respuesta**: Redirect a `/portal/plan` con mensaje de éxito o error.
+
+#### Admin: Listar renovaciones
+
+```bash
+curl -s http://localhost:8080/v1/admin/renewals?status=pending&page=1&per_page=20 \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Query params**: `status` (pending, approved, rejected), `page`, `per_page`.
+
+#### Admin: Detalle de renovación
+
+```bash
+curl -s http://localhost:8080/v1/admin/renewals/{id} \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+#### Admin: Aprobar renovación
+
+```bash
+curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/approve \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Efecto**: actualiza plan del tenant, resetea cuota de documentos, ajusta rate limits según el nuevo plan, crea registro de auditoría.
+
+#### Admin: Rechazar renovación
+
+```bash
+curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/reject \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Comprobante de pago inválido"}' | jq .
+```
+
+---
+
 ## Health Checks y Observabilidad
 
 ### GET /q/health
@@ -959,7 +1040,7 @@ curl -s http://localhost:8080/q/health/live | jq .
 
 ## Portal Web
 
-El portal web es una interfaz de solo lectura para consultar documentos. Usa server-side rendering con Qute + HTMX + Pico CSS.
+El portal web es una interfaz para consultar documentos, gestionar el plan y autoregistrarse como tenant. Usa server-side rendering con Qute + HTMX + Pico CSS.
 
 ### Rutas del Portal
 
@@ -971,6 +1052,24 @@ El portal web es una interfaz de solo lectura para consultar documentos. Usa ser
 | `/portal/`                     | GET    | Dashboard: lista de documentos con filtros y paginación            |
 | `/portal/documents/:id`        | GET    | Detalle del documento: estado, timeline, totales, enlaces descarga |
 | `/portal/documents/:id/status` | GET    | Fragmento HTML del badge de estado (para polling HTMX)             |
+| `/portal/plan`                 | GET    | Página de plan actual, planes disponibles, historial               |
+| `/portal/plan/renew`           | POST   | Solicitar renovación/cambio de plan (multipart)                    |
+
+### Rutas de Autoregistro (públicas)
+
+| Ruta                          | Método | Descripción                                                       |
+| ----------------------------- | ------ | ----------------------------------------------------------------- |
+| `/portal/register`            | GET    | Paso 1: formulario de datos del contribuyente (RUC, razón social) |
+| `/portal/register/verify-ruc` | POST   | Validación AJAX del RUC (HTMX)                                    |
+| `/portal/register/step1`      | POST   | Procesar paso 1                                                   |
+| `/portal/register/step2`      | GET    | Paso 2: configuración de emisión (establecimiento, punto emisión) |
+| `/portal/register/step2`      | POST   | Procesar paso 2                                                   |
+| `/portal/register/step3`      | GET    | Paso 3: configuración de email SMTP                               |
+| `/portal/register/step3`      | POST   | Procesar paso 3                                                   |
+| `/portal/register/test-smtp`  | POST   | Test de conexión SMTP (HTMX)                                      |
+| `/portal/register/step4`      | GET    | Paso 4: selección de plan                                         |
+| `/portal/register/step4`      | POST   | Procesar paso 4 y crear tenant                                    |
+| `/portal/verify`              | GET    | Verificación de email (token en query param)                      |
 
 ### Flujo de autenticación del Portal
 

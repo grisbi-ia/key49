@@ -16,6 +16,7 @@
 12. [Idempotencia](#idempotencia)
 13. [Resiliencia ante caídas](#resiliencia-ante-caídas)
 14. [Apagado graceful](#apagado-graceful)
+15. [Gestión de tenants y planes](#gestión-de-tenants-y-planes)
 
 ---
 
@@ -842,3 +843,83 @@ quarkus.shutdown.timeout=30s
 - **No se pierden mensajes**: RabbitMQ re-encola los no confirmados.
 - **No se pierden documentos**: el estado se persiste en BD antes de cada transición.
 - **Idempotencia de consumers**: si un mensaje se procesa parcialmente y se re-encola, el consumer detecta el estado actual del documento y actúa en consecuencia.
+
+---
+
+## Gestión de tenants y planes
+
+### Ciclo de vida de un tenant
+
+```
+Autoregistro (portal web)
+  → Tenant creado (status=pending, plan=DEMO)
+  → Email de verificación enviado (token Redis, TTL 24h)
+  → Usuario verifica email → status=active, email_verified=true
+  → Uso normal (emitir documentos, consultar, etc.)
+  → Plan vence:
+      - ENTERPRISE: auto-renovación automática
+      - Otros: status=expired (no puede emitir documentos)
+  → Solicita renovación → Admin aprueba → status=active, nuevo plan
+```
+
+### Job de expiración de planes
+
+`PlanExpirationService` ejecuta un cron diario a las **00:05 ECT**:
+
+- Busca tenants con `status = 'active'` y `plan_expires_at < now`.
+- Tenants ENTERPRISE: auto-renovación (nuevo período 30 días, cuota reseteada, registro en `plan_renewals`).
+- Otros planes: cambia `status = 'expired'`, invalida caché Redis, dispara alerta webhook.
+
+**Monitoreo**: verificar en los logs del job:
+
+```
+Starting plan expiration check...
+Plan expiration check complete: X expired, Y auto-renewed
+```
+
+### Flujo de renovación
+
+1. **Solicitud** (portal): el tenant accede a `/portal/plan`, selecciona nuevo plan, sube comprobante de pago.
+2. **Revisión** (admin): listar pendientes con `GET /v1/admin/renewals?status=pending`.
+3. **Aprobación**: `POST /v1/admin/renewals/{id}/approve` — actualiza plan, cuota, rate limits, resetea documentos usados.
+4. **Rechazo**: `POST /v1/admin/renewals/{id}/reject` con `{"reason": "..."}`.
+
+### Administración de renovaciones
+
+Los endpoints de admin requieren header `X-Admin-Token`:
+
+```bash
+# Listar renovaciones pendientes
+curl -s http://localhost:8080/v1/admin/renewals?status=pending \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+
+# Aprobar renovación
+curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/approve \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+
+# Rechazar renovación
+curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/reject \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Comprobante inválido"}' | jq .
+```
+
+### Verificación de email
+
+- Token almacenado en Redis con prefijo `email-verify:{token}` (TTL 24h).
+- Rate limit: 3 solicitudes por email por hora.
+- Endpoint público: `GET /portal/verify?token=...`.
+- Al verificar exitosamente: `email_verified = true`, `status = 'active'`.
+
+### Rate limits por plan
+
+Al aprobar una renovación, los rate limits del tenant se ajustan automáticamente:
+
+| Plan       | Write RPM | Read RPM |
+| ---------- | --------- | -------- |
+| DEMO       | 10        | 30       |
+| STARTER    | 30        | 100      |
+| BUSINESS   | 60        | 200      |
+| ENTERPRISE | 200       | 600      |
+
+Para más detalles de planes, ver `docs/PLANS.md`.
