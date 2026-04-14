@@ -1,0 +1,58 @@
+{#include portal/layout}
+{#title}Eliminar cuenta{/title}
+{#body}
+<h3>Eliminar cuenta</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+<article style="border-left: 4px solid #ff4136;">
+    <header><strong style="color: #ff4136;">Zona de peligro</strong></header>
+    <p>Al solicitar la eliminación de su cuenta:</p>
+    <ul>
+        <li>Su cuenta será <strong>suspendida inmediatamente</strong></li>
+        <li>No podrá acceder al portal ni emitir documentos</li>
+        <li>Los documentos ya autorizados ante el SRI <strong>no se eliminan</strong></li>
+        <li>Nuestro equipo procesará la eliminación definitiva de sus datos</li>
+    </ul>
+    <p><strong>Esta acción no se puede deshacer.</strong></p>
+</article>
+
+<article>
+    <header><strong>Datos de la cuenta</strong></header>
+    <div class="grid">
+        <div>
+            <p><strong>RUC:</strong> {tenant.ruc}</p>
+            <p><strong>Razón social:</strong> {tenant.legalName}</p>
+        </div>
+        <div>
+            <p><strong>Email:</strong> {tenant.email}</p>
+            <p><strong>Plan:</strong> {tenant.planType}</p>
+        </div>
+    </div>
+</article>
+
+<form method="post" action="/portal/settings/delete">
+    <article>
+        <header><strong>Confirmar eliminación</strong></header>
+
+        <label>Contraseña actual *
+            <input type="password" name="confirmPassword" required>
+        </label>
+
+        <label>Escriba <strong>ELIMINAR</strong> para confirmar *
+            <input type="text" name="confirmText" required pattern="ELIMINAR"
+                placeholder="ELIMINAR" autocomplete="off">
+        </label>
+
+        <button type="submit" class="outline" style="border-color: #ff4136; color: #ff4136;">
+            Eliminar mi cuenta
+        </button>
+    </article>
+</form>
+
+{/body}
+{/include}

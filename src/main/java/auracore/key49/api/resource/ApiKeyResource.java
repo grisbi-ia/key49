@@ -55,7 +55,7 @@ public class ApiKeyResource {
         var tenantId = requireTenantId();
 
         var data = new CreateApiKeyData(
-                request.name(), request.environment(),
+                request.name(),
                 request.permissions(), request.expiresAt());
 
         var created = apiKeyService.create(tenantId, data);

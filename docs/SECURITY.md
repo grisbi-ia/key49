@@ -94,7 +94,7 @@ Auditoría completa contra OWASP Top 10 del codebase Key49. Se identificaron **2
 
 - **N9/N10 (MEDIUM)**: Credenciales default en dev — Son defaults con prefijo `%dev.`, solo aplican en perfil dev. Aceptable para desarrollo local.
 - **N14 (LOW)**: Sin catch-all exception mapper — Creado `CatchAllExceptionMapper` que retorna `{"error":{"code":"INTERNAL_ERROR"}}` sin stack traces.
-- **N18 (LOW)**: SMTP sin TLS — Agregado `%prod.quarkus.mailer.start-tls=REQUIRED` para producción.
+- **N18 (LOW)**: SMTP sin TLS — El SMTP por tenant se configura con `mail.smtp.ssl.enable=true` o `mail.smtp.starttls.enable=true` según el puerto. Jakarta Mail (Angus Mail) maneja TLS directamente.
 
 ---
 
@@ -131,7 +131,7 @@ Auditoría completa contra OWASP Top 10 del codebase Key49. Se identificaron **2
 
 ### Remediaciones implementadas
 
-- **N18 (LOW)**: SMTP TLS — Agregado `%prod.quarkus.mailer.start-tls=REQUIRED`.
+- **N18 (LOW)**: SMTP TLS — Jakarta Mail configura SSL/TLS per-tenant (`mail.smtp.ssl.enable`, `mail.smtp.starttls.enable`).
 
 ---
 

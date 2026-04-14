@@ -1,7 +1,6 @@
 package auracore.key49.notify.email;
 
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -11,9 +10,16 @@ import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.reactive.ReactiveMailer;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
-import io.vertx.ext.mail.MailMessage;
+import jakarta.activation.DataHandler;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.mail.Message;
+import jakarta.mail.Transport;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.ByteArrayDataSource;
 
 /**
  * Servicio de envío de emails para notificación de comprobantes electrónicos.
@@ -50,7 +56,7 @@ public class EmailService {
     @ConfigProperty(name = "key49.email.enabled", defaultValue = "true")
     boolean emailEnabled;
 
-    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "120")
+    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "30")
     int sendTimeoutSeconds;
 
     /**
@@ -98,53 +104,64 @@ public class EmailService {
     }
 
     /**
-     * Intenta enviar email via SMTP del tenant con reintentos.
+     * Intenta enviar email via SMTP del tenant con reintentos. Usa Jakarta Mail
+     * (sincrónico) que funciona correctamente en worker threads.
      *
      * @return true si el envío fue exitoso, false si se agotaron los reintentos
      */
     private boolean sendViaTenantSmtp(EmailData data, Tenant tenant) {
-        var client = smtpClientFactory.getOrCreate(tenant);
-        var from = tenant.smtpFrom != null ? tenant.smtpFrom : fromAddress;
+        var smtpSession = smtpClientFactory.getOrCreate(tenant);
+        var from = smtpSession.from() != null ? smtpSession.from() : fromAddress;
         var senderFrom = data.issuerName() + " <" + from + ">";
-
-        var message = new MailMessage()
-                .setFrom(senderFrom)
-                .setTo(java.util.List.of(data.recipientEmails().getFirst()))
-                .setSubject(buildSubject(data))
-                .setHtml(renderHtml(data));
-
-        // CC recipients
-        if (data.recipientEmails().size() > 1) {
-            message.setCc(data.recipientEmails().subList(1, data.recipientEmails().size()));
-        }
-
-        // Attachments
-        var attachments = new java.util.ArrayList<io.vertx.ext.mail.MailAttachment>();
-        if (data.ridePdf() != null && data.ridePdf().length > 0) {
-            attachments.add(io.vertx.ext.mail.MailAttachment.create()
-                    .setName(data.rideFilename())
-                    .setContentType("application/pdf")
-                    .setData(io.vertx.core.buffer.Buffer.buffer(data.ridePdf())));
-        }
-        if (data.authorizedXml() != null && data.authorizedXml().length > 0) {
-            attachments.add(io.vertx.ext.mail.MailAttachment.create()
-                    .setName(data.xmlFilename())
-                    .setContentType("application/xml")
-                    .setData(io.vertx.core.buffer.Buffer.buffer(data.authorizedXml())));
-        }
-        if (!attachments.isEmpty()) {
-            message.setAttachment(attachments);
-        }
 
         for (int attempt = 1; attempt <= TENANT_SMTP_MAX_RETRIES; attempt++) {
             try {
                 log.infof("Sending via tenant SMTP (%s:%d) attempt %d/%d: document=%s, to=%s",
                         tenant.smtpHost, tenant.smtpPort, attempt, TENANT_SMTP_MAX_RETRIES,
                         data.accessKey(), data.recipientEmails().getFirst());
-                client.sendMail(message)
-                        .toCompletionStage()
-                        .toCompletableFuture()
-                        .get(sendTimeoutSeconds, TimeUnit.SECONDS);
+
+                var message = new MimeMessage(smtpSession.session());
+                message.setFrom(new InternetAddress(from, data.issuerName()));
+                message.setRecipient(Message.RecipientType.TO,
+                        new InternetAddress(data.recipientEmails().getFirst()));
+
+                for (int i = 1; i < data.recipientEmails().size(); i++) {
+                    message.addRecipient(Message.RecipientType.CC,
+                            new InternetAddress(data.recipientEmails().get(i)));
+                }
+
+                message.setSubject(buildSubject(data));
+
+                var multipart = new MimeMultipart();
+
+                // HTML body
+                var htmlPart = new MimeBodyPart();
+                htmlPart.setContent(renderHtml(data), "text/html; charset=UTF-8");
+                multipart.addBodyPart(htmlPart);
+
+                // PDF attachment
+                if (data.ridePdf() != null && data.ridePdf().length > 0) {
+                    var pdfPart = new MimeBodyPart();
+                    pdfPart.setDataHandler(new DataHandler(
+                            new ByteArrayDataSource(data.ridePdf(), "application/pdf")));
+                    pdfPart.setFileName(data.rideFilename());
+                    multipart.addBodyPart(pdfPart);
+                }
+
+                // XML attachment
+                if (data.authorizedXml() != null && data.authorizedXml().length > 0) {
+                    var xmlPart = new MimeBodyPart();
+                    xmlPart.setDataHandler(new DataHandler(
+                            new ByteArrayDataSource(data.authorizedXml(), "application/xml")));
+                    xmlPart.setFileName(data.xmlFilename());
+                    multipart.addBodyPart(xmlPart);
+                }
+
+                message.setContent(multipart);
+                Transport.send(message);
+
+                log.infof("Tenant SMTP send successful: document=%s, to=%s",
+                        data.accessKey(), data.recipientEmails().getFirst());
                 return true;
             } catch (Exception e) {
                 log.warnf(e, "Tenant SMTP send attempt %d/%d failed for document %s",

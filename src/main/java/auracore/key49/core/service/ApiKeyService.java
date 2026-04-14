@@ -8,13 +8,14 @@ import java.time.Instant;
 import java.util.HexFormat;
 
 /**
- * Servicio para generación y validación de API keys.
- * Formato: fec_test_XXXXXXXXXXXXXXXXXXXXXXXX o fec_live_XXXXXXXXXXXXXXXXXXXXXXXX
+ * Servicio para generación y validación de API keys. Formato:
+ * k49_XXXXXXXXXXXXXXXXXXXXXXXX (prefijo único, environment del tenant es la
+ * fuente de verdad).
  */
 public final class ApiKeyService {
 
-    public static final String PREFIX_TEST = "fec_test_";
-    public static final String PREFIX_LIVE = "fec_live_";
+    public static final String PREFIX = "k49_";
+    public static final String KEY_PREFIX_STORED = "k49";
     private static final int RAW_KEY_LENGTH = 24;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final char[] ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
@@ -23,16 +24,13 @@ public final class ApiKeyService {
     }
 
     /**
-     * Genera una API key con el prefijo dado y retorna el par (rawKey, hash).
+     * Genera una API key con prefijo k49_ y retorna el par (rawKey, hash).
      */
-    public static GeneratedKey generate(String prefix) {
-        if (!PREFIX_TEST.equals(prefix) && !PREFIX_LIVE.equals(prefix)) {
-            throw new IllegalArgumentException("Invalid API key prefix: " + prefix);
-        }
+    public static GeneratedKey generate() {
         var rawSuffix = generateRandomString(RAW_KEY_LENGTH);
-        var rawKey = prefix + rawSuffix;
+        var rawKey = PREFIX + rawSuffix;
         var hash = sha256(rawKey);
-        return new GeneratedKey(rawKey, hash, prefix.substring(0, prefix.length() - 1));
+        return new GeneratedKey(rawKey, hash, KEY_PREFIX_STORED);
     }
 
     /**
@@ -49,17 +47,14 @@ public final class ApiKeyService {
     }
 
     /**
-     * Extrae el prefijo de una API key raw (ej: "fec_test" de "fec_test_XXXX").
+     * Extrae el prefijo de una API key raw (ej: "k49" de "k49_XXXX").
      */
     public static String extractPrefix(String rawKey) {
-        if (rawKey == null || rawKey.length() < PREFIX_TEST.length()) {
+        if (rawKey == null || rawKey.length() < PREFIX.length()) {
             return null;
         }
-        if (rawKey.startsWith(PREFIX_TEST)) {
-            return PREFIX_TEST.substring(0, PREFIX_TEST.length() - 1);
-        }
-        if (rawKey.startsWith(PREFIX_LIVE)) {
-            return PREFIX_LIVE.substring(0, PREFIX_LIVE.length() - 1);
+        if (rawKey.startsWith(PREFIX)) {
+            return KEY_PREFIX_STORED;
         }
         return null;
     }
@@ -82,10 +77,11 @@ public final class ApiKeyService {
     /**
      * Resultado de la generación de una API key.
      *
-     * @param rawKey    la API key completa (solo se muestra una vez al usuario)
-     * @param hash      el hash SHA-256 para almacenar en BD
-     * @param keyPrefix el prefijo sin trailing underscore (ej: "fec_test")
+     * @param rawKey la API key completa (solo se muestra una vez al usuario)
+     * @param hash el hash SHA-256 para almacenar en BD
+     * @param keyPrefix el prefijo sin trailing underscore (ej: "k49")
      */
     public record GeneratedKey(String rawKey, String hash, String keyPrefix) {
+
     }
 }

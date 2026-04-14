@@ -7,6 +7,10 @@
     <title>Registro Exitoso — Key49</title>
     <link rel="stylesheet" href="/css/pico.min.css">
     <style>
+        :root {
+            --pico-font-size: 15px;
+        }
+
         body {
             display: flex;
             align-items: center;
@@ -15,35 +19,35 @@
         }
 
         .success-card {
-            max-width: 560px;
+            max-width: 780px;
             width: 100%;
         }
 
         .success-card h2 {
             text-align: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
         }
 
         .success-icon {
             text-align: center;
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
         }
 
         .success-card .subtitle {
             text-align: center;
             color: var(--pico-muted-color);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .api-key-box {
             background: #1e293b;
             color: #f1f5f9;
             border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
             font-family: monospace;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             word-break: break-all;
             position: relative;
         }
@@ -77,22 +81,33 @@
             background: #fff3cd;
             border: 1px solid #ffc107;
             border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
         }
 
         .warning-box strong {
             color: #856404;
         }
 
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .next-steps {
             background: var(--pico-card-background-color);
             border: 1px solid var(--pico-muted-border-color);
             border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
         }
 
         .next-steps h4 {
@@ -135,24 +150,26 @@
         </div>
 
         {#if pendingVerification}
-        <div class="next-steps" style="background: #cce5ff; border-color: #b8daff;">
-            <h4>📧 Verifique su email</h4>
-            <p style="margin-bottom: 0;">
-                Hemos enviado un enlace de verificación a su correo electrónico.
-                <strong>Su cuenta permanecerá en estado pendiente</strong> hasta que verifique su email.
-                El enlace expira en 24 horas.
-            </p>
+        <div style="background: #cce5ff; border: 1px solid #b8daff; border-radius: 0.25rem; padding: 0.75rem 1rem; margin-bottom: 0.75rem; font-size: 0.85rem;">
+            <strong>📧 Verifique su email</strong> — Hemos enviado un enlace de verificación.
+            Su cuenta permanecerá en estado pendiente hasta que lo confirme (expira en 24h).
         </div>
         {/if}
 
-        <div class="next-steps">
-            <h4>Próximos pasos</h4>
-            <ol>
-                <li>Guarde su API key en la configuración de su sistema</li>
-                <li>Use el header <code>Authorization: Bearer {apiKey}</code> en sus peticiones</li>
-                <li>Emita su primera factura via <code>POST /v1/invoices</code></li>
-                <li>Consulte la documentación de la API para más detalles</li>
-            </ol>
+        <div class="info-grid">
+            <div class="warning-box">
+                <strong>⚠ Importante:</strong> Copie y guarde esta API key en un lugar seguro.
+                No se volverá a mostrar. Si la pierde, deberá generar una nueva desde el portal.
+            </div>
+
+            <div class="next-steps">
+                <h4>Próximos pasos</h4>
+                <ol>
+                    <li>Guarde su API key en la configuración de su sistema</li>
+                    <li>Use <code>Authorization: Bearer {apiKey}</code></li>
+                    <li>Emita su primera factura via <code>POST /v1/invoices</code></li>
+                </ol>
+            </div>
         </div>
 
         <a href="/portal/login" role="button" style="width: 100%; text-align: center;">
@@ -163,11 +180,30 @@
     <script>
         function copyApiKey() {
             var keyValue = document.getElementById('api-key-value').textContent;
-            navigator.clipboard.writeText(keyValue).then(function() {
-                var btn = document.getElementById('copy-btn');
-                btn.textContent = '✓ Copiado';
-                setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
-            });
+            var btn = document.getElementById('copy-btn');
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(keyValue).then(function() {
+                    btn.textContent = '✓ Copiado';
+                    setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+                });
+            } else {
+                var textArea = document.createElement('textarea');
+                textArea.value = keyValue;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    btn.textContent = '✓ Copiado';
+                    setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+                } catch (e) {
+                    btn.textContent = 'Error';
+                    setTimeout(function() { btn.textContent = 'Copiar'; }, 2000);
+                }
+                document.body.removeChild(textArea);
+            }
         }
     </script>
 </body>

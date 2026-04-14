@@ -207,7 +207,7 @@ class TenantAdminServiceTest {
                     "New Name", null, null,
                     null, null, null, null,
                     null, null, null, null,
-                    null, null, null, null, null);
+                    null, null, null, null, null, null);
 
             assertEquals("New Name", data.legalName());
             // Null fields should not be set when updating

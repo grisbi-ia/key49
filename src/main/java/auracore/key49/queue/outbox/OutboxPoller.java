@@ -15,8 +15,10 @@ import auracore.key49.queue.producer.DocumentEventProducer;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
@@ -65,6 +67,8 @@ public class OutboxPoller {
      */
     private volatile boolean lastCycleHadEvents = false;
 
+    private volatile boolean shutdownRequested = false;
+
     @Inject
     public OutboxPoller(MeterRegistry registry) {
         this.polledCounter = Counter.builder("key49.outbox.events.polled")
@@ -75,8 +79,16 @@ public class OutboxPoller {
                 .register(registry);
     }
 
+    void onShutdown(@Observes ShutdownEvent event) {
+        shutdownRequested = true;
+        log.info("OutboxPoller: shutdown requested, stopping poll cycles");
+    }
+
     @Scheduled(every = "${key49.outbox.poll-interval:500ms}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void poll() {
+        if (shutdownRequested) {
+            return;
+        }
         pollDurationTimer.record(() -> {
             try {
                 boolean foundAny = false;

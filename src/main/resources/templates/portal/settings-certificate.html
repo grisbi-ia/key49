@@ -1,0 +1,87 @@
+{#include portal/layout}
+{#title}Certificado digital{/title}
+{#body}
+<h3>Certificado digital</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+</article>
+{/if}
+
+<!-- Certificado actual -->
+<article>
+    <header><strong>Certificado actual</strong></header>
+    {#if tenant.certificateSubject}
+    <div class="grid">
+        <div>
+            <p><strong>Sujeto:</strong><br><small>{tenant.certificateSubject}</small></p>
+            <p><strong>Serial:</strong> <code>{tenant.certificateSerial}</code></p>
+        </div>
+        <div>
+            <p><strong>Expiración:</strong>
+                {#if certStatus == 'expired'}
+                <mark class="status-error">Expirado</mark>
+                {#else if certStatus == 'warning'}
+                <mark class="status-warn">{certDaysLeft} días restantes</mark>
+                {#else}
+                <mark class="status-ok">{certDaysLeft} días restantes</mark>
+                {/if}
+                <br>
+                <small>{formatDate.format(tenant.certificateExpiration.atZone(ecZone))}</small>
+            </p>
+            <p><strong>Ambiente:</strong>
+                {#if tenant.environment == 'production'}
+                <mark class="status-ok">Producción</mark>
+                {#else}
+                <mark class="status-warn">Pruebas</mark>
+                {/if}
+            </p>
+        </div>
+    </div>
+    {#else}
+    <p>No hay certificado configurado. Suba su archivo .p12 para comenzar a firmar documentos.</p>
+    {/if}
+</article>
+
+{#if hasPending}
+<article style="border-left: 4px solid #ff851b;">
+    <header><strong>Certificado pendiente de activación</strong></header>
+    <p><strong>Sujeto:</strong> {tenant.pendingCertificateSubject}</p>
+    <p><strong>Expiración:</strong> {formatDate.format(tenant.pendingCertificateExpiration.atZone(ecZone))}</p>
+</article>
+{/if}
+
+<!-- Subir / reemplazar certificado -->
+<article>
+    <header><strong>{#if tenant.certificateSubject}Reemplazar certificado{#else}Subir certificado{/if}</strong></header>
+    <form method="post" action="/portal/settings/certificate" enctype="multipart/form-data">
+        <label>Archivo .p12 *
+            <input type="file" name="certFile" accept=".p12,.pfx" required>
+        </label>
+
+        <label>Contraseña del certificado *
+            <input type="password" name="certPassword" required>
+        </label>
+
+        <label>Ambiente *
+            <select name="environment" required>
+                <option value="test" {#if tenant.environment == 'test'}selected{/if}>Pruebas (celcer.sri.gob.ec)</option>
+                <option value="production" {#if tenant.environment == 'production'}selected{/if}>Producción (cel.sri.gob.ec)</option>
+            </select>
+        </label>
+
+        <small>Al subir un nuevo certificado, el anterior será reemplazado inmediatamente.</small>
+        <br><br>
+        <button type="submit">{#if tenant.certificateSubject}Reemplazar certificado{#else}Subir certificado{/if}</button>
+    </form>
+</article>
+
+{/body}
+{/include}

@@ -1,11 +1,10 @@
 package auracore.key49.storage;
 
+import java.time.LocalDate;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.time.LocalDate;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
@@ -14,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 
 /**
@@ -24,12 +24,12 @@ import jakarta.inject.Inject;
  * llamadas fallan rápido (fail-fast) cuando el circuito está abierto.
  *
  * <p>
- * Nota: En el entorno de test no hay MinIO disponible, por lo que todas las
- * llamadas fallan con StorageException. Esto nos permite verificar que el CB se
- * abre tras el umbral de fallos.
+ * Usa {@link NoMinioTestProfile} para apuntar MinIO a un puerto inaccesible
+ * (localhost:1), garantizando que las llamadas siempre fallen
+ * independientemente de si docker-compose está corriendo.
  */
-
 @QuarkusTest
+@TestProfile(NoMinioTestProfile.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ObjectStorageServiceCircuitBreakerTest {
 
@@ -70,7 +70,7 @@ class ObjectStorageServiceCircuitBreakerTest {
         // Puede ser CircuitBreakerOpenException o StorageException dependiendo del timing
         assertTrue(
                 thrown.getClass().getSimpleName().contains("CircuitBreaker")
-                        || thrown instanceof StorageException,
+                || thrown instanceof StorageException,
                 "Excepción debe ser de circuit breaker o storage: " + thrown.getClass().getName());
     }
 
@@ -96,7 +96,7 @@ class ObjectStorageServiceCircuitBreakerTest {
 
         assertTrue(
                 thrown.getClass().getSimpleName().contains("CircuitBreaker")
-                        || thrown instanceof StorageException,
+                || thrown instanceof StorageException,
                 "Excepción debe ser de circuit breaker o storage: " + thrown.getClass().getName());
     }
 }

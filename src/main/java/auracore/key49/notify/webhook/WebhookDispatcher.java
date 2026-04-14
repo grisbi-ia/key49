@@ -139,7 +139,6 @@ public class WebhookDispatcher {
         if (ssrfValidationEnabled) {
             WebhookUrlValidator.validate(webhookUrl);
         }
-        var signature = computeSignature(json, webhookSecret);
         long startTime = System.currentTimeMillis();
 
         try {
@@ -148,13 +147,19 @@ public class WebhookDispatcher {
                     .followRedirects(HttpClient.Redirect.NEVER)
                     .build();
 
-            var request = HttpRequest.newBuilder()
+            var requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(webhookUrl))
                     .timeout(Duration.ofMillis(readTimeoutMs))
                     .header("Content-Type", "application/json")
-                    .header(SIGNATURE_HEADER, "sha256=" + signature)
                     .header(EVENT_HEADER, delivery.eventType)
-                    .header(DELIVERY_HEADER, delivery.id != null ? delivery.id.toString() : "")
+                    .header(DELIVERY_HEADER, delivery.id != null ? delivery.id.toString() : "");
+
+            if (webhookSecret != null && !webhookSecret.isBlank()) {
+                var signature = computeSignature(json, webhookSecret);
+                requestBuilder.header(SIGNATURE_HEADER, "sha256=" + signature);
+            }
+
+            var request = requestBuilder
                     .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                     .build();
 

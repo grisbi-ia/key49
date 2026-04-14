@@ -202,9 +202,10 @@ POST /v1/documents/raw     → XML pre-armado por cliente  — 5% avanzados
 
 | Ruta                     | Pantalla  | Función                                                      |
 | ------------------------ | --------- | ------------------------------------------------------------ |
-| `/portal/login`          | Login     | Autenticación con API key del tenant                         |
+| `/portal/login`          | Login     | Autenticación con email + contraseña                            |
 | `/portal/`               | Dashboard | Tabla de documentos con filtros (fecha, estado) + paginación |
 | `/portal/documents/{id}` | Detalle   | Estado, timeline de procesamiento, links de descarga         |
+| `/portal/settings/*`     | Settings  | Perfil, certificado, SMTP, webhook, eliminación de cuenta    |
 
 **Consecuencias**:
 
@@ -577,7 +578,7 @@ public <T> T withTenantSession(String schemaName, Function<EntityManager, T> wor
 
 ### Estrategia: Redis-backed sessions
 
-- **Login**: el tenant se autentica con su API key en `/portal/login`.
+- **Login**: el tenant se autentica con email y contraseña en `/portal/login`.
 - **Sesión**: se crea un session ID (UUID) almacenado en Redis con TTL de 30 minutos.
 - **Cookie**: `KEY49_SESSION={session_id}`, `HttpOnly`, `Secure`, `SameSite=Strict`.
 - **Datos en sesión**: `tenant_id`, `schema_name`, `legal_name` (solo lectura, no datos sensibles).

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.UUID;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -11,25 +12,24 @@ import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.Tenant;
 import auracore.key49.signer.CertificateEncryptor;
-import io.vertx.core.Vertx;
-import io.vertx.ext.mail.MailClient;
-import io.vertx.ext.mail.MailConfig;
-import io.vertx.ext.mail.StartTLSOptions;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.mail.Authenticator;
+import jakarta.mail.PasswordAuthentication;
+import jakarta.mail.Session;
 
 /**
- * Fábrica de clientes SMTP por tenant con caché LRU.
+ * Fábrica de sesiones SMTP (Jakarta Mail) por tenant con caché LRU.
  *
  * <p>
- * Si el tenant tiene {@code smtpEnabled = true}, construye un
- * {@link MailClient} con la configuración SMTP del tenant. La contraseña se
- * descifra al momento de construir el cliente (no se cachea en claro).
+ * Si el tenant tiene {@code smtpEnabled = true}, construye un {@link Session}
+ * con la configuración SMTP del tenant. La contraseña se descifra al momento de
+ * construir la sesión.
  *
  * <p>
- * Si la caché no contiene el tenant, se crea un nuevo cliente. Si la caché está
- * llena, se cierra el cliente más antiguo (LRU eviction).
+ * Si la caché no contiene el tenant, se crea una nueva sesión. Si la caché está
+ * llena, se desaloja la entrada más antigua (LRU eviction).
  */
 @ApplicationScoped
 public class SmtpClientFactory {
@@ -39,22 +39,18 @@ public class SmtpClientFactory {
     @Inject
     Logger log;
 
-    @Inject
-    Vertx vertx;
-
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
 
-    private final Map<UUID, CachedClient> cache;
+    private final Map<UUID, CachedSession> cache;
 
     public SmtpClientFactory() {
         this.cache = new LinkedHashMap<>(16, 0.75f, true) {
             @Override
-            protected boolean removeEldestEntry(Map.Entry<UUID, CachedClient> eldest) {
+            protected boolean removeEldestEntry(Map.Entry<UUID, CachedSession> eldest) {
                 if (size() > DEFAULT_MAX_CACHE_SIZE) {
-                    log.debugf("SmtpClientFactory: evicting cached client for tenant %s",
+                    log.debugf("SmtpClientFactory: evicting cached session for tenant %s",
                             eldest.getKey());
-                    eldest.getValue().client().close();
                     return true;
                 }
                 return false;
@@ -63,43 +59,40 @@ public class SmtpClientFactory {
     }
 
     /**
-     * Obtiene o crea un {@link MailClient} para el tenant.
+     * Obtiene o crea un {@link TenantSmtpSession} para el tenant.
      *
      * @param tenant el tenant con configuración SMTP
-     * @return el cliente SMTP configurado
+     * @return la sesión SMTP configurada con dirección de remitente
      * @throws IllegalStateException si la clave maestra no está configurada
      * @throws IllegalArgumentException si la configuración SMTP del tenant es
      * incompleta
      */
-    public MailClient getOrCreate(Tenant tenant) {
+    public TenantSmtpSession getOrCreate(Tenant tenant) {
         synchronized (cache) {
             var cached = cache.get(tenant.id);
             if (cached != null && cached.configHash() == computeConfigHash(tenant)) {
-                return cached.client();
+                return cached.sessionInfo();
             }
-            // Config changed or not cached — create new client
             if (cached != null) {
-                log.infof("SmtpClientFactory: SMTP config changed for tenant %s, recreating client",
+                log.infof("SmtpClientFactory: SMTP config changed for tenant %s, recreating session",
                         tenant.id);
-                cached.client().close();
             }
-            var client = buildClient(tenant);
-            cache.put(tenant.id, new CachedClient(client, computeConfigHash(tenant)));
-            log.infof("SmtpClientFactory: created SMTP client for tenant %s (%s:%d)",
+            var sessionInfo = buildSession(tenant);
+            cache.put(tenant.id, new CachedSession(sessionInfo, computeConfigHash(tenant)));
+            log.infof("SmtpClientFactory: created SMTP session for tenant %s (%s:%d)",
                     tenant.id, tenant.smtpHost, tenant.smtpPort);
-            return client;
+            return sessionInfo;
         }
     }
 
     /**
-     * Invalida el cliente cacheado de un tenant (tras cambio de configuración).
+     * Invalida la sesión cacheada de un tenant (tras cambio de configuración).
      */
     public void invalidate(UUID tenantId) {
         synchronized (cache) {
             var removed = cache.remove(tenantId);
             if (removed != null) {
-                removed.client().close();
-                log.infof("SmtpClientFactory: invalidated cached client for tenant %s", tenantId);
+                log.infof("SmtpClientFactory: invalidated cached session for tenant %s", tenantId);
             }
         }
     }
@@ -107,12 +100,11 @@ public class SmtpClientFactory {
     @PreDestroy
     void shutdown() {
         synchronized (cache) {
-            cache.values().forEach(c -> c.client().close());
             cache.clear();
         }
     }
 
-    private MailClient buildClient(Tenant tenant) {
+    private TenantSmtpSession buildSession(Tenant tenant) {
         if (tenant.smtpHost == null || tenant.smtpHost.isBlank()) {
             throw new IllegalArgumentException("SMTP host not configured for tenant " + tenant.id);
         }
@@ -120,29 +112,47 @@ public class SmtpClientFactory {
             throw new IllegalArgumentException("SMTP port not configured for tenant " + tenant.id);
         }
 
-        var config = new MailConfig()
-                .setHostname(tenant.smtpHost)
-                .setPort(tenant.smtpPort);
+        var props = new Properties();
+        props.put("mail.smtp.connectiontimeout", "10000");
+        props.put("mail.smtp.timeout", "30000");
+        props.put("mail.smtp.writetimeout", "10000");
 
         if (tenant.smtpPort == 465) {
-            config.setSsl(true);
+            props.put("mail.smtp.ssl.enable", "true");
+            props.put("mail.smtp.ssl.trust", "*");
+            props.put("mail.smtp.socketFactory.port", String.valueOf(tenant.smtpPort));
+            props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
         } else if (tenant.smtpPort == 587) {
-            config.setStarttls(StartTLSOptions.REQUIRED);
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.starttls.required", "true");
+            props.put("mail.smtp.ssl.trust", "*");
         }
 
+        props.put("mail.smtp.host", tenant.smtpHost);
+        props.put("mail.smtp.port", String.valueOf(tenant.smtpPort));
+
+        Authenticator authenticator = null;
         if (tenant.smtpUser != null && tenant.smtpPasswordEnc != null
                 && tenant.smtpPasswordEnc.length > 0) {
+            props.put("mail.smtp.auth", "true");
             var masterKey = CertificateEncryptor.decodeMasterKey(
                     masterKeyBase64.orElseThrow(()
                             -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
             var passwordChars = CertificateEncryptor.decryptPassword(
                     tenant.smtpPasswordEnc, masterKey);
-            config.setUsername(tenant.smtpUser);
-            config.setPassword(new String(passwordChars));
+            var password = new String(passwordChars);
             Arrays.fill(passwordChars, (char) 0);
+            var user = tenant.smtpUser;
+            authenticator = new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(user, password);
+                }
+            };
         }
 
-        return MailClient.create(vertx, config);
+        var session = Session.getInstance(props, authenticator);
+        return new TenantSmtpSession(session, tenant.smtpFrom);
     }
 
     private static int computeConfigHash(Tenant tenant) {
@@ -155,7 +165,11 @@ public class SmtpClientFactory {
         return hash;
     }
 
-    private record CachedClient(MailClient client, int configHash) {
+    public record TenantSmtpSession(Session session, String from) {
+
+    }
+
+    private record CachedSession(TenantSmtpSession sessionInfo, int configHash) {
 
     }
 }

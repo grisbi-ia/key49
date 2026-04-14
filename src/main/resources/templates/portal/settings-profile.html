@@ -1,0 +1,157 @@
+{#include portal/layout}
+{#title}Perfil de empresa{/title}
+{#body}
+<h3>Perfil de empresa</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+</article>
+{/if}
+
+<!-- Datos de identificación (solo lectura) -->
+<article>
+    <header><strong>Identificación</strong></header>
+    <div class="grid">
+        <div>
+            <label>RUC
+                <input type="text" value="{tenant.ruc}" disabled>
+            </label>
+        </div>
+        <div>
+            <label>Email de acceso
+                <input type="text" value="{tenant.email ?: ''}" disabled>
+            </label>
+        </div>
+    </div>
+    <small>Estos campos no se pueden modificar desde el portal.</small>
+</article>
+
+<!-- Logo de empresa -->
+<article>
+    <header><strong>Logo de empresa</strong></header>
+    <p><small>El logo aparecerá en los documentos RIDE (PDF). Formato: PNG o JPEG, máximo 512 KB.<br>
+        Recomendación: imagen horizontal de al menos <strong>360×180 px</strong> para mejor calidad. Un logo cuadrado también funciona.</small></p>
+
+    {#if tenant.logoUrl}
+    <div style="margin-bottom: 1rem;">
+        <p><strong>Logo actual:</strong></p>
+        <div style="background: #f5f5f5; padding: 1rem; display: inline-block; border-radius: 4px;">
+            <img src="/portal/settings/profile/logo/preview" alt="Logo" style="max-width: 200px; max-height: 100px;">
+        </div>
+    </div>
+    <form method="post" action="/portal/settings/profile/logo/delete" style="margin-bottom: 1rem;">
+        <button type="submit" class="outline secondary" style="width: auto;">Eliminar logo</button>
+    </form>
+    {/if}
+
+    <form method="post" action="/portal/settings/profile/logo" enctype="multipart/form-data">
+        <label>{#if tenant.logoUrl}Cambiar logo{#else}Subir logo{/if}
+            <input type="file" name="logoFile" accept="image/png,image/jpeg" required>
+        </label>
+        <button type="submit" style="width: auto;">
+            {#if tenant.logoUrl}Actualizar logo{#else}Subir logo{/if}
+        </button>
+    </form>
+</article>
+
+<!-- Datos editables -->
+<form method="post" action="/portal/settings/profile">
+    <article>
+        <header><strong>Datos tributarios</strong></header>
+
+        <label>Razón social *
+            <input type="text" name="legalName" value="{tenant.legalName}" required maxlength="300">
+        </label>
+
+        <label>Nombre comercial
+            <input type="text" name="tradeName" value="{tenant.tradeName ?: ''}" maxlength="300">
+        </label>
+
+        <label>Dirección principal *
+            <input type="text" name="mainAddress" value="{tenant.mainAddress}" required maxlength="300">
+        </label>
+
+        <div class="grid">
+            <div>
+                <label>
+                    <input type="checkbox" name="requiredAccounting" {#if tenant.requiredAccounting}checked{/if}>
+                    Obligado a llevar contabilidad
+                </label>
+            </div>
+            <div>
+                <label>
+                    <input type="checkbox" name="microEnterpriseRegime" {#if tenant.microEnterpriseRegime}checked{/if}>
+                    Régimen de microempresas
+                </label>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Contribuyente especial
+                    <input type="text" name="specialTaxpayer" value="{tenant.specialTaxpayer ?: ''}" maxlength="20"
+                        placeholder="Ej: 12345">
+                </label>
+            </div>
+            <div>
+                <label>Agente de retención
+                    <input type="text" name="withholdingAgent" value="{tenant.withholdingAgent ?: ''}" maxlength="10"
+                        placeholder="Ej: 1">
+                </label>
+            </div>
+        </div>
+    </article>
+
+    <article>
+        <header><strong>Notificaciones por email</strong></header>
+        <div class="grid">
+            <div>
+                <label>Nombre del remitente
+                    <input type="text" name="emailSenderName" value="{tenant.emailSenderName ?: ''}" maxlength="200"
+                        placeholder="Ej: Mi Empresa S.A.">
+                </label>
+            </div>
+            <div>
+                <label>Email de respuesta (reply-to)
+                    <input type="email" name="replyEmail" value="{tenant.replyEmail ?: ''}" maxlength="200"
+                        placeholder="Ej: facturacion@miempresa.com">
+                </label>
+            </div>
+        </div>
+    </article>
+
+    <button type="submit">Guardar cambios</button>
+</form>
+
+<!-- Cambio de contraseña -->
+<article>
+    <header><strong>Cambiar contraseña del portal</strong></header>
+    <form method="post" action="/portal/settings/profile/password">
+        <label>Contraseña actual
+            <input type="password" name="currentPassword" required>
+        </label>
+        <div class="grid">
+            <div>
+                <label>Nueva contraseña
+                    <input type="password" name="newPassword" required minlength="8">
+                </label>
+            </div>
+            <div>
+                <label>Confirmar nueva contraseña
+                    <input type="password" name="confirmPassword" required minlength="8">
+                </label>
+            </div>
+        </div>
+        <button type="submit" class="outline">Cambiar contraseña</button>
+    </form>
+</article>
+
+{/body}
+{/include}

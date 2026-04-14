@@ -66,9 +66,9 @@ $PSQL -c "SELECT clone_schema('tenant_template', '$SCHEMA_NAME');" 2>/dev/null |
 echo "  ✓ Esquema $SCHEMA_NAME listo con todas las tablas"
 
 # ── 5. Crear API key de demo ──
-# API key conocida para desarrollo: fec_test_DemoKey49DevLocalTest00
+# API key conocida para desarrollo: k49_DemoKey49DevLocalTest0000
 # SHA-256 hash se calcula aquí
-DEMO_RAW_KEY="fec_test_DemoKey49DevLocalTest00"
+DEMO_RAW_KEY="k49_DemoKey49DevLocalTest0000"
 DEMO_HASH=$(echo -n "$DEMO_RAW_KEY" | sha256sum | cut -d' ' -f1)
 echo ""
 echo "▸ [5/6] Creando API key de demo..."
@@ -77,7 +77,7 @@ INSERT INTO api_keys (api_key_id, tenant_id, key_prefix, key_hash, name, permiss
 VALUES (
     'b1b2c3d4-e5f6-7890-abcd-ef1234567890',
     '$TENANT_ID',
-    'fec_test',
+    'k49',
     '$DEMO_HASH',
     'Dev Local Key',
     '*',
@@ -112,7 +112,7 @@ echo "║  Tenant: Empresa Demo S.A.                          ║"
 echo "║  RUC:    1790016919001                               ║"
 echo "║  Schema: tenant_demo                                 ║"
 echo "║                                                      ║"
-echo "║  API Key: fec_test_DemoKey49DevLocalTest00           ║"
+echo "║  API Key: k49_DemoKey49DevLocalTest0000                ║"
 echo "║                                                      ║"
 echo "║  Arrancar la app:                                    ║"
 echo "║    mvn quarkus:dev -pl key49-api                     ║"

@@ -1,0 +1,51 @@
+{#include portal/layout}
+{#title}Webhook{/title}
+{#body}
+<h3>Webhook</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+</article>
+{/if}
+
+<p>Configure un webhook para recibir notificaciones automáticas cuando un documento cambia de estado (autorizado, rechazado, etc.).</p>
+
+<form method="post" action="/portal/settings/webhook">
+    <article>
+        <header><strong>Configuración del webhook</strong></header>
+
+        <label>URL del webhook
+            <input type="url" name="webhookUrl" value="{tenant.webhookUrl ?: ''}"
+                placeholder="https://miapp.com/webhook/key49">
+        </label>
+        <small>Debe usar HTTPS. Key49 enviará un POST con el payload del evento.</small>
+
+        <br><br>
+        <label>Secret (para verificar firma HMAC)
+            <input type="text" name="webhookSecret" value="{tenant.webhookSecret ?: ''}"
+                placeholder="mi-secret-seguro" autocomplete="off">
+        </label>
+        <small>Key49 incluirá el header <code>X-Key49-Signature</code> con un HMAC-SHA256 del cuerpo usando este secret.</small>
+    </article>
+
+    {#if tenant.webhookUrl}
+    <article>
+        <header><strong>Estado actual</strong></header>
+        <p><strong>URL:</strong> <code>{tenant.webhookUrl}</code></p>
+        <p><strong>Secret:</strong> {#if tenant.webhookSecret}Configurado{#else}No configurado{/if}</p>
+        <small>Para desactivar el webhook, borre la URL y guarde.</small>
+    </article>
+    {/if}
+
+    <button type="submit">Guardar configuración</button>
+</form>
+
+{/body}
+{/include}

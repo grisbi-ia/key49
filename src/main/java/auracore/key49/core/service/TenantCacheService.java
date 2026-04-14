@@ -30,7 +30,6 @@ import jakarta.inject.Inject;
  * Si Redis no está disponible, degrada gracefully consultando BD
  * directamente.</p>
  */
-
 @ApplicationScoped
 public class TenantCacheService {
 
@@ -50,9 +49,9 @@ public class TenantCacheService {
     int ttlSeconds;
 
     /**
-     * Busca un tenant por nombre de esquema. Primero consulta el índice
-     * Redis {@code schema → tenant_id}, luego el hash del tenant.
-     * Si falla Redis, consulta BD directamente.
+     * Busca un tenant por nombre de esquema. Primero consulta el índice Redis
+     * {@code schema → tenant_id}, luego el hash del tenant. Si falla Redis,
+     * consulta BD directamente.
      *
      * @param schemaName nombre del esquema PostgreSQL del tenant
      * @return entidad Tenant (sin certificado binario si viene de caché) o null
@@ -131,7 +130,6 @@ public class TenantCacheService {
     }
 
     // ── Redis operations ──
-
     private UUID getSchemaIndex(String schemaName) {
         ValueCommands<String, String> values = redisDS.value(String.class, String.class);
         var tenantId = values.get(SCHEMA_PREFIX + schemaName);
@@ -164,7 +162,6 @@ public class TenantCacheService {
     }
 
     // ── Serialization (sin certificado binario) ──
-
     static Map<String, String> toRedisHash(Tenant t) {
         var map = new java.util.HashMap<String, String>();
         map.put("tenant_id", t.id.toString());
@@ -191,6 +188,18 @@ public class TenantCacheService {
         putIfNotNull(map, "reply_email", t.replyEmail);
         map.put("schema_name", t.schemaName);
         map.put("status", t.status);
+        // SMTP per-tenant
+        putIfNotNull(map, "smtp_host", t.smtpHost);
+        if (t.smtpPort != null) {
+            map.put("smtp_port", t.smtpPort.toString());
+        }
+        putIfNotNull(map, "smtp_user", t.smtpUser);
+        if (t.smtpPasswordEnc != null) {
+            map.put("smtp_password_enc", java.util.Base64.getEncoder().encodeToString(t.smtpPasswordEnc));
+        }
+        putIfNotNull(map, "smtp_from", t.smtpFrom);
+        map.put("smtp_enabled", String.valueOf(t.smtpEnabled));
+        map.put("email_notifications_enabled", String.valueOf(t.emailNotificationsEnabled));
         if (t.createdAt != null) {
             map.put("created_at", t.createdAt.toString());
         }
@@ -225,6 +234,17 @@ public class TenantCacheService {
         t.replyEmail = data.get("reply_email");
         t.schemaName = data.get("schema_name");
         t.status = data.get("status");
+        // SMTP per-tenant
+        t.smtpHost = data.get("smtp_host");
+        var smtpPort = data.get("smtp_port");
+        t.smtpPort = smtpPort != null ? Integer.parseInt(smtpPort) : null;
+        t.smtpUser = data.get("smtp_user");
+        var smtpPwdEnc = data.get("smtp_password_enc");
+        t.smtpPasswordEnc = smtpPwdEnc != null ? java.util.Base64.getDecoder().decode(smtpPwdEnc) : null;
+        t.smtpFrom = data.get("smtp_from");
+        t.smtpEnabled = Boolean.parseBoolean(data.get("smtp_enabled"));
+        t.emailNotificationsEnabled = Boolean.parseBoolean(
+                data.getOrDefault("email_notifications_enabled", "true"));
         var createdAt = data.get("created_at");
         t.createdAt = createdAt != null ? Instant.parse(createdAt) : null;
         var updatedAt = data.get("updated_at");

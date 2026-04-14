@@ -48,7 +48,7 @@ class ApiKeyCacheServiceTest {
     @BeforeAll
     void setup() throws SQLException {
         tenantId = UUID.randomUUID();
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         keyHash = generated.hash();
 
         try (var conn = dataSource.getConnection()) {
@@ -139,7 +139,7 @@ class ApiKeyCacheServiceTest {
     @Order(4)
     @DisplayName("Lookup de key inexistente retorna null")
     void lookupNonExistentKeyShouldReturnNull() {
-        var fakeHash = ApiKeyService.sha256("fec_test_nonexistentkey123456789");
+        var fakeHash = ApiKeyService.sha256("k49_nonexistentkey12345678901");
         var result = cacheService.lookup(fakeHash);
         assertNull(result, "Lookup of non-existent key should return null");
     }

@@ -192,6 +192,9 @@ public class TenantAdminService {
         if (data.status() != null) {
             tenant.status = data.status();
         }
+        if (data.logoUrl() != null) {
+            tenant.logoUrl = data.logoUrl().isBlank() ? null : data.logoUrl();
+        }
         tenant.updatedAt = Instant.now();
 
         Log.infof("Updated tenant | id=%s ruc=%s", id, tenant.ruc);
@@ -423,7 +426,8 @@ public class TenantAdminService {
             Integer rateLimitReadRpm,
             String emailSenderName,
             String replyEmail,
-            String status) {
+            String status,
+            String logoUrl) {
 
     }
 

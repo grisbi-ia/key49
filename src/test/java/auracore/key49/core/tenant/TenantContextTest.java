@@ -52,8 +52,8 @@ class TenantContextTest {
         var ctx = new TenantContext();
         assertNull(ctx.getApiKeyPrefix());
 
-        ctx.setApiKeyPrefix("fec_test_abc123");
-        assertEquals("fec_test_abc123", ctx.getApiKeyPrefix());
+        ctx.setApiKeyPrefix("k49_abc123");
+        assertEquals("k49_abc123", ctx.getApiKeyPrefix());
     }
 
     @Test

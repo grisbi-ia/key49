@@ -525,17 +525,14 @@ Resultado esperado:
 
 ### Paso 1: Elegir el raw key
 
-El formato del API key es: `fec_{environment}_{random}` donde:
+El formato del API key es: `k49_{random_24_chars}` (28 caracteres total).
 
-- `fec_test_` para ambiente de pruebas
-- `fec_live_` para producción
-
-Ejemplo: `fec_test_MiEmpresa2026TestKey001`
+Ejemplo: `k49_MiEmpresa2026TestKey000001`
 
 ### Paso 2: Calcular el hash SHA-256
 
 ```bash
-echo -n "fec_test_MiEmpresa2026TestKey001" | sha256sum | cut -d' ' -f1
+echo -n "k49_MiEmpresa2026TestKey000001" | sha256sum | cut -d' ' -f1
 ```
 
 ### Paso 3: Insertar en la base de datos
@@ -550,7 +547,7 @@ INSERT INTO api_keys (
 ) VALUES (
     gen_random_uuid(),
     'UUID_DEL_TENANT',            -- Reemplazar con el tenant_id obtenido
-    'fec_test',                   -- Prefijo (primeros 8 caracteres)
+      'k49',                   -- Prefijo (primeros 3 caracteres)
     'HASH_SHA256_CALCULADO',      -- Reemplazar con el hash
     'API Key de pruebas',         -- Nombre descriptivo
     '*',                          -- Permisos (por ahora, todos)
@@ -562,7 +559,7 @@ INSERT INTO api_keys (
 
 ```bash
 curl -s http://localhost:8080/v1/tenant/profile \
-  -H "Authorization: Bearer fec_test_MiEmpresa2026TestKey001" | jq .
+  -H "Authorization: Bearer k49_MiEmpresa2026TestKey000001" | jq .
 ```
 
 ---
@@ -582,7 +579,7 @@ Crea automáticamente:
 - Tablas del esquema `public`
 - Tenant demo: `Empresa Demo S.A.` (RUC: `1790016919001`)
 - Esquema: `tenant_demo` con todas las tablas
-- API Key: `fec_test_DemoKey49DevLocalTest00`
+- API Key: `k49_DemoKey49DevLocalTest0000`
 - Bucket MinIO: `key49-documents`
 
 ---
@@ -675,21 +672,21 @@ Respuesta esperada (`status: "UP"`):
 ```bash
 # Con API key del tenant demo
 curl -s http://localhost:8080/v1/tenant/profile \
-  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
 ### 3. Listar facturas (vacío inicialmente)
 
 ```bash
 curl -s http://localhost:8080/v1/invoices \
-  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
 ### 4. Crear una factura de prueba
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/invoices \
-  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: test-$(date +%s)" \
   -d '{
@@ -721,13 +718,13 @@ curl -s -X POST http://localhost:8080/v1/invoices \
 
 ### 5. Portal Web
 
-Abrir `http://localhost:8080/portal/login` en el navegador e ingresar la API key: `fec_test_DemoKey49DevLocalTest00`.
+Abrir `http://localhost:8080/portal/login` en el navegador e ingresar el email y contraseña del tenant demo.
 
 ### 6. Métricas
 
 ```bash
 curl -s http://localhost:8080/v1/metrics/summary \
-  -H "Authorization: Bearer fec_test_DemoKey49DevLocalTest00" | jq .
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
 ---
@@ -1010,7 +1007,7 @@ TZ=America/Guayaquil date +%Y-%m-%d
 
 ```bash
 curl -X POST http://localhost:8080/v1/tenant/certificate \
-  -H "Authorization: Bearer fec_test_..." \
+  -H "Authorization: Bearer k49_..." \
   -F "certificate=@/ruta/al/certificado.p12" \
   -F "password=contraseña_del_certificado"
 ```

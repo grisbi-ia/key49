@@ -84,7 +84,7 @@ Un comprobante electrónico (factura, nota de crédito, retención, etc.) atravi
 
 #### 1. Recepción del request (API)
 
-El integrador envía un `POST /v1/invoices` con el JSON del comprobante y su `Authorization: Bearer fec_test_...`.
+El integrador envía un `POST /v1/invoices` con el JSON del comprobante y su `Authorization: Bearer k49_...`.
 
 1. **ApiKeyAuthFilter** extrae el Bearer token, computa SHA-256 y busca en Redis (caché 300s). Si no está en caché, consulta PostgreSQL.
 2. Se valida que el API key y el tenant estén activos.

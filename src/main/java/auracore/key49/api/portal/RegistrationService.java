@@ -1,5 +1,14 @@
 package auracore.key49.api.portal;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.Map;
+import java.util.UUID;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import auracore.key49.core.model.enums.PlanType;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.ApiKeyManagementService;
@@ -7,7 +16,6 @@ import auracore.key49.core.service.PasswordHasher;
 import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import auracore.key49.core.validation.SriValidator;
-import auracore.key49.notify.webhook.WebhookUrlValidator;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
 import auracore.key49.signer.CertificateMetadataExtractor.CertificateMetadata;
@@ -17,14 +25,7 @@ import io.quarkus.redis.datasource.hash.HashCommands;
 import io.quarkus.redis.datasource.keys.KeyCommands;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.Map;
-import java.util.UUID;
+import jakarta.transaction.Transactional;
 
 /**
  * Servicio de registro de nuevos tenants via wizard del portal.
@@ -80,14 +81,7 @@ public class RegistrationService {
     }
 
     /**
-     * Resultado de validación del paso 3.
-     */
-    public record Step3Result(boolean success, String error) {
-
-    }
-
-    /**
-     * Resultado del registro completo (paso 4).
+     * Resultado del registro completo (paso 3 — confirmación).
      */
     public record RegistrationResult(boolean success, String error, String rawApiKey, UUID tenantId) {
 
@@ -278,116 +272,13 @@ public class RegistrationService {
     }
 
     /**
-     * Valida y almacena la configuración opcional de SMTP y webhook URL en la
-     * sesión de registro en Redis (paso 3).
-     *
-     * <p>
-     * Todos los campos son opcionales. Si se proporciona SMTP, host y puerto
-     * son obligatorios. La contraseña SMTP se cifra con AES-256-GCM. El webhook
-     * URL se valida contra SSRF.</p>
-     *
-     * @param registrationId ID de la sesión de registro
-     * @param smtpHost host SMTP (opcional)
-     * @param smtpPort puerto SMTP (opcional)
-     * @param smtpUser usuario SMTP (opcional)
-     * @param smtpPassword contraseña SMTP (opcional)
-     * @param smtpFromEmail email remitente (opcional)
-     * @param webhookUrl URL de webhook (opcional)
-     * @return resultado indicando éxito o error
-     */
-    public Step3Result saveStep3(String registrationId, String smtpHost, String smtpPort,
-            String smtpUser, String smtpPassword, String smtpFromEmail, String webhookUrl) {
-        // Verificar sesión de registro
-        var regData = getRegistrationData(registrationId);
-        if (regData == null) {
-            return new Step3Result(false, "Sesión de registro expirada. Inicie el registro nuevamente.");
-        }
-
-        var trimmedHost = smtpHost != null ? smtpHost.strip() : "";
-        var trimmedPort = smtpPort != null ? smtpPort.strip() : "";
-        var trimmedUser = smtpUser != null ? smtpUser.strip() : "";
-        var trimmedPassword = smtpPassword != null ? smtpPassword : "";
-        var trimmedFrom = smtpFromEmail != null ? smtpFromEmail.strip().toLowerCase() : "";
-        var trimmedWebhook = webhookUrl != null ? webhookUrl.strip() : "";
-
-        boolean hasSmtp = !trimmedHost.isEmpty() || !trimmedPort.isEmpty()
-                || !trimmedUser.isEmpty() || !trimmedPassword.isEmpty() || !trimmedFrom.isEmpty();
-
-        var fields = new java.util.HashMap<String, String>();
-
-        if (hasSmtp) {
-            // Si se proporcionó algún campo SMTP, host y puerto son obligatorios
-            if (trimmedHost.isEmpty()) {
-                return new Step3Result(false, "El host SMTP es obligatorio si configura email propio");
-            }
-            if (trimmedPort.isEmpty()) {
-                return new Step3Result(false, "El puerto SMTP es obligatorio si configura email propio");
-            }
-            int port;
-            try {
-                port = Integer.parseInt(trimmedPort);
-            } catch (NumberFormatException e) {
-                return new Step3Result(false, "El puerto SMTP debe ser un número válido");
-            }
-            if (port < 1 || port > 65535) {
-                return new Step3Result(false, "El puerto SMTP debe estar entre 1 y 65535");
-            }
-
-            // Validar email remitente si se proporcionó
-            if (!trimmedFrom.isEmpty()
-                    && !trimmedFrom.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-                return new Step3Result(false, "El email remitente no tiene un formato válido");
-            }
-
-            fields.put("smtp_host", trimmedHost);
-            fields.put("smtp_port", String.valueOf(port));
-            if (!trimmedUser.isEmpty()) {
-                fields.put("smtp_user", trimmedUser);
-            }
-            if (!trimmedPassword.isEmpty()) {
-                byte[] masterKey = CertificateEncryptor.decodeMasterKey(masterKeyBase64);
-                byte[] encryptedPassword = CertificateEncryptor.encryptPassword(
-                        trimmedPassword.toCharArray(), masterKey);
-                fields.put("smtp_password_enc", Base64.getEncoder().encodeToString(encryptedPassword));
-            }
-            if (!trimmedFrom.isEmpty()) {
-                fields.put("smtp_from_email", trimmedFrom);
-            }
-            fields.put("smtp_enabled", "true");
-        }
-
-        // Validar webhook URL si se proporcionó
-        if (!trimmedWebhook.isEmpty()) {
-            try {
-                WebhookUrlValidator.validate(trimmedWebhook);
-            } catch (IllegalArgumentException e) {
-                return new Step3Result(false, "URL de webhook inválida: " + e.getMessage());
-            }
-            fields.put("webhook_url", trimmedWebhook);
-        }
-
-        // Guardar en Redis
-        String key = REG_PREFIX + registrationId;
-        HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
-        fields.put("step", "3");
-        hash.hset(key, fields);
-
-        // Renovar TTL
-        KeyCommands<String> keys = redisDS.key(String.class);
-        keys.pexpire(key, REG_TTL.toMillis());
-
-        log.infof("Registration step 3 saved | registrationId=%s smtp=%s webhook=%s",
-                registrationId, hasSmtp, !trimmedWebhook.isEmpty());
-        return new Step3Result(true, null);
-    }
-
-    /**
-     * Completa el registro: crea tenant, sube certificado, configura SMTP,
-     * genera API key y limpia la sesión temporal de Redis.
+     * Completa el registro: crea tenant, sube certificado, genera API key y
+     * limpia la sesión temporal de Redis.
      *
      * @param registrationId ID de la sesión de registro
      * @return resultado con la API key raw (se muestra una sola vez)
      */
+    @Transactional
     public RegistrationResult completeRegistration(String registrationId) {
         var regData = getRegistrationData(registrationId);
         if (regData == null) {
@@ -397,7 +288,7 @@ public class RegistrationService {
 
         // Verificar que se completaron los pasos previos
         var step = regData.getOrDefault("step", "0");
-        if (!"3".equals(step)) {
+        if (!"2".equals(step)) {
             return new RegistrationResult(false,
                     "Debe completar todos los pasos anteriores antes de crear la cuenta.", null, null);
         }
@@ -426,8 +317,8 @@ public class RegistrationService {
                     "Datos del certificado incompletos. Inicie el registro nuevamente.", null, null);
         }
 
-        // Generar schema name seguro
-        var schemaName = "tenant_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        // Generar schema name basado en RUC
+        var schemaName = "tenant_" + ruc;
 
         try {
             // 1. Crear tenant con plan DEMO
@@ -469,43 +360,20 @@ public class RegistrationService {
                 tenant.certificateExpiration = Instant.parse(certExpiresAt);
             }
 
-            // 5. Configurar SMTP si fue proporcionado
-            if ("true".equals(regData.get("smtp_enabled"))) {
-                tenant.smtpHost = regData.get("smtp_host");
-                var portStr = regData.get("smtp_port");
-                if (portStr != null) {
-                    tenant.smtpPort = Integer.parseInt(portStr);
-                }
-                tenant.smtpUser = regData.get("smtp_user");
-                var smtpPwdEnc = regData.get("smtp_password_enc");
-                if (smtpPwdEnc != null) {
-                    tenant.smtpPasswordEnc = Base64.getDecoder().decode(smtpPwdEnc);
-                }
-                tenant.smtpFrom = regData.get("smtp_from_email");
-                tenant.smtpEnabled = true;
-            }
-
-            // 6. Configurar webhook si fue proporcionado
-            var webhookUrl = regData.get("webhook_url");
-            if (webhookUrl != null && !webhookUrl.isBlank()) {
-                tenant.webhookUrl = webhookUrl;
-            }
-
-            // 7. Marcar como pendiente hasta verificar email
+            // 5. Marcar como pendiente hasta verificar email
             tenant.status = "pending";
             tenant.emailVerified = false;
             tenant.updatedAt = Instant.now();
 
-            // 8. Generar API key (no funcionará hasta que el tenant esté activo)
-            var apiKeyEnv = "test".equals(environment.toLowerCase()) ? "test" : "production";
+            // 6. Generar API key (no funcionará hasta que el tenant esté activo)
             var createdKey = apiKeyManagementService.create(tenant.id,
                     new ApiKeyManagementService.CreateApiKeyData(
-                            "Portal - Registro automático", apiKeyEnv, "*", null));
+                            "Portal - Registro automático", "*", null));
 
-            // 9. Enviar email de verificación
+            // 7. Enviar email de verificación
             emailVerificationService.sendVerificationEmail(tenant.id, email, legalName);
 
-            // 10. Limpiar sesión de registro en Redis
+            // 8. Limpiar sesión de registro en Redis
             KeyCommands<String> keys = redisDS.key(String.class);
             keys.del(REG_PREFIX + registrationId);
 

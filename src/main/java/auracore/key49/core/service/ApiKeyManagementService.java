@@ -28,10 +28,7 @@ public class ApiKeyManagementService {
     public CreatedApiKey create(UUID tenantId, CreateApiKeyData data) {
         validateCreateData(data);
 
-        var prefix = "production".equals(data.environment())
-                ? ApiKeyService.PREFIX_LIVE
-                : ApiKeyService.PREFIX_TEST;
-        var generated = ApiKeyService.generate(prefix);
+        var generated = ApiKeyService.generate();
 
         var apiKey = new ApiKey();
         apiKey.tenantId = tenantId;
@@ -88,15 +85,9 @@ public class ApiKeyManagementService {
             throw new ApiKeyException("VALIDATION_ERROR",
                     "name must be max 100 characters", 400);
         }
-        if (data.environment() != null
-                && !"test".equals(data.environment())
-                && !"production".equals(data.environment())) {
-            throw new ApiKeyException("VALIDATION_ERROR",
-                    "environment must be 'test' or 'production'", 400);
-        }
     }
 
-    public record CreateApiKeyData(String name, String environment,
+    public record CreateApiKeyData(String name,
             String permissions, Instant expiresAt) {
 
     }

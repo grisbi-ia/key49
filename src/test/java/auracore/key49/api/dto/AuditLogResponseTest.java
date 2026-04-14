@@ -30,7 +30,7 @@ class AuditLogResponseTest {
         var entry = new AuditLog();
         entry.id = UUID.fromString("00000000-0000-0000-0000-000000000001");
         entry.tenantId = UUID.fromString("00000000-0000-0000-0000-000000000099");
-        entry.actor = "fec_test";
+        entry.actor = "k49";
         entry.action = "document.voided";
         entry.resource = "document";
         entry.resourceId = UUID.fromString("00000000-0000-0000-0000-000000000055");
@@ -52,7 +52,7 @@ class AuditLogResponseTest {
 
             assertEquals(entry.id, response.id());
             assertEquals(entry.tenantId, response.tenantId());
-            assertEquals("fec_test", response.actor());
+            assertEquals("k49", response.actor());
             assertEquals("document.voided", response.action());
             assertEquals("document", response.resource());
             assertEquals(entry.resourceId, response.resourceId());
@@ -112,12 +112,3 @@ class AuditLogResponseTest {
         }
     }
 }
-
-
-                                                                                                                                                                                                                                                                                                                                                                                          
-
-                                                                                                                                                                                                                                                                                                                                                                                          
-
-                                                                                                                                                                                                                                                                                                                                                                                          
-
-                                                                                                                                                                                                                                                                                                                                                                                          

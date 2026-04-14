@@ -29,6 +29,7 @@ import auracore.key49.ride.generator.WaybillRideData;
 import auracore.key49.ride.generator.WaybillRideGenerator;
 import auracore.key49.ride.generator.WithholdingRideData;
 import auracore.key49.ride.generator.WithholdingRideGenerator;
+import auracore.key49.storage.ObjectStorageService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -40,39 +41,60 @@ import jakarta.inject.Inject;
  * datos apropiado según el tipo de documento, luego invoca el generador RIDE
  * correspondiente.
  */
-
 @ApplicationScoped
 public class RideDataMapper {
 
+    private static final org.jboss.logging.Logger log = org.jboss.logging.Logger.getLogger(RideDataMapper.class);
+
     private final ObjectMapper objectMapper;
+    private final ObjectStorageService storageService;
 
     @Inject
-    public RideDataMapper(ObjectMapper objectMapper) {
+    public RideDataMapper(ObjectMapper objectMapper, ObjectStorageService storageService) {
         this.objectMapper = objectMapper;
+        this.storageService = storageService;
     }
 
     /**
      * Genera el RIDE (PDF) para el documento dado.
      *
-     * @param doc    documento autorizado
+     * @param doc documento autorizado
      * @param tenant tenant emisor
      * @return bytes del PDF generado
      */
     public byte[] generateRide(Document doc, Tenant tenant) {
         var docType = DocumentType.fromSriCode(doc.documentType);
+        var logo = loadLogo(tenant);
         return switch (docType) {
-            case INVOICE -> generateInvoiceRide(doc, tenant);
-            case CREDIT_NOTE -> generateCreditNoteRide(doc, tenant);
-            case DEBIT_NOTE -> generateDebitNoteRide(doc, tenant);
-            case WITHHOLDING -> generateWithholdingRide(doc, tenant);
-            case WAYBILL -> generateWaybillRide(doc, tenant);
-            case PURCHASE_CLEARANCE -> generatePurchaseClearanceRide(doc, tenant);
+            case INVOICE ->
+                generateInvoiceRide(doc, tenant, logo);
+            case CREDIT_NOTE ->
+                generateCreditNoteRide(doc, tenant, logo);
+            case DEBIT_NOTE ->
+                generateDebitNoteRide(doc, tenant, logo);
+            case WITHHOLDING ->
+                generateWithholdingRide(doc, tenant, logo);
+            case WAYBILL ->
+                generateWaybillRide(doc, tenant, logo);
+            case PURCHASE_CLEARANCE ->
+                generatePurchaseClearanceRide(doc, tenant, logo);
         };
     }
 
-    // ── Invoice ──
+    private byte[] loadLogo(Tenant tenant) {
+        if (tenant.logoUrl == null || tenant.logoUrl.isBlank()) {
+            return null;
+        }
+        try {
+            return storageService.retrieve(tenant.logoUrl);
+        } catch (Exception e) {
+            log.warnf("Failed to load logo for tenant %s: %s", tenant.ruc, e.getMessage());
+            return null;
+        }
+    }
 
-    private byte[] generateInvoiceRide(Document doc, Tenant tenant) {
+    // ── Invoice ──
+    private byte[] generateInvoiceRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, InvoicePayload.class,
                 new InvoicePayload(List.of(), List.of(), Map.of()));
         var items = buildInvoiceItems(raw.items());
@@ -102,14 +124,13 @@ public class RideDataMapper {
                 doc.currency,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return InvoiceRideGenerator.generate(data);
     }
 
     // ── Credit Note ──
-
-    private byte[] generateCreditNoteRide(Document doc, Tenant tenant) {
+    private byte[] generateCreditNoteRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, CreditNotePayload.class,
                 new CreditNotePayload(null, null, null, null, List.of(), Map.of()));
         var items = buildCreditNoteItems(raw.items());
@@ -139,14 +160,13 @@ public class RideDataMapper {
                 doc.currency,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return CreditNoteRideGenerator.generate(data);
     }
 
     // ── Debit Note ──
-
-    private byte[] generateDebitNoteRide(Document doc, Tenant tenant) {
+    private byte[] generateDebitNoteRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, DebitNotePayload.class,
                 new DebitNotePayload(null, null, null, List.of(), List.of(), List.of(), Map.of()));
 
@@ -181,14 +201,13 @@ public class RideDataMapper {
                 payments,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return DebitNoteRideGenerator.generate(data);
     }
 
     // ── Withholding ──
-
-    private byte[] generateWithholdingRide(Document doc, Tenant tenant) {
+    private byte[] generateWithholdingRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, WithholdingPayload.class,
                 new WithholdingPayload(null, null, false, List.of(), Map.of()));
 
@@ -219,14 +238,13 @@ public class RideDataMapper {
                 totalRetained,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return WithholdingRideGenerator.generate(data);
     }
 
     // ── Waybill ──
-
-    private byte[] generateWaybillRide(Document doc, Tenant tenant) {
+    private byte[] generateWaybillRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, WaybillPayload.class,
                 new WaybillPayload(null, null, null, null, null, List.of(), Map.of()));
 
@@ -255,14 +273,13 @@ public class RideDataMapper {
                 addressees,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return WaybillRideGenerator.generate(data);
     }
 
     // ── Purchase Clearance ──
-
-    private byte[] generatePurchaseClearanceRide(Document doc, Tenant tenant) {
+    private byte[] generatePurchaseClearanceRide(Document doc, Tenant tenant, byte[] logo) {
         var raw = parsePayload(doc.requestPayload, PurchaseClearancePayload.class,
                 new PurchaseClearancePayload(List.of(), List.of(), Map.of()));
         var items = buildPurchaseClearanceItems(raw.items());
@@ -294,13 +311,12 @@ public class RideDataMapper {
                 doc.currency,
                 raw.additionalInfo() != null ? raw.additionalInfo() : Map.of(),
                 doc.status == DocumentStatus.AUTHORIZED,
-                null
+                logo
         );
         return PurchaseClearanceRideGenerator.generate(data);
     }
 
     // ── Shared helpers ──
-
     private RideData.Issuer buildIssuer(Tenant tenant) {
         return new RideData.Issuer(
                 tenant.ruc,
@@ -336,7 +352,6 @@ public class RideDataMapper {
     }
 
     // ── Invoice items & taxes ──
-
     private List<RideData.Item> buildInvoiceItems(List<RawItem> rawItems) {
         if (rawItems == null || rawItems.isEmpty()) {
             return List.of();
@@ -366,13 +381,12 @@ public class RideDataMapper {
         }
         return map.values().stream()
                 .map(a -> new RideData.TotalTax(a.taxCode, a.rateCode,
-                        a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
-                        a.amount.setScale(2, RoundingMode.HALF_UP)))
+                a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
+                a.amount.setScale(2, RoundingMode.HALF_UP)))
                 .toList();
     }
 
     // ── Credit Note items ──
-
     private List<CreditNoteRideData.Item> buildCreditNoteItems(List<RawCreditNoteItem> rawItems) {
         if (rawItems == null || rawItems.isEmpty()) {
             return List.of();
@@ -400,13 +414,12 @@ public class RideDataMapper {
         }
         return map.values().stream()
                 .map(a -> new RideData.TotalTax(a.taxCode, a.rateCode,
-                        a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
-                        a.amount.setScale(2, RoundingMode.HALF_UP)))
+                a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
+                a.amount.setScale(2, RoundingMode.HALF_UP)))
                 .toList();
     }
 
     // ── Debit Note taxes ──
-
     private List<RideData.TotalTax> buildDebitNoteTaxes(Document doc, List<RawTax> rawTaxes) {
         if (rawTaxes == null || rawTaxes.isEmpty()) {
             return List.of();
@@ -421,7 +434,6 @@ public class RideDataMapper {
     }
 
     // ── Purchase Clearance items ──
-
     private List<PurchaseClearanceRideData.Item> buildPurchaseClearanceItems(List<RawItem> rawItems) {
         if (rawItems == null || rawItems.isEmpty()) {
             return List.of();
@@ -451,13 +463,12 @@ public class RideDataMapper {
         }
         return map.values().stream()
                 .map(a -> new RideData.TotalTax(a.taxCode, a.rateCode,
-                        a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
-                        a.amount.setScale(2, RoundingMode.HALF_UP)))
+                a.base.setScale(2, RoundingMode.HALF_UP), a.rate,
+                a.amount.setScale(2, RoundingMode.HALF_UP)))
                 .toList();
     }
 
     // ── Shared tax builder ──
-
     private List<RideData.Tax> buildTaxes(List<RawTax> rawTaxes, BigDecimal taxableBase) {
         if (rawTaxes == null || rawTaxes.isEmpty()) {
             return List.of();
@@ -473,7 +484,6 @@ public class RideDataMapper {
     }
 
     // ── Shared payment builder ──
-
     private List<RideData.Payment> buildPayments(List<RawPayment> rawPayments) {
         if (rawPayments == null || rawPayments.isEmpty()) {
             return List.of();
@@ -484,14 +494,13 @@ public class RideDataMapper {
     }
 
     // ── Withholding helpers ──
-
     private WithholdingRideData.SupportingDocumentSummary mapWithholdingSupportDoc(
             PayloadSupportingDocument sd) {
         var withholdings = sd.withholdings() != null
                 ? sd.withholdings().stream()
                         .map(w -> new WithholdingRideData.WithholdingLineSummary(
-                                w.code(), w.retentionCode(), w.taxableBase(),
-                                w.retentionRate(), w.retainedAmount()))
+                        w.code(), w.retentionCode(), w.taxableBase(),
+                        w.retentionRate(), w.retainedAmount()))
                         .toList()
                 : List.<WithholdingRideData.WithholdingLineSummary>of();
 
@@ -509,12 +518,11 @@ public class RideDataMapper {
     }
 
     // ── Waybill helpers ──
-
     private WaybillRideData.AddresseeSummary mapWaybillAddressee(PayloadAddressee addr) {
         var items = addr.items() != null
                 ? addr.items().stream()
                         .map(i -> new WaybillRideData.ItemSummary(
-                                i.mainCode(), i.description(), i.quantity()))
+                        i.mainCode(), i.description(), i.quantity()))
                         .toList()
                 : List.<WaybillRideData.ItemSummary>of();
 
@@ -524,7 +532,6 @@ public class RideDataMapper {
     }
 
     // ── JSON parsing ──
-
     private <T> T parsePayload(String requestPayload, Class<T> type, T fallback) {
         if (requestPayload == null || requestPayload.isBlank()) {
             return fallback;
@@ -537,11 +544,11 @@ public class RideDataMapper {
     }
 
     // ── Payload records (snake_case by Jackson global config) ──
-
     record InvoicePayload(
             List<RawItem> items,
             List<RawPayment> payments,
             Map<String, String> additionalInfo) {
+
     }
 
     record CreditNotePayload(
@@ -551,6 +558,7 @@ public class RideDataMapper {
             String reason,
             List<RawCreditNoteItem> items,
             Map<String, String> additionalInfo) {
+
     }
 
     record DebitNotePayload(
@@ -561,6 +569,7 @@ public class RideDataMapper {
             List<RawTax> taxes,
             List<RawPayment> payments,
             Map<String, String> additionalInfo) {
+
     }
 
     record WithholdingPayload(
@@ -569,6 +578,7 @@ public class RideDataMapper {
             boolean relatedParty,
             List<PayloadSupportingDocument> supportingDocuments,
             Map<String, String> additionalInfo) {
+
     }
 
     record WaybillPayload(
@@ -579,38 +589,45 @@ public class RideDataMapper {
             String licensePlate,
             List<PayloadAddressee> addressees,
             Map<String, String> additionalInfo) {
+
     }
 
     record PurchaseClearancePayload(
             List<RawItem> items,
             List<RawPayment> payments,
             Map<String, String> additionalInfo) {
+
     }
 
     // ── Shared raw records ──
-
     record RawItem(
             String mainCode, String auxiliaryCode, String description,
             String unitOfMeasure, BigDecimal quantity, BigDecimal unitPrice,
             BigDecimal discount, List<RawTax> taxes) {
+
     }
 
     record RawCreditNoteItem(
             String internalCode, String additionalCode, String description,
             BigDecimal quantity, BigDecimal unitPrice, BigDecimal discount,
             List<RawTax> taxes) {
+
     }
 
     record RawTax(String code, String rateCode, BigDecimal rate) {
+
     }
 
     record RawPayment(String paymentMethod, BigDecimal total, Integer term, String timeUnit) {
+
     }
 
     record PayloadReason(String description, BigDecimal amount) {
+
     }
 
     record PayloadSubject(String idType, String id, String name, String subjectType) {
+
     }
 
     record PayloadSupportingDocument(
@@ -619,32 +636,38 @@ public class RideDataMapper {
             BigDecimal totalWithoutTax, BigDecimal totalAmount,
             List<PayloadWithholdingLine> withholdings,
             List<PayloadWhPayment> payments) {
+
     }
 
     record PayloadWithholdingLine(
             String code, String retentionCode,
             BigDecimal taxableBase, BigDecimal retentionRate,
             BigDecimal retainedAmount) {
+
     }
 
     record PayloadWhPayment(String paymentMethod, BigDecimal total) {
+
     }
 
     record PayloadCarrier(String idType, String id, String name) {
+
     }
 
     record PayloadAddressee(
             String id, String name, String address, String transferReason,
             String supportDocumentNumber,
             List<PayloadAddresseeItem> items) {
+
     }
 
     record PayloadAddresseeItem(String mainCode, String description, BigDecimal quantity) {
+
     }
 
     // ── Tax accumulator ──
-
     private static class TaxAccumulator {
+
         final String taxCode;
         final String rateCode;
         final BigDecimal rate;

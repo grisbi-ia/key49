@@ -38,7 +38,7 @@ class SystemStatusEndToEndTest {
     @BeforeAll
     void setup() throws Exception {
         tenantId = UUID.randomUUID();
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         rawApiKey = generated.rawKey();
 
         try (var conn = dataSource.getConnection()) {

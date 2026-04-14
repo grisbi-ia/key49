@@ -1,0 +1,89 @@
+{#include portal/layout}
+{#title}Configuración SMTP{/title}
+{#body}
+<h3>Configuración SMTP</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Éxito" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #2ecc40; margin: 0;"><strong>{successMsg}</strong></p>
+</article>
+{/if}
+
+<p>Configure su servidor SMTP para enviar las notificaciones de comprobantes electrónicos directamente desde su dominio.</p>
+
+<form method="post" action="/portal/settings/smtp">
+    <article>
+        <header><strong>Servidor SMTP</strong></header>
+
+        <div class="grid">
+            <div>
+                <label>Host SMTP
+                    <input type="text" name="smtpHost" value="{tenant.smtpHost ?: ''}"
+                        placeholder="smtp.gmail.com">
+                </label>
+            </div>
+            <div>
+                <label>Puerto
+                    <input type="number" name="smtpPort" value="{tenant.smtpPort ?: ''}"
+                        placeholder="587" min="1" max="65535">
+                </label>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div>
+                <label>Usuario SMTP
+                    <input type="text" name="smtpUser" value="{tenant.smtpUser ?: ''}"
+                        placeholder="usuario@miempresa.com">
+                </label>
+            </div>
+            <div>
+                <label>Contraseña SMTP
+                    <input type="password" name="smtpPassword"
+                        placeholder="{#if tenant.smtpHost}••••••••{#else}Contraseña{/if}">
+                </label>
+                {#if tenant.smtpHost}
+                <small>Deje en blanco para mantener la contraseña actual.</small>
+                {/if}
+            </div>
+        </div>
+
+        <label>Email remitente (From)
+            <input type="email" name="smtpFrom" value="{tenant.smtpFrom ?: ''}"
+                placeholder="facturacion@miempresa.com">
+        </label>
+    </article>
+
+    <article>
+        <header><strong>Opciones</strong></header>
+        <label>
+            <input type="checkbox" name="smtpEnabled" {#if tenant.smtpEnabled}checked{/if}>
+            Habilitar SMTP personalizado
+        </label>
+        <small>Si no se habilita, se usará el servidor de correo predeterminado de Key49.</small>
+        <br><br>
+        <label>
+            <input type="checkbox" name="emailNotificationsEnabled" {#if tenant.emailNotificationsEnabled}checked{/if}>
+            Enviar notificaciones por email al autorizar documentos
+        </label>
+    </article>
+
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit">Guardar configuración</button>
+    </div>
+</form>
+
+{#if tenant.smtpHost}
+<form method="post" action="/portal/settings/smtp/test" style="margin-top: 1rem;">
+    <button type="submit" class="outline secondary">Probar conexión SMTP</button>
+</form>
+{/if}
+
+{/body}
+{/include}

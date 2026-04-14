@@ -325,7 +325,7 @@ La función tiene las siguientes protecciones:
 
 ```bash
 # 1. Definir la key raw
-RAW_KEY="fec_test_MiEmpresaApiKey2026Prod01"
+RAW_KEY="k49_MiEmpresaApiKey2026Prod001"
 
 # 2. Calcular el hash SHA-256
 HASH=$(echo -n "$RAW_KEY" | sha256sum | cut -d' ' -f1)
@@ -385,7 +385,7 @@ WHERE tenant_id = (SELECT tenant_id FROM tenants WHERE ruc = '0991234567001')
 
 ```bash
 # Calcular hash de la key a verificar
-RAW_KEY="fec_test_DemoKey49DevLocalTest00"
+RAW_KEY="k49_DemoKey49DevLocalTest0000"
 HASH=$(echo -n "$RAW_KEY" | sha256sum | cut -d' ' -f1)
 
 psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME \

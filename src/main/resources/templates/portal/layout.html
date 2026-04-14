@@ -133,6 +133,18 @@
             <li><a href="/portal/">Documentos</a></li>
             <li><a href="/portal/plan">Mi Plan</a></li>
             <li><a href="/portal/metrics">Métricas</a></li>
+            <li>
+                <details class="dropdown">
+                    <summary>Configuración</summary>
+                    <ul dir="rtl">
+                        <li><a href="/portal/settings/profile">Perfil de empresa</a></li>
+                        <li><a href="/portal/settings/certificate">Certificado digital</a></li>
+                        <li><a href="/portal/settings/smtp">Correo SMTP</a></li>
+                        <li><a href="/portal/settings/webhook">Webhook</a></li>
+                        <li><a href="/portal/settings/delete" style="color: #ff4136;">Eliminar cuenta</a></li>
+                    </ul>
+                </details>
+            </li>
         </ul>
         <ul>
             {#if session?? && session.legalName}

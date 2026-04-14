@@ -5,6 +5,68 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.28.0] - 2026-04-13
+
+### Cambiado
+
+- **Email SMTP: migración de Vert.x MailClient a Jakarta Mail** (T-109)
+  - `SmtpClientFactory`: reescrito completamente — cachea `jakarta.mail.Session` (record `TenantSmtpSession`) en vez de `MailClient` de Vert.x. Eliminada dependencia de `Vertx`. Timeouts explícitos: connection=10s, read=30s, write=10s
+  - `EmailService.sendViaTenantSmtp()`: usa `MimeMessage` + `MimeMultipart` + `Transport.send()` sincrónico. Eliminados imports de Vert.x (`MailMessage`, `MailClient`, `MailAttachment`, `Buffer`)
+  - `TenantAdminResource.sendTestEmail()`: migrado a Jakarta Mail, eliminada inyección de `Vertx`
+  - **Motivo**: Vert.x MailClient nunca completaba conexiones SSL (puerto 465) en worker threads de SmallRye — se bloqueaba 60s+ por deadlock interno con el event loop
+  - Dependencia `angus-mail` agregada al POM (versión gestionada por Quarkus BOM 2.0.5)
+
+- **API Key: prefijo unificado `k49_`**
+  - `ApiKeyService`: eliminados prefijos `fec_test_`/`fec_live_`, reemplazados por `k49_`
+  - `CreateApiKeyRequest`: eliminado campo `environment` del DTO
+  - `ApiKeyManagementService`: eliminada validación de environment (test/production)
+
+- **Wizard de registro: simplificado de 4 pasos a 3**
+  - Eliminado paso 3 (configuración SMTP + webhook) — se pospone al portal post-registro
+  - Paso 3 ahora es confirmación (resumen empresa + certificado + plan)
+  - Schema del tenant generado como `tenant_<ruc>` (antes `tenant_<uuid>`)
+  - Eliminado template `register-step4.html` (-193 líneas)
+  - `RegistrationService`: eliminados `Step3Result`, `saveStep3()` (~100 líneas removidas)
+  - `PortalResource`: eliminados endpoints de SMTP en registro y paso 4
+
+- **Login: simplificado a solo email + contraseña**
+  - Eliminadas pestañas "Email y Contraseña" / "API Key" con JavaScript
+  - Formulario directo de email + password
+
+### Agregado
+
+- **Portal Settings: páginas de configuración post-registro**
+  - `PortalSettingsResource`: nuevo controlador para settings del tenant
+  - Templates: `settings-profile.html`, `settings-certificate.html`, `settings-smtp.html`, `settings-webhook.html`, `settings-delete.html`
+
+- **Logo en RIDE (PDF)**
+  - `RideDataMapper`: inyecta `ObjectStorageService`, descarga logo del tenant desde MinIO
+  - Logo se pasa a todos los generadores RIDE (Invoice, CreditNote, DebitNote, Withholding, Waybill, PurchaseClearance) — antes se pasaba `null`
+  - `TenantAdminService.UpdateTenantData`: nuevo campo `logoUrl` para persistir URL del logo
+
+- **Handler 404 JSON en API**
+  - `CatchAllExceptionMapper`: nuevo handler `NotFoundException` retorna JSON `{"error":{"code":"NOT_FOUND","message":"Resource not found"}}` con status 404 (antes devolvía HTML de Quarkus)
+
+### Corregido
+
+- **Webhook: NPE cuando no hay secreto configurado**
+  - `WebhookDispatcher`: header `X-Webhook-Signature` ahora solo se agrega si `webhookSecret` no es null/blank
+
+- **Caché SMTP en Redis**
+  - `TenantCacheService`: campos SMTP (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password_enc`, `smtp_from`, `smtp_enabled`, `email_notifications_enabled`) ahora se serializan/deserializan correctamente en Redis. Antes un tenant cacheado perdía su configuración SMTP
+
+- **OutboxPoller: shutdown limpio**
+  - Nuevo flag `shutdownRequested` + listener `@Observes ShutdownEvent`. El scheduler ya no ejecuta queries después del shutdown de DataSource
+
+- **Estandarización de fuente en portal**
+  - Todas las páginas standalone (login, wizard, forgot-password, reset-password, register-success, verify-result) usan `--pico-font-size: 15px` (variable oficial de Pico CSS), consistente con `layout.html` del portal
+
+- **Tests adaptados**: 2285 tests, 0 failures, 0 errors
+  - `RegistrationServiceTest`: eliminados tests de `saveStep3` (SMTP/webhook en registro)
+  - `ApiKeyServiceTest`, `ApiKeyManagementServiceTest`: adaptados a prefijo `k49_`
+  - `PortalEndToEndTest`: login busca campo `email` (antes `api_key`)
+  - `ApiKeyDtoTest`: eliminada validación de `environment`
+
 ## [0.27.12] - 2026-04-12
 
 ### Corregido

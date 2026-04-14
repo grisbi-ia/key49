@@ -48,7 +48,7 @@ class ApiKeyEndToEndTest {
     @BeforeAll
     void setupTenantAndApiKey() throws SQLException {
         tenantId = UUID.randomUUID();
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         rawApiKey = generated.rawKey();
 
         try (var conn = dataSource.getConnection()) {
@@ -89,8 +89,7 @@ class ApiKeyEndToEndTest {
     void create_returnsNewKeyWithRawKey() {
         var body = """
                 {
-                  "name": "ERP Integration Key",
-                  "environment": "test"
+                  "name": "ERP Integration Key"
                 }
                 """;
 
@@ -103,9 +102,9 @@ class ApiKeyEndToEndTest {
                 .statusCode(201)
                 .body("data.id", notNullValue())
                 .body("data.name", equalTo("ERP Integration Key"))
-                .body("data.key_prefix", equalTo("fec_test"))
+                .body("data.key_prefix", equalTo("k49"))
                 .body("data.raw_key", notNullValue())
-                .body("data.raw_key", startsWith("fec_test_"))
+                .body("data.raw_key", startsWith("k49_"))
                 .body("data.status", equalTo("active"))
                 .body("data.permissions", equalTo("*"))
                 .body("meta.request_id", notNullValue())
@@ -118,7 +117,6 @@ class ApiKeyEndToEndTest {
         var body = """
                 {
                   "name": "Limited Key",
-                  "environment": "test",
                   "permissions": "invoices:read",
                   "expires_at": "2027-12-31T23:59:59Z"
                 }
@@ -133,7 +131,7 @@ class ApiKeyEndToEndTest {
                 .statusCode(201)
                 .body("data.permissions", equalTo("invoices:read"))
                 .body("data.expires_at", notNullValue())
-                .body("data.raw_key", startsWith("fec_test_"));
+                .body("data.raw_key", startsWith("k49_"));
     }
 
     @Test
@@ -143,26 +141,6 @@ class ApiKeyEndToEndTest {
                 .header("Authorization", "Bearer " + rawApiKey)
                 .contentType(ContentType.JSON)
                 .body("{}")
-                .when().post("/v1/tenant/api-keys")
-                .then()
-                .statusCode(400)
-                .body("error.code", equalTo("VALIDATION_ERROR"));
-    }
-
-    @Test
-    @Order(4)
-    void create_invalidEnvironment_returns400() {
-        var body = """
-                {
-                  "name": "Bad Key",
-                  "environment": "staging"
-                }
-                """;
-
-        RestAssured.given()
-                .header("Authorization", "Bearer " + rawApiKey)
-                .contentType(ContentType.JSON)
-                .body(body)
                 .when().post("/v1/tenant/api-keys")
                 .then()
                 .statusCode(400)

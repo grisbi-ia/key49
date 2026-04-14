@@ -10,7 +10,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CreateApiKeyRequest(
         String name,
-        String environment,
         String permissions,
         Instant expiresAt) {
 

@@ -160,7 +160,7 @@ class TenantProfileResourceTest {
                     req.microEnterpriseRegime(), req.withholdingAgent(),
                     req.environment(), req.webhookUrl(), req.webhookSecret(),
                     null, null, null, req.emailSenderName(),
-                    req.replyEmail(), null);
+                    req.replyEmail(), null, null);
 
             assertEquals("Legal", data.legalName());
             assertEquals("Trade", data.tradeName());

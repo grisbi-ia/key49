@@ -21,7 +21,6 @@ import auracore.key49.core.model.ApiKey;
 /**
  * Tests unitarios para los DTOs de gestión de API keys.
  */
-
 class ApiKeyDtoTest {
 
     private final ObjectMapper mapper = new ObjectMapper()
@@ -29,12 +28,11 @@ class ApiKeyDtoTest {
             .registerModule(new JavaTimeModule());
 
     // ── Helpers ──
-
     private ApiKey createTestApiKey() {
         var key = new ApiKey();
         key.id = UUID.randomUUID();
         key.tenantId = UUID.randomUUID();
-        key.keyPrefix = "fec_test";
+        key.keyPrefix = "k49";
         key.keyHash = "abc123def456";
         key.name = "ERP Production Key";
         key.permissions = "*";
@@ -44,7 +42,6 @@ class ApiKeyDtoTest {
     }
 
     // ── CreateApiKeyRequest ──
-
     @Nested
     @DisplayName("CreateApiKeyRequest")
     class CreateRequest {
@@ -55,7 +52,6 @@ class ApiKeyDtoTest {
             var json = """
                     {
                       "name": "ERP Key",
-                      "environment": "production",
                       "permissions": "invoices:*",
                       "expires_at": "2027-04-01T00:00:00Z"
                     }
@@ -63,7 +59,6 @@ class ApiKeyDtoTest {
 
             var request = mapper.readValue(json, CreateApiKeyRequest.class);
             assertEquals("ERP Key", request.name());
-            assertEquals("production", request.environment());
             assertEquals("invoices:*", request.permissions());
             assertEquals(Instant.parse("2027-04-01T00:00:00Z"), request.expiresAt());
         }
@@ -79,14 +74,12 @@ class ApiKeyDtoTest {
 
             var request = mapper.readValue(json, CreateApiKeyRequest.class);
             assertEquals("Test Key", request.name());
-            assertNull(request.environment());
             assertNull(request.permissions());
             assertNull(request.expiresAt());
         }
     }
 
     // ── ApiKeyResponse.fromEntity ──
-
     @Nested
     @DisplayName("ApiKeyResponse.fromEntity")
     class FromEntity {
@@ -98,7 +91,7 @@ class ApiKeyDtoTest {
             var response = ApiKeyResponse.fromEntity(key);
 
             assertEquals(key.id, response.id());
-            assertEquals("fec_test", response.keyPrefix());
+            assertEquals("k49", response.keyPrefix());
             assertEquals("ERP Production Key", response.name());
             assertEquals("*", response.permissions());
             assertEquals("active", response.status());
@@ -129,7 +122,6 @@ class ApiKeyDtoTest {
     }
 
     // ── ApiKeyResponse.fromCreated ──
-
     @Nested
     @DisplayName("ApiKeyResponse.fromCreated")
     class FromCreated {
@@ -138,7 +130,7 @@ class ApiKeyDtoTest {
         @DisplayName("incluye rawKey en la respuesta de creación")
         void includesRawKey() {
             var key = createTestApiKey();
-            var rawKey = "fec_test_ABCDEFGHIJKLMNOPqrstuvwx";
+            var rawKey = "k49_ABCDEFGHIJKLMNOPqrstuvwx";
 
             var response = ApiKeyResponse.fromCreated(key, rawKey);
             assertNotNull(response.rawKey());
@@ -148,7 +140,6 @@ class ApiKeyDtoTest {
     }
 
     // ── Serialización JSON ──
-
     @Nested
     @DisplayName("Serialización JSON")
     class Serialization {
@@ -160,7 +151,7 @@ class ApiKeyDtoTest {
             var response = ApiKeyResponse.fromEntity(key);
 
             var json = mapper.writeValueAsString(response);
-            assertTrue(json.contains("\"key_prefix\":\"fec_test\""));
+            assertTrue(json.contains("\"key_prefix\":\"k49\""));
             assertTrue(json.contains("\"status\":\"active\""));
             assertFalse(json.contains("\"raw_key\""), "rawKey null no debe serializarse");
         }
@@ -169,10 +160,10 @@ class ApiKeyDtoTest {
         @DisplayName("serializa rawKey en creación")
         void serializesRawKeyOnCreation() throws Exception {
             var key = createTestApiKey();
-            var response = ApiKeyResponse.fromCreated(key, "fec_test_ABCDEF");
+            var response = ApiKeyResponse.fromCreated(key, "k49_ABCDEF");
 
             var json = mapper.writeValueAsString(response);
-            assertTrue(json.contains("\"raw_key\":\"fec_test_ABCDEF\""));
+            assertTrue(json.contains("\"raw_key\":\"k49_ABCDEF\""));
         }
 
         @Test

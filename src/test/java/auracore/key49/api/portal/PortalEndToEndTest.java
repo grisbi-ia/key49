@@ -42,7 +42,7 @@ class PortalEndToEndTest {
     @BeforeAll
     void setup() throws SQLException {
         tenantId = UUID.randomUUID();
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         rawApiKey = generated.rawKey();
 
         try (var conn = dataSource.getConnection()) {
@@ -238,7 +238,7 @@ class PortalEndToEndTest {
                 .statusCode(200)
                 .contentType(containsString("text/html"))
                 .body(containsString("Key49"))
-                .body(containsString("api_key"));
+                .body(containsString("email"));
     }
 
     @Test
@@ -246,7 +246,7 @@ class PortalEndToEndTest {
     void shouldRejectInvalidApiKey() {
         RestAssured.given()
                 .redirects().follow(false)
-                .formParam("api_key", "fec_test_invalid_key_123456")
+                .formParam("api_key", "k49_invalid_key_1234567890123")
                 .when()
                 .post("/portal/login")
                 .then()

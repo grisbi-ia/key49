@@ -181,7 +181,7 @@ Cada tenant (cliente de la API) tiene:
 - **Firma digital**: Apache Santuario + BouncyCastle
 - **Cliente SOAP**: Apache CXF / Jakarta XML WS
 - **PDF**: OpenPDF o Apache FOP
-- **Email**: Quarkus Mailer + Qute templates
+- **Email**: Jakarta Mail (Angus Mail) + Qute templates
 - **Infraestructura**: DokPloy + Traefik (Debian)
 - **Monitoreo**: Micrometer + Prometheus + Grafana
 

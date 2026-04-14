@@ -20,7 +20,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
-
+import auracore.key49.storage.ObjectStorageService;
 
 class RideDataMapperTest {
 
@@ -31,7 +31,7 @@ class RideDataMapperTest {
         var objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
-        mapper = new RideDataMapper(objectMapper);
+        mapper = new RideDataMapper(objectMapper, new ObjectStorageService());
     }
 
     @Nested
@@ -280,7 +280,6 @@ class RideDataMapperTest {
     }
 
     // ── Helpers ──
-
     private Document createInvoiceDocument() {
         return createDocument("01");
     }

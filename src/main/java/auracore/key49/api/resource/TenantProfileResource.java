@@ -84,7 +84,7 @@ public class TenantProfileResource {
                 request.microEnterpriseRegime(), request.withholdingAgent(),
                 request.environment(), request.webhookUrl(), request.webhookSecret(),
                 null, null, null, request.emailSenderName(),
-                request.replyEmail(), null);
+                request.replyEmail(), null, null);
 
         var tenant = tenantService.update(tenantId, data);
 

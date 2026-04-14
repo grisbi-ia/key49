@@ -74,9 +74,9 @@ class AuditLogAdminResourceTest {
         }
 
         // Insert audit entries via AuditService
-        auditService.record(tenantIdA, "fec_test", "document.voided", "document",
+        auditService.record(tenantIdA, "k49", "document.voided", "document",
                 UUID.randomUUID(), "10.0.0.1", "{\"reason\":\"error\"}");
-        auditService.record(tenantIdA, "fec_test", "api_key.created", "api_key",
+        auditService.record(tenantIdA, "k49", "api_key.created", "api_key",
                 UUID.randomUUID(), "10.0.0.2", "{\"name\":\"ERP Key\"}");
         auditService.record(tenantIdB, "admin", "tenant.created", "tenant",
                 tenantIdB, "192.168.1.1", "{\"ruc\":\"1790000000002\"}");
@@ -206,7 +206,7 @@ class AuditLogAdminResourceTest {
                 .then()
                 .statusCode(200)
                 .body("data", hasSize(1))
-                .body("data[0].actor", equalTo("fec_test"))
+                .body("data[0].actor", equalTo("k49"))
                 .body("data[0].resource", equalTo("api_key"));
     }
 }

@@ -4,10 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Registro — SMTP y Webhook — Key49</title>
+    <title>Registro — Confirmación — Key49</title>
     <link rel="stylesheet" href="/css/pico.min.css">
-    <script src="/js/htmx.min.js"></script>
     <style>
+        :root {
+            --pico-font-size: 15px;
+        }
+
         body {
             display: flex;
             align-items: center;
@@ -16,36 +19,49 @@
         }
 
         .register-card {
-            max-width: 520px;
+            max-width: 540px;
             width: 100%;
         }
 
         .register-card h2 {
             text-align: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
         }
 
         .register-card .subtitle {
             text-align: center;
             color: var(--pico-muted-color);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        @media (max-width: 600px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .steps {
             display: flex;
             justify-content: center;
             gap: 0.5rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
         }
 
         .steps .step {
-            width: 2rem;
-            height: 2rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: 600;
             border: 2px solid var(--pico-muted-border-color);
             color: var(--pico-muted-color);
@@ -64,40 +80,58 @@
         }
 
         .steps .step-line {
-            width: 2rem;
+            width: 1.5rem;
             height: 2px;
             background: var(--pico-muted-border-color);
             align-self: center;
         }
 
-        .optional-note {
+        .summary-section {
             background: var(--pico-card-background-color);
             border: 1px solid var(--pico-muted-border-color);
             border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-            color: var(--pico-muted-color);
+            padding: 0.6rem 0.75rem;
+            margin-bottom: 0;
         }
 
-        .section-label {
+        .summary-section h4 {
+            margin-top: 0;
+            margin-bottom: 0.4rem;
+            font-size: 0.95rem;
+        }
+
+        .summary-section dl {
+            margin: 0;
+        }
+
+        .summary-section dt {
             font-weight: 600;
-            margin-bottom: 0.5rem;
-            margin-top: 1rem;
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
         }
 
-        #smtp-test-result {
-            font-size: 0.85rem;
-            min-height: 1.5em;
-            margin-top: 0.5rem;
+        .summary-section dd {
+            margin-left: 0;
+            color: var(--pico-muted-color);
+            font-size: 0.8rem;
+            overflow-wrap: break-word;
+            word-break: break-all;
         }
 
-        #smtp-test-result.success {
-            color: #2ecc40;
+        .plan-banner {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 0.25rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
         }
 
-        #smtp-test-result.error {
-            color: var(--pico-del-color);
+        .plan-banner strong {
+            color: var(--pico-primary);
         }
     </style>
 </head>
@@ -105,7 +139,7 @@
 <body>
     <article class="register-card">
         <h2>Key49</h2>
-        <p class="subtitle">Configuración de email y webhook</p>
+        <p class="subtitle">Confirme su registro</p>
 
         <div class="steps">
             <span class="step done">✓</span>
@@ -113,8 +147,6 @@
             <span class="step done">✓</span>
             <span class="step-line"></span>
             <span class="step active">3</span>
-            <span class="step-line"></span>
-            <span class="step">4</span>
         </div>
 
         {#if error}
@@ -123,76 +155,46 @@
         </p>
         {/if}
 
-        <div class="optional-note">
-            <strong>Este paso es opcional.</strong> Si no configura un servidor SMTP propio,
-            se usará el servicio de email de Key49 para enviar los comprobantes electrónicos.
-        </div>
-
-        <form method="post" action="/portal/register/step3" id="step3-form">
-
-            <p class="section-label">Servidor SMTP propio (opcional)</p>
-
-            <div style="display: flex; gap: 1rem;">
-                <div style="flex: 2;">
-                    <label for="smtpHost">Host SMTP</label>
-                    <input type="text" id="smtpHost" name="smtpHost"
-                           placeholder="smtp.ejemplo.com"
-                           value="{smtpHost ?: ''}"
-                           autocomplete="off">
-                </div>
-                <div style="flex: 1;">
-                    <label for="smtpPort">Puerto</label>
-                    <input type="number" id="smtpPort" name="smtpPort"
-                           placeholder="587" min="1" max="65535"
-                           value="{smtpPort ?: ''}"
-                           autocomplete="off">
-                </div>
+        <div class="summary-grid">
+            <div class="summary-section">
+                <h4>Empresa</h4>
+                <dl>
+                    <dt>RUC</dt>
+                    <dd>{ruc}</dd>
+                    <dt>Razón Social</dt>
+                    <dd>{legalName}</dd>
+                    <dt>Email</dt>
+                    <dd>{email}</dd>
+                </dl>
             </div>
 
-            <label for="smtpUser">Usuario SMTP</label>
-            <input type="text" id="smtpUser" name="smtpUser"
-                   placeholder="usuario@ejemplo.com"
-                   value="{smtpUser ?: ''}"
-                   autocomplete="off">
+            <div class="summary-section">
+                <h4>Certificado</h4>
+                <dl>
+                    <dt>Sujeto</dt>
+                    <dd>{certSubject}</dd>
+                    <dt>Expira</dt>
+                    <dd>{certExpires}</dd>
+                    <dt>Ambiente</dt>
+                    <dd>{#if environment == 'TEST'}Pruebas (SRI Celcer){#else}Producción{/if}</dd>
+                </dl>
+            </div>
+        </div>
 
-            <label for="smtpPassword">Contraseña SMTP</label>
-            <input type="password" id="smtpPassword" name="smtpPassword"
-                   placeholder="Contraseña del servidor SMTP"
-                   autocomplete="off">
+        <div class="plan-banner">
+            <span><strong>Plan DEMO</strong> — 25 comprobantes electrónicos</span>
+            <span>30 días</span>
+        </div>
 
-            <label for="smtpFromEmail">Email remitente</label>
-            <input type="email" id="smtpFromEmail" name="smtpFromEmail"
-                   placeholder="facturacion@empresa.com"
-                   value="{smtpFromEmail ?: ''}"
-                   autocomplete="off">
+        <small style="color: var(--pico-muted-color); display: block; margin-bottom: 0.75rem;">
+            Podrá configurar SMTP, webhook y datos tributarios desde el panel después del registro.
+        </small>
 
-            <button type="button" class="outline"
-                    hx-post="/portal/register/test-smtp"
-                    hx-target="#smtp-test-result"
-                    hx-include="#smtpHost, #smtpPort, #smtpUser, #smtpPassword, #smtpFromEmail"
-                    hx-indicator="#smtp-test-spinner">
-                Probar conexión SMTP
-            </button>
-            <div id="smtp-test-result"></div>
-
-            <hr>
-
-            <p class="section-label">Webhook de notificaciones (opcional)</p>
-
-            <label for="webhookUrl">URL del webhook</label>
-            <input type="url" id="webhookUrl" name="webhookUrl"
-                   placeholder="https://api.empresa.com/webhooks/key49"
-                   value="{webhookUrl ?: ''}"
-                   autocomplete="off">
-            <small style="color: var(--pico-muted-color);">
-                Key49 enviará notificaciones POST a esta URL cuando un documento cambie de estado.
-                Debe ser HTTPS y accesible desde internet.
-            </small>
-
-            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+        <form method="post" action="/portal/register/step3">
+            <div style="display: flex; gap: 1rem;">
                 <a href="/portal/register/step2" role="button" class="outline"
                    style="flex: 1; text-align: center;">← Atrás</a>
-                <button type="submit" style="flex: 1;">Siguiente →</button>
+                <button type="submit" style="flex: 1;">Crear mi cuenta</button>
             </div>
         </form>
     </article>

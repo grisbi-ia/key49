@@ -1,6 +1,6 @@
 ### Variables
 @baseUrl = http://localhost:8080/v1
-@apiKey = fec_test_XXXXXXXXXXXXXXXXXXXXXXXX
+@apiKey = k49_DemoKey49DevLocalTest0000
 
 ### ===========================
 ### FACTURA ELECTRÓNICA

@@ -26,7 +26,7 @@ class ApiKeyAuthFilterTest {
 
     @BeforeAll
     void setupTestData() throws SQLException {
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         validRawKey = generated.rawKey();
 
         var tenantId = UUID.randomUUID();
@@ -71,7 +71,7 @@ class ApiKeyAuthFilterTest {
     @Test
     void shouldRejectInvalidBearerToken() {
         RestAssured.given()
-                .header("Authorization", "Bearer fec_test_invalidkeyxxxxxxxx")
+                .header("Authorization", "Bearer k49_invalidkeyxxxxxxxxxxxxxxxx")
                 .when().get("/auth-test")
                 .then()
                 .statusCode(401);

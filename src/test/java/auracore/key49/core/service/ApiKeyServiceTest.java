@@ -12,34 +12,25 @@ import static org.junit.jupiter.api.Assertions.*;
 class ApiKeyServiceTest {
 
     @Test
-    void shouldGenerateTestKey() {
-        var result = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+    void shouldGenerateKey() {
+        var result = ApiKeyService.generate();
 
-        assertTrue(result.rawKey().startsWith("fec_test_"));
-        assertEquals("fec_test", result.keyPrefix());
+        assertTrue(result.rawKey().startsWith("k49_"));
+        assertEquals("k49", result.keyPrefix());
         assertNotNull(result.hash());
         assertEquals(64, result.hash().length()); // SHA-256 hex = 64 chars
     }
 
     @Test
-    void shouldGenerateLiveKey() {
-        var result = ApiKeyService.generate(ApiKeyService.PREFIX_LIVE);
-
-        assertTrue(result.rawKey().startsWith("fec_live_"));
-        assertEquals("fec_live", result.keyPrefix());
-        assertNotNull(result.hash());
-    }
-
-    @Test
     void shouldRejectInvalidPrefix() {
-        assertThrows(IllegalArgumentException.class,
-                () -> ApiKeyService.generate("invalid_"));
+        // generate() no longer takes a prefix, so just check extractPrefix
+        assertNull(ApiKeyService.extractPrefix("invalid_key"));
     }
 
     @Test
     void shouldGenerateUniqueKeys() {
-        var key1 = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
-        var key2 = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var key1 = ApiKeyService.generate();
+        var key2 = ApiKeyService.generate();
 
         assertNotEquals(key1.rawKey(), key2.rawKey());
         assertNotEquals(key1.hash(), key2.hash());
@@ -47,7 +38,7 @@ class ApiKeyServiceTest {
 
     @Test
     void shouldProduceDeterministicHash() {
-        var rawKey = "fec_test_abcdefghijklmnopqrstuvwx";
+        var rawKey = "k49_abcdefghijklmnopqrstuvwx";
         var hash1 = ApiKeyService.sha256(rawKey);
         var hash2 = ApiKeyService.sha256(rawKey);
 
@@ -56,22 +47,16 @@ class ApiKeyServiceTest {
 
     @Test
     void shouldHashMatchGenerated() {
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         var recomputed = ApiKeyService.sha256(generated.rawKey());
 
         assertEquals(generated.hash(), recomputed);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"fec_test_abc123", "fec_test_XXXXX"})
-    void shouldExtractTestPrefix(String key) {
-        assertEquals("fec_test", ApiKeyService.extractPrefix(key));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"fec_live_abc123", "fec_live_XXXXX"})
-    void shouldExtractLivePrefix(String key) {
-        assertEquals("fec_live", ApiKeyService.extractPrefix(key));
+    @ValueSource(strings = {"k49_abc123", "k49_XXXXX"})
+    void shouldExtractPrefix(String key) {
+        assertEquals("k49", ApiKeyService.extractPrefix(key));
     }
 
     @Test
@@ -100,8 +85,8 @@ class ApiKeyServiceTest {
 
     @Test
     void shouldGenerateKeyWithCorrectLength() {
-        var result = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
-        // Prefix (9) + random (24) = 33 chars
-        assertEquals(33, result.rawKey().length());
+        var result = ApiKeyService.generate();
+        // Prefix (4) + random (24) = 28 chars
+        assertEquals(28, result.rawKey().length());
     }
 }

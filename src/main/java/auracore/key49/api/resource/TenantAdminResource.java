@@ -24,7 +24,6 @@ import auracore.key49.core.service.TenantAdminService.CreateTenantData;
 import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
 import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
-import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -64,9 +63,6 @@ public class TenantAdminResource {
 
     @Inject
     auracore.key49.notify.email.SmtpClientFactory smtpClientFactory;
-
-    @Inject
-    Vertx vertx;
 
     @ConfigProperty(name = "key49.master-key")
     Optional<String> masterKeyBase64;
@@ -154,7 +150,7 @@ public class TenantAdminResource {
                 request.environment(), request.webhookUrl(), request.webhookSecret(),
                 request.rateLimitRpm(), request.rateLimitWriteRpm(),
                 request.rateLimitReadRpm(), request.emailSenderName(),
-                request.replyEmail(), request.status());
+                request.replyEmail(), request.status(), null);
 
         var tenant = tenantService.update(id, data);
 
@@ -542,49 +538,26 @@ public class TenantAdminResource {
     }
 
     private void sendTestEmail(auracore.key49.core.model.Tenant tenant) {
-        var masterKey = CertificateEncryptor.decodeMasterKey(
-                masterKeyBase64.orElseThrow(()
-                        -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
+        var smtpSession = smtpClientFactory.getOrCreate(tenant);
+        var from = smtpSession.from() != null ? smtpSession.from() : "noreply@key49.ec";
 
-        String smtpPassword = null;
-        if (tenant.smtpPasswordEnc != null && tenant.smtpPasswordEnc.length > 0) {
-            var passwordChars = CertificateEncryptor.decryptPassword(tenant.smtpPasswordEnc, masterKey);
-            smtpPassword = new String(passwordChars);
-            java.util.Arrays.fill(passwordChars, (char) 0);
-        }
-
-        var config = new io.vertx.ext.mail.MailConfig()
-                .setHostname(tenant.smtpHost)
-                .setPort(tenant.smtpPort);
-
-        if (tenant.smtpPort == 465) {
-            config.setSsl(true);
-        } else if (tenant.smtpPort == 587) {
-            config.setStarttls(io.vertx.ext.mail.StartTLSOptions.REQUIRED);
-        }
-
-        if (tenant.smtpUser != null && smtpPassword != null) {
-            config.setUsername(tenant.smtpUser);
-            config.setPassword(smtpPassword);
-        }
-
-        var from = tenant.smtpFrom != null ? tenant.smtpFrom : "noreply@key49.ec";
-        var mailMessage = new io.vertx.ext.mail.MailMessage()
-                .setFrom(from)
-                .setTo(java.util.List.of(tenant.replyEmail))
-                .setSubject("Key49 — Test de configuración SMTP")
-                .setText("Este es un email de prueba desde Key49.\n\n"
-                        + "Si recibiste este mensaje, la configuración SMTP de tu tenant es correcta.\n\n"
-                        + "Servidor: " + tenant.smtpHost + ":" + tenant.smtpPort + "\n"
-                        + "Fecha: " + java.time.Instant.now());
-
-        var client = io.vertx.ext.mail.MailClient.create(vertx, config);
         try {
-            client.sendMail(mailMessage).toCompletionStage().toCompletableFuture().get(10, java.util.concurrent.TimeUnit.SECONDS);
+            var props = smtpSession.session().getProperties();
+            var session = smtpSession.session();
+
+            var message = new jakarta.mail.internet.MimeMessage(session);
+            message.setFrom(new jakarta.mail.internet.InternetAddress(from));
+            message.setRecipient(jakarta.mail.Message.RecipientType.TO,
+                    new jakarta.mail.internet.InternetAddress(tenant.replyEmail));
+            message.setSubject("Key49 — Test de configuración SMTP");
+            message.setText("Este es un email de prueba desde Key49.\n\n"
+                    + "Si recibiste este mensaje, la configuración SMTP de tu tenant es correcta.\n\n"
+                    + "Servidor: " + tenant.smtpHost + ":" + tenant.smtpPort + "\n"
+                    + "Fecha: " + java.time.Instant.now());
+
+            jakarta.mail.Transport.send(message);
         } catch (Exception e) {
             throw new RuntimeException("Failed to send test email: " + e.getMessage(), e);
-        } finally {
-            client.close();
         }
     }
 

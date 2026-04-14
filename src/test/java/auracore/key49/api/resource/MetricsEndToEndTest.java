@@ -47,7 +47,7 @@ class MetricsEndToEndTest {
     @BeforeAll
     void setupTenantWithDocuments() throws SQLException {
         tenantId = UUID.randomUUID();
-        var generated = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated = ApiKeyService.generate();
         rawApiKey = generated.rawKey();
 
         var certExpiration = Instant.now().plus(90, ChronoUnit.DAYS);
@@ -265,7 +265,7 @@ class MetricsEndToEndTest {
     @Order(7)
     void summary_withNoCertificate_returnsNegativeDays() throws SQLException {
         var tenantId2 = UUID.randomUUID();
-        var generated2 = ApiKeyService.generate(ApiKeyService.PREFIX_TEST);
+        var generated2 = ApiKeyService.generate();
         var schema2 = "tenant_metrics_nocert";
 
         try (var conn = dataSource.getConnection()) {

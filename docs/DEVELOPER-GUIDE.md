@@ -34,7 +34,7 @@
 
 Contacta al equipo de Key49 para obtener:
 
-- Tu **API Key** con prefijo `fec_test_` (sandbox) o `fec_live_` (producción)
+- Tu **API Key** con prefijo `k49_` (todas las APIs)
 - Tu **tenant** configurado con RUC y certificado .p12 del SRI
 
 ### 2. Verificar conexión
@@ -127,13 +127,10 @@ El documento avanza por los estados: `CREATED` → `SIGNED` → `SENT` → `RECE
 Todas las peticiones a `/v1/*` requieren un API Key en el header `Authorization`:
 
 ```
-Authorization: Bearer fec_test_xxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer k49_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-| Prefijo     | Ambiente          |
-| ----------- | ----------------- |
-| `fec_test_` | Sandbox (pruebas) |
-| `fec_live_` | Producción        |
+El prefijo `k49_` identifica las API keys de Key49. El `environment` del tenant (test/production) determina si los documentos se envían al SRI de pruebas o producción.
 
 **Sin API Key** → HTTP 401 `UNAUTHORIZED`
 **API Key expirada** → HTTP 401 `API_KEY_EXPIRED`
@@ -989,7 +986,7 @@ if not hmac.compare_digest(expected, request.headers["X-Key49-Signature"]):
 import requests
 from datetime import date
 
-API_KEY = "fec_test_TuApiKeyAqui"
+API_KEY = "k49_TuApiKeyAqui00000000000"
 BASE_URL = "https://sandbox.key49.ec/v1"
 
 headers = {
@@ -1049,7 +1046,7 @@ with open("factura.pdf", "wb") as f:
 ### Node.js
 
 ```javascript
-const API_KEY = "fec_test_TuApiKeyAqui";
+const API_KEY = "k49_TuApiKeyAqui00000000000";
 const BASE_URL = "https://sandbox.key49.ec/v1";
 
 const headers = {
@@ -1119,7 +1116,7 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.time.LocalDate;
 
 var client = HttpClient.newHttpClient();
-var apiKey = "fec_test_TuApiKeyAqui";
+var apiKey = "k49_TuApiKeyAqui00000000000";
 var baseUrl = "https://sandbox.key49.ec/v1";
 
 // Emitir factura
@@ -1181,12 +1178,13 @@ System.out.println(getResponse.body());
 
 ### Flujo de autoregistro
 
-El portal web permite a nuevos contribuyentes registrarse de forma autónoma mediante un wizard de 4 pasos:
+El portal web permite a nuevos contribuyentes registrarse de forma autónoma mediante un wizard de 3 pasos:
 
 1. **Paso 1 — Datos del contribuyente**: RUC (validado con módulo 11), razón social, nombre comercial, dirección, email, teléfono.
-2. **Paso 2 — Configuración de emisión**: código de establecimiento (3 dígitos), punto de emisión (3 dígitos), dirección del establecimiento.
-3. **Paso 3 — Configuración SMTP**: host, puerto, usuario, contraseña, email remitente. Incluye botón para probar la conexión SMTP en tiempo real.
-4. **Paso 4 — Selección de plan**: el usuario elige entre los planes disponibles (DEMO, STARTER, BUSINESS, ENTERPRISE).
+2. **Paso 2 — Configuración de emisión**: código de establecimiento (3 dígitos), punto de emisión (3 dígitos), dirección del establecimiento, certificado digital .p12.
+3. **Paso 3 — Confirmación**: resumen de datos de empresa y certificado, selección de plan (DEMO por defecto). Crea el tenant al confirmar.
+
+> La configuración de SMTP y webhook se realiza post-registro desde `/portal/settings/smtp` y `/portal/settings/webhook`.
 
 ### Verificación de email
 

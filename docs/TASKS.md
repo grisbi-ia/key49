@@ -1033,3 +1033,14 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Fix timezone `AuditLogAdminResource.parseDate()`: usar `Key49Constants.EC_ZONE` en vez de `ZoneOffset.UTC`
   - Fix polución de `search_path` en connection pool: calificar tablas con `public.` en `QuotaServiceTest`/`ApiKeyCacheServiceTest`; agregar `RESET search_path` en cleanup de `QueryOptimizationTest`, `DocumentPartitionTest`, `PostgresMaintenanceTest`
   - Test: 2308 tests, 0 failures, 0 errors
+
+- [x] **T-109** Mejoras de portal, email Jakarta Mail, simplificación API keys ✅
+  - Migración de Vert.x MailClient a Jakarta Mail (Angus Mail) para SMTP por tenant: resuelve deadlock SSL en worker threads
+  - Wizard de autoregistro simplificado de 4 a 3 pasos (SMTP/webhook pospuesto a settings)
+  - Nuevo `PortalSettingsResource` con páginas de configuración: perfil, certificado, SMTP, webhook, eliminación de cuenta
+  - API Key: prefijo unificado `k49_`, eliminado campo `environment`
+  - Login simplificado a email + contraseña (eliminadas pestañas)
+  - Logo del tenant en RIDE (PDF) vía MinIO
+  - Fix: webhook NPE sin secreto, caché SMTP en Redis, OutboxPoller shutdown, handler 404 JSON
+  - Estandarización `--pico-font-size: 15px` en todas las páginas standalone del portal
+  - Test: 2285 tests, 0 failures, 0 errors
