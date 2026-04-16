@@ -18,6 +18,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+
+import jakarta.persistence.PersistenceException;
 
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
@@ -864,6 +867,20 @@ public class PortalResource {
 
     record DailyCount(LocalDate date, long count, int pct) {
 
+    }
+
+    // ── Exception handling ──
+    @ServerExceptionMapper
+    public Response handlePersistenceError(PersistenceException ex) {
+        log.warnf("Portal persistence error — redirecting to login: %s", ex.getMessage());
+        return Response.seeOther(URI.create("/portal/login"))
+                .cookie(new NewCookie.Builder(PortalAuthFilter.SESSION_COOKIE)
+                        .value("")
+                        .path("/portal")
+                        .maxAge(0)
+                        .httpOnly(true)
+                        .build())
+                .build();
     }
 
     // ── Helpers ──

@@ -70,10 +70,9 @@ class SmtpClientFactoryTest {
     }
 
     @Test
-    @DisplayName("Tenant con smtpEnabled=true requiere host y port")
-    void tenantSmtpEnabledRequiresHostPort() {
+    @DisplayName("Tenant con host y port configurados es una configuración válida")
+    void tenantWithHostAndPortIsValid() {
         var tenant = createTenant();
-        tenant.smtpEnabled = true;
         tenant.smtpHost = "smtp.example.com";
         tenant.smtpPort = 465;
 

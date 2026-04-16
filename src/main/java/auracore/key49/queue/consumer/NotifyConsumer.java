@@ -164,8 +164,12 @@ public class NotifyConsumer {
 
                 // Fase 4 (post-commit): enviar email sin afectar NOTIFIED
                 if (!tenant.emailNotificationsEnabled) {
-                    log.infof("NotifyConsumer: email notifications disabled for tenant %s, skipping email for document %s",
+                    log.infof("NotifyConsumer: email notifications disabled for tenant=%s, skipping document=%s",
                             event.tenantSchemaName(), event.documentId());
+                    markEmailSkipped(event);
+                } else if (!tenant.notifyFinalConsumer && isFinalConsumer(doc.recipientId)) {
+                    log.infof("NotifyConsumer: recipient is Consumidor Final, skipping email | tenant=%s document=%s recipientId=%s",
+                            event.tenantSchemaName(), event.documentId(), doc.recipientId);
                     markEmailSkipped(event);
                 } else {
                     sendEmailAndUpdateStatus(
@@ -296,6 +300,17 @@ public class NotifyConsumer {
             default ->
                 "document." + doc.status.name().toLowerCase();
         };
+    }
+
+    /**
+     * Detecta si el receptor es Consumidor Final según la normativa SRI Ecuador.
+     * El identificador de Consumidor Final es todo nines: {@code 9999999999} (cédula,
+     * 10 dígitos) o {@code 9999999999999} (RUC, 13 dígitos).
+     */
+    static boolean isFinalConsumer(String recipientId) {
+        if (recipientId == null || recipientId.isBlank()) return false;
+        return (recipientId.length() == 10 || recipientId.length() == 13)
+                && recipientId.chars().allMatch(c -> c == '9');
     }
 
     private static String truncate(String value, int maxLength) {

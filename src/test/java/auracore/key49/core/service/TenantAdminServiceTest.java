@@ -225,66 +225,10 @@ class TenantAdminServiceTest {
         }
     }
 
-    // ── Validación SMTP ──
+    // ── Defaults de email en Tenant ──
     @Nested
-    @DisplayName("updateSmtpConfig validations")
-    class UpdateSmtpConfig {
-
-        @Test
-        @DisplayName("Habilitar SMTP sin host falla con VALIDATION_ERROR")
-        void enableWithoutHostFails() {
-            // We need a Tenant with no smtpHost; since updateSmtpConfig does DB lookup,
-            // we test the validation logic by creating a mock scenario via reflection
-            var tenant = new auracore.key49.core.model.Tenant();
-            tenant.smtpHost = null;
-            tenant.smtpPort = null;
-            // enabled=true without host should fail
-            assertThrows(TenantException.class, () -> {
-                validateSmtpEnable(tenant, null, null, true);
-            });
-        }
-
-        @Test
-        @DisplayName("Habilitar SMTP sin port falla con VALIDATION_ERROR")
-        void enableWithoutPortFails() {
-            var tenant = new auracore.key49.core.model.Tenant();
-            tenant.smtpHost = "smtp.example.com";
-            tenant.smtpPort = null;
-            var ex = assertThrows(TenantException.class, () -> {
-                validateSmtpEnable(tenant, null, null, true);
-            });
-            assertTrue(ex.getMessage().contains("smtp_port"));
-        }
-
-        @Test
-        @DisplayName("Habilitar SMTP con host y port existentes pasa")
-        void enableWithExistingHostPortSucceeds() {
-            var tenant = new auracore.key49.core.model.Tenant();
-            tenant.smtpHost = "smtp.example.com";
-            tenant.smtpPort = 587;
-            // Should not throw
-            validateSmtpEnable(tenant, null, null, true);
-        }
-
-        @Test
-        @DisplayName("Habilitar SMTP con host y port nuevos pasa")
-        void enableWithNewHostPortSucceeds() {
-            var tenant = new auracore.key49.core.model.Tenant();
-            tenant.smtpHost = null;
-            tenant.smtpPort = null;
-            // Should not throw — new values provided
-            validateSmtpEnable(tenant, "smtp.new.com", 465, true);
-        }
-
-        @Test
-        @DisplayName("Deshabilitar SMTP sin host/port pasa")
-        void disableWithoutHostPortSucceeds() {
-            var tenant = new auracore.key49.core.model.Tenant();
-            tenant.smtpHost = null;
-            tenant.smtpPort = null;
-            // enabled=false should always succeed
-            validateSmtpEnable(tenant, null, null, false);
-        }
+    @DisplayName("Tenant email defaults")
+    class TenantEmailDefaults {
 
         @Test
         @DisplayName("emailNotificationsEnabled por defecto es true")
@@ -293,24 +237,11 @@ class TenantAdminServiceTest {
             assertTrue(tenant.emailNotificationsEnabled);
         }
 
-        /**
-         * Simulates the SMTP enable validation from updateSmtpConfig without
-         * DB.
-         */
-        private void validateSmtpEnable(auracore.key49.core.model.Tenant tenant,
-                String newHost, Integer newPort, boolean enable) {
-            if (enable) {
-                var host = newHost != null ? newHost : tenant.smtpHost;
-                var port = newPort != null ? newPort : tenant.smtpPort;
-                if (host == null || host.isBlank()) {
-                    throw new TenantException("VALIDATION_ERROR",
-                            "smtp_host is required when enabling SMTP", 400);
-                }
-                if (port == null) {
-                    throw new TenantException("VALIDATION_ERROR",
-                            "smtp_port is required when enabling SMTP", 400);
-                }
-            }
+        @Test
+        @DisplayName("notifyFinalConsumer por defecto es true")
+        void notifyFinalConsumerDefaultTrue() {
+            var tenant = new auracore.key49.core.model.Tenant();
+            assertTrue(tenant.notifyFinalConsumer);
         }
     }
 
@@ -322,6 +253,7 @@ class TenantAdminServiceTest {
         @Test
         @DisplayName("SmtpConfigRequest preserva campos")
         void requestPreservesFields() {
+            // host, port, user, password, fromAddress, emailNotificationsEnabled, notifyFinalConsumer
             var req = new auracore.key49.api.dto.SmtpConfigRequest(
                     "smtp.example.com", 587, "user@example.com",
                     "secret123", "noreply@example.com", true, true);
@@ -330,8 +262,8 @@ class TenantAdminServiceTest {
             assertEquals("user@example.com", req.user());
             assertEquals("secret123", req.password());
             assertEquals("noreply@example.com", req.fromAddress());
-            assertTrue(req.enabled());
             assertTrue(req.emailNotificationsEnabled());
+            assertTrue(req.notifyFinalConsumer());
         }
 
         @Test
@@ -344,32 +276,43 @@ class TenantAdminServiceTest {
             assertEquals(null, req.user());
             assertEquals(null, req.password());
             assertEquals(null, req.fromAddress());
-            assertEquals(null, req.enabled());
             assertEquals(null, req.emailNotificationsEnabled());
+            assertEquals(null, req.notifyFinalConsumer());
         }
 
         @Test
         @DisplayName("SmtpConfigResponse indica passwordConfigured correctamente")
         void responsePasswordConfigured() {
+            // host, port, user, passwordConfigured, from, enabled, emailNotificationsEnabled, notifyFinalConsumer
             var withPw = new auracore.key49.api.dto.SmtpConfigResponse(
                     "smtp.example.com", 587, "user", true,
-                    "noreply@example.com", true, true);
+                    "noreply@example.com", true, true, true);
             assertTrue(withPw.passwordConfigured());
             assertTrue(withPw.emailNotificationsEnabled());
+            assertTrue(withPw.notifyFinalConsumer());
 
             var noPw = new auracore.key49.api.dto.SmtpConfigResponse(
                     "smtp.example.com", 587, "user", false,
-                    "noreply@example.com", false, false);
+                    "noreply@example.com", false, false, false);
             assertEquals(false, noPw.passwordConfigured());
             assertEquals(false, noPw.emailNotificationsEnabled());
+            assertEquals(false, noPw.notifyFinalConsumer());
         }
 
         @Test
         @DisplayName("SmtpConfigRequest emailNotificationsEnabled=false deshabilita email")
         void requestEmailNotificationsDisabled() {
             var req = new auracore.key49.api.dto.SmtpConfigRequest(
-                    null, null, null, null, null, null, false);
+                    null, null, null, null, null, false, null);
             assertEquals(false, req.emailNotificationsEnabled());
+        }
+
+        @Test
+        @DisplayName("SmtpConfigRequest notifyFinalConsumer=false omite Consumidor Final")
+        void requestNotifyFinalConsumerDisabled() {
+            var req = new auracore.key49.api.dto.SmtpConfigRequest(
+                    null, null, null, null, null, null, false);
+            assertEquals(false, req.notifyFinalConsumer());
         }
     }
 

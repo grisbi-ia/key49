@@ -11,8 +11,7 @@ import org.jboss.logging.Logger;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.TenantCacheService;
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.notify.email.PlatformEmailService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.redis.datasource.RedisDataSource;
@@ -56,19 +55,13 @@ public class EmailVerificationService {
     TenantCacheService tenantCacheService;
 
     @Inject
-    ReactiveMailer reactiveMailer;
+    PlatformEmailService platformEmailService;
 
     @Location("portal/email-verification")
     Template emailVerificationTemplate;
 
     @ConfigProperty(name = "key49.portal.base-url", defaultValue = "http://localhost:8080")
     String portalBaseUrl;
-
-    @ConfigProperty(name = "key49.email.from", defaultValue = "facturacion@key49.ec")
-    String fromAddress;
-
-    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "120")
-    int sendTimeoutSeconds;
 
     public record SendResult(boolean success, String error, String token) {
 
@@ -229,12 +222,6 @@ public class EmailVerificationService {
                 .data("expirationHours", 24)
                 .render();
 
-        var mail = Mail.withHtml(email,
-                "Key49 — Verifique su dirección de email",
-                htmlBody);
-        mail.setFrom("Key49 <" + fromAddress + ">");
-
-        reactiveMailer.send(mail)
-                .await().atMost(Duration.ofSeconds(sendTimeoutSeconds));
+        platformEmailService.sendHtml(email, "Key49 — Verifique su dirección de email", htmlBody);
     }
 }

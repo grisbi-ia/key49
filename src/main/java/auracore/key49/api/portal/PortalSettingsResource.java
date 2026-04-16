@@ -424,7 +424,7 @@ public class PortalSettingsResource {
                 + encodeQuery("Certificado actualizado correctamente"))).build();
     }
 
-    // ── SMTP ──
+    // ── Email (SMTP / Plunk) ──
     @GET
     @Path("/smtp")
     @Produces(MediaType.TEXT_HTML)
@@ -449,14 +449,14 @@ public class PortalSettingsResource {
             @FormParam("smtpUser") String smtpUser,
             @FormParam("smtpPassword") String smtpPassword,
             @FormParam("smtpFrom") String smtpFrom,
-            @FormParam("smtpEnabled") String smtpEnabled,
             @FormParam("emailNotificationsEnabled") String emailNotificationsEnabled,
+            @FormParam("notifyFinalConsumer") String notifyFinalConsumer,
             @Context HttpServerRequest httpRequest) {
 
         var session = getSession();
 
-        boolean enabled = "on".equals(smtpEnabled);
         boolean emailNotif = "on".equals(emailNotificationsEnabled);
+        boolean notifyFc = "on".equals(notifyFinalConsumer);
 
         Integer smtpPort = null;
         if (smtpPortStr != null && !smtpPortStr.isBlank()) {
@@ -468,15 +468,10 @@ public class PortalSettingsResource {
             }
         }
 
-        if (enabled) {
-            if (smtpHost == null || smtpHost.isBlank()) {
-                return Response.seeOther(URI.create("/portal/settings/smtp?error="
-                        + encodeQuery("El host SMTP es obligatorio cuando se habilita SMTP"))).build();
-            }
-            if (smtpPort == null) {
-                return Response.seeOther(URI.create("/portal/settings/smtp?error="
-                        + encodeQuery("El puerto SMTP es obligatorio cuando se habilita SMTP"))).build();
-            }
+        boolean hasHost = smtpHost != null && !smtpHost.isBlank();
+        if (hasHost && smtpPort == null) {
+            return Response.seeOther(URI.create("/portal/settings/smtp?error="
+                    + encodeQuery("El puerto SMTP es obligatorio cuando se configura un host"))).build();
         }
 
         byte[] encryptedPassword = null;
@@ -488,12 +483,12 @@ public class PortalSettingsResource {
         }
 
         tenantService.updateSmtpConfig(session.tenantId(),
-                smtpHost != null && !smtpHost.isBlank() ? smtpHost.strip() : null,
+                hasHost ? smtpHost.strip() : null,
                 smtpPort,
                 smtpUser != null && !smtpUser.isBlank() ? smtpUser.strip() : null,
                 encryptedPassword,
                 smtpFrom != null && !smtpFrom.isBlank() ? smtpFrom.strip() : null,
-                enabled, emailNotif);
+                emailNotif, notifyFc);
 
         auditService.record(session.tenantId(), "portal", "smtp.updated",
                 "tenant", session.tenantId(),
@@ -532,6 +527,59 @@ public class PortalSettingsResource {
         return Response.seeOther(URI.create("/portal/settings/smtp?success="
                 + encodeQuery("Conexión exitosa a %s:%d".formatted(
                         tenant.smtpHost, tenant.smtpPort)))).build();
+    }
+
+    @POST
+    @Path("/email-provider")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public Response updateEmailProvider(
+            @FormParam("emailProvider") String emailProvider,
+            @FormParam("plunkApiKey") String plunkApiKey,
+            @Context HttpServerRequest httpRequest) {
+
+        var session = getSession();
+
+        if (emailProvider == null || emailProvider.isBlank()) {
+            return Response.seeOther(URI.create("/portal/settings/smtp?error="
+                    + encodeQuery("Debe seleccionar un proveedor de email"))).build();
+        }
+
+        var provider = emailProvider.strip().toLowerCase();
+        if (!provider.equals("smtp") && !provider.equals("plunk")) {
+            return Response.seeOther(URI.create("/portal/settings/smtp?error="
+                    + encodeQuery("Proveedor de email no válido"))).build();
+        }
+
+        if ("plunk".equals(provider) && (plunkApiKey == null || plunkApiKey.isBlank())) {
+            // If switching to Plunk, require API key unless one is already stored
+            var tenant = tenantService.findById(session.tenantId());
+            if (tenant.plunkApiKeyEnc == null || tenant.plunkApiKeyEnc.length == 0) {
+                return Response.seeOther(URI.create("/portal/settings/smtp?error="
+                        + encodeQuery("La API key de Plunk es obligatoria para usar este proveedor"))).build();
+            }
+        }
+
+        byte[] encryptedPlunkKey = null;
+        if (plunkApiKey != null && !plunkApiKey.isBlank()) {
+            var masterKey = CertificateEncryptor.decodeMasterKey(
+                    masterKeyBase64.orElseThrow(()
+                            -> new IllegalStateException("KEY49_MASTER_KEY not configured")));
+            encryptedPlunkKey = CertificateEncryptor.encrypt(
+                    plunkApiKey.strip().getBytes(java.nio.charset.StandardCharsets.UTF_8), masterKey);
+        }
+
+        tenantService.updateEmailProvider(session.tenantId(), provider, encryptedPlunkKey);
+
+        auditService.record(session.tenantId(), "portal", "email_provider.updated",
+                "tenant", session.tenantId(),
+                AuditService.resolveIp(httpRequest),
+                "{\"provider\":\"%s\"}".formatted(provider));
+
+        log.infof("Email provider updated via portal | tenantId=%s provider=%s",
+                session.tenantId(), provider);
+        return Response.seeOther(URI.create("/portal/settings/smtp?success="
+                + encodeQuery("Proveedor de email actualizado a: " + provider.toUpperCase()))).build();
     }
 
     // ── Webhook ──

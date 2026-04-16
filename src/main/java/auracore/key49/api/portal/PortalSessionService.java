@@ -149,7 +149,7 @@ public class PortalSessionService {
 
     /**
      * Valida una sesión y devuelve los datos del tenant. Renueva el TTL en cada
-     * acceso.
+     * acceso. Si el tenant ya no existe en la BD, invalida la sesión.
      */
     public PortalSession validate(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
@@ -164,15 +164,41 @@ public class PortalSessionService {
             return null;
         }
 
+        var schemaName = data.get("schema_name");
+        if (!tenantSchemaExists(schemaName)) {
+            log.warnf("Session references non-existent tenant schema=%s — invalidating session", schemaName);
+            logout(sessionId);
+            return null;
+        }
+
         // Renew TTL
         KeyCommands<String> keys = redisDS.key(String.class);
         keys.pexpire(key, SESSION_TTL.toMillis());
 
         return new PortalSession(
                 UUID.fromString(data.get("tenant_id")),
-                data.get("schema_name"),
+                schemaName,
                 data.getOrDefault("legal_name", "")
         );
+    }
+
+    /**
+     * Verifica que el tenant exista en la BD con estado activo.
+     */
+    private boolean tenantSchemaExists(String schemaName) {
+        if (schemaName == null || schemaName.isBlank()) {
+            return false;
+        }
+        try (var conn = dataSource.getConnection(); var stmt = conn.prepareStatement(
+                "SELECT 1 FROM tenants WHERE schema_name = ? AND status = 'active'")) {
+            stmt.setString(1, schemaName);
+            try (var rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            log.errorf(e, "Failed to verify tenant existence for schema=%s", schemaName);
+            return false;
+        }
     }
 
     /**

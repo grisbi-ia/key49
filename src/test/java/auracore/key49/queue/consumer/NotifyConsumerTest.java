@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -369,7 +370,93 @@ class NotifyConsumerTest {
 
             assertEquals(DocumentStatus.NOTIFIED, doc.status);
             verify(emailService, never()).sendDocumentDelivery(any(), any());
+            assertEquals("SKIPPED", doc.emailStatus);
         }
+
+        @Test
+        @DisplayName("email se salta para Consumidor Final cuando notifyFinalConsumer=false")
+        void shouldSkipEmailForFinalConsumerWhenFlagDisabled() {
+            tenant.notifyFinalConsumer = false;
+            doc.recipientId = "9999999999";
+            setupMocks();
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
+
+            notifyConsumer.process(buildEvent(docId));
+
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
+            verify(emailService, never()).sendDocumentDelivery(any(), any());
+            assertEquals("SKIPPED", doc.emailStatus);
+        }
+
+        @Test
+        @DisplayName("email se salta para Consumidor Final con RUC (13 nueves) cuando notifyFinalConsumer=false")
+        void shouldSkipEmailForFinalConsumerRucWhenFlagDisabled() {
+            tenant.notifyFinalConsumer = false;
+            doc.recipientId = "9999999999999";
+            setupMocks();
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
+
+            notifyConsumer.process(buildEvent(docId));
+
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
+            verify(emailService, never()).sendDocumentDelivery(any(), any());
+            assertEquals("SKIPPED", doc.emailStatus);
+        }
+
+        @Test
+        @DisplayName("email se envía para Consumidor Final cuando notifyFinalConsumer=true")
+        void shouldSendEmailForFinalConsumerWhenFlagEnabled() {
+            tenant.notifyFinalConsumer = true;
+            doc.recipientId = "9999999999";
+            setupMocks();
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
+
+            notifyConsumer.process(buildEvent(docId));
+
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
+        }
+
+        @Test
+        @DisplayName("email se envía para receptor normal cuando notifyFinalConsumer=false")
+        void shouldSendEmailForRegularRecipientEvenWhenFlagDisabled() {
+            tenant.notifyFinalConsumer = false;
+            doc.recipientId = "1712345678"; // cédula real, no consumidor final
+            setupMocks();
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
+
+            notifyConsumer.process(buildEvent(docId));
+
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("isFinalConsumer")
+    class IsFinalConsumerTests {
+
+        @Test void cedulaConsumidorFinal()    { assertTrue(NotifyConsumer.isFinalConsumer("9999999999")); }
+        @Test void rucConsumidorFinal()        { assertTrue(NotifyConsumer.isFinalConsumer("9999999999999")); }
+        @Test void cedulaNormal()              { assertFalse(NotifyConsumer.isFinalConsumer("1712345678")); }
+        @Test void rucNormal()                 { assertFalse(NotifyConsumer.isFinalConsumer("0990012345001")); }
+        @Test void nullReturnsFalse()          { assertFalse(NotifyConsumer.isFinalConsumer(null)); }
+        @Test void blankReturnsFalse()         { assertFalse(NotifyConsumer.isFinalConsumer("   ")); }
+        @Test void nineDigitsReturnsFalse()    { assertFalse(NotifyConsumer.isFinalConsumer("999999999")); }
+        @Test void elevenNinesReturnsFalse()   { assertFalse(NotifyConsumer.isFinalConsumer("99999999999")); }
+        @Test void mixedNinesReturnsFalse()    { assertFalse(NotifyConsumer.isFinalConsumer("9999999998")); }
     }
 
     // ── Mock setup helpers ──
@@ -445,6 +532,7 @@ class NotifyConsumerTest {
         t.webhookSecret = "secret123";
         t.status = "active";
         t.emailNotificationsEnabled = true;
+        t.notifyFinalConsumer = true;
         return t;
     }
 }

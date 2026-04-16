@@ -133,6 +133,15 @@ public class Tenant extends PanacheEntityBase {
     @Column(name = "plan_expires_at")
     public Instant planExpiresAt;
 
+    // ── Email provider per-tenant ──
+    @Column(name = "email_provider", nullable = false, length = 20)
+    @ColumnDefault("'smtp'")
+    public String emailProvider = "smtp";
+
+    // Plunk API key cifrada con AES-256-GCM (misma clave maestra que el certificado)
+    @Column(name = "plunk_api_key_enc")
+    public byte[] plunkApiKeyEnc;
+
     // ── SMTP per-tenant ──
     @Column(name = "smtp_host", length = 255)
     public String smtpHost;
@@ -149,13 +158,13 @@ public class Tenant extends PanacheEntityBase {
     @Column(name = "smtp_from", length = 255)
     public String smtpFrom;
 
-    @Column(name = "smtp_enabled", nullable = false)
-    @ColumnDefault("false")
-    public boolean smtpEnabled;
-
     @Column(name = "email_notifications_enabled", nullable = false)
     @ColumnDefault("true")
     public boolean emailNotificationsEnabled = true;
+
+    @Column(name = "notify_final_consumer", nullable = false)
+    @ColumnDefault("true")
+    public boolean notifyFinalConsumer = true;
 
     // ── Portal authentication ──
     @Column(name = "email", length = 255)

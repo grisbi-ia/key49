@@ -3,8 +3,7 @@ package auracore.key49.api.portal;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.PasswordHasher;
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.notify.email.PlatformEmailService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.redis.datasource.RedisDataSource;
@@ -57,19 +56,13 @@ public class PasswordResetService {
     PasswordHasher passwordHasher;
 
     @Inject
-    ReactiveMailer reactiveMailer;
+    PlatformEmailService platformEmailService;
 
     @Location("portal/password-reset-email")
     Template passwordResetEmailTemplate;
 
     @ConfigProperty(name = "key49.portal.base-url", defaultValue = "http://localhost:8080")
     String portalBaseUrl;
-
-    @ConfigProperty(name = "key49.email.from", defaultValue = "facturacion@key49.ec")
-    String fromAddress;
-
-    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "120")
-    int sendTimeoutSeconds;
 
     /**
      * Resultado de la solicitud de recuperación.
@@ -282,12 +275,6 @@ public class PasswordResetService {
                 .data("expirationMinutes", 30)
                 .render();
 
-        var mail = Mail.withHtml(email,
-                "Key49 — Recuperación de contraseña",
-                htmlBody);
-        mail.setFrom("Key49 <" + fromAddress + ">");
-
-        reactiveMailer.send(mail)
-                .await().atMost(Duration.ofSeconds(sendTimeoutSeconds));
+        platformEmailService.sendHtml(email, "Key49 — Recuperación de contraseña", htmlBody);
     }
 }

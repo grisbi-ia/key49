@@ -1,13 +1,12 @@
 package auracore.key49.notify.email;
 
-import java.time.Duration;
-
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.util.Optional;
+
 import auracore.key49.core.model.Tenant;
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.signer.CertificateEncryptor;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.activation.DataHandler;
@@ -24,16 +23,22 @@ import jakarta.mail.util.ByteArrayDataSource;
 /**
  * Servicio de envío de emails para notificación de comprobantes electrónicos.
  *
- * <p>
- * Envía el RIDE (PDF) y XML autorizado como adjuntos al receptor del
+ * <p>Envía el RIDE (PDF) y XML autorizado como adjuntos al receptor del
  * comprobante. Soporta múltiples destinatarios separados por {@code ;} en el
  * campo {@code recipient_email}.</p>
  *
- * <p>
- * Si el tenant tiene SMTP propio ({@code smtpEnabled = true}), se envía a
- * través del {@link SmtpClientFactory}. Si falla 3 veces, hace fallback al SMTP
- * compartido de Key49. Si {@code smtpEnabled = false}, usa el mailer global de
- * Quarkus.</p>
+ * <p>Selección de canal según {@code tenant.emailProvider}:</p>
+ * <ul>
+ *   <li>{@code plunk} — API REST de Plunk. Requiere {@code smtp_from} configurado
+ *       en el tenant. Sin fallback.</li>
+ *   <li>{@code smtp} con {@code smtp_host} configurado — SMTP propio del tenant,
+ *       con 3 reintentos. Sin fallback.</li>
+ *   <li>{@code smtp} sin {@code smtp_host} — tenant no ha configurado email;
+ *       se omite el envío con aviso en log.</li>
+ * </ul>
+ *
+ * <p>Toda notificación de documentos requiere un tenant. No hay SMTP compartido
+ * de plataforma en este flujo.</p>
  */
 @ApplicationScoped
 public class EmailService {
@@ -42,35 +47,34 @@ public class EmailService {
     private static final int TENANT_SMTP_MAX_RETRIES = 3;
 
     @Inject
-    ReactiveMailer reactiveMailer;
-
-    @Inject
     SmtpClientFactory smtpClientFactory;
 
     @Location("document-delivery.html")
     Template documentDeliveryTemplate;
 
-    @ConfigProperty(name = "key49.email.from", defaultValue = "facturacion@key49.ec")
-    String fromAddress;
-
     @ConfigProperty(name = "key49.email.enabled", defaultValue = "true")
     boolean emailEnabled;
 
-    @ConfigProperty(name = "key49.email.send-timeout-seconds", defaultValue = "30")
-    int sendTimeoutSeconds;
+    @ConfigProperty(name = "key49.master-key")
+    Optional<String> masterKeyBase64;
 
     /**
      * Envía el email de entrega de comprobante electrónico.
      *
-     * <p>
-     * Si el tenant tiene SMTP propio habilitado, intenta enviar por ese canal.
-     * Si falla 3 veces, hace fallback al SMTP compartido de Key49.</p>
+     * <p>El canal se selecciona según {@code tenant.emailProvider}. Si el tenant
+     * no tiene {@code smtp_host} configurado, se omite el envío
+     * con aviso en log. No se usa el SMTP compartido de Key49 en este flujo.</p>
      *
-     * @param data datos del email (emisor, receptor, adjuntos)
-     * @param tenant el tenant emisor (determina qué SMTP usar)
-     * @throws EmailSendException si falla el envío por ambos canales
+     * @param data   datos del email (emisor, receptor, adjuntos)
+     * @param tenant el tenant emisor — obligatorio
+     * @throws IllegalArgumentException si {@code tenant} es null
+     * @throws EmailSendException       si falla el envío
      */
     public void sendDocumentDelivery(EmailData data, Tenant tenant) {
+        if (tenant == null) {
+            throw new IllegalArgumentException("sendDocumentDelivery requires a tenant");
+        }
+
         if (!emailEnabled) {
             log.infof("Email disabled, skipping delivery for document %s", data.accessKey());
             return;
@@ -81,39 +85,37 @@ public class EmailService {
             return;
         }
 
-        if (tenant != null && tenant.smtpEnabled) {
-            if (sendViaTenantSmtp(data, tenant)) {
-                return;
-            }
-            log.warnf("Tenant SMTP failed after %d retries for document %s, falling back to shared SMTP",
-                    TENANT_SMTP_MAX_RETRIES, data.accessKey());
+        if ("plunk".equalsIgnoreCase(tenant.emailProvider)) {
+            sendViaPlunk(data, tenant);
+            return;
         }
 
-        sendViaSharedSmtp(data);
+        if (tenant.smtpHost == null || tenant.smtpHost.isBlank()) {
+            log.warnf("Tenant SMTP not configured for tenant=%s, skipping email for document %s",
+                    tenant.id, data.accessKey());
+            return;
+        }
+
+        sendViaTenantSmtp(data, tenant);
     }
 
     /**
-     * Envía el email de entrega usando el SMTP compartido de Key49 (sin
-     * tenant).
-     *
-     * @param data datos del email
-     * @throws EmailSendException si falla el envío
-     */
-    public void sendDocumentDelivery(EmailData data) {
-        sendDocumentDelivery(data, null);
-    }
-
-    /**
-     * Intenta enviar email via SMTP del tenant con reintentos. Usa Jakarta Mail
+     * Envía email via SMTP del tenant con reintentos. Usa Jakarta Mail
      * (sincrónico) que funciona correctamente en worker threads.
      *
-     * @return true si el envío fue exitoso, false si se agotaron los reintentos
+     * @throws EmailSendException si se agotan los reintentos
      */
-    private boolean sendViaTenantSmtp(EmailData data, Tenant tenant) {
-        var smtpSession = smtpClientFactory.getOrCreate(tenant);
-        var from = smtpSession.from() != null ? smtpSession.from() : fromAddress;
-        var senderFrom = data.issuerName() + " <" + from + ">";
+    private void sendViaTenantSmtp(EmailData data, Tenant tenant) {
+        if (tenant.smtpFrom == null || tenant.smtpFrom.isBlank()) {
+            throw new EmailSendException(
+                    "Tenant smtp_from is not configured | tenant=" + tenant.id
+                    + " — configure the sender email in portal settings");
+        }
 
+        var smtpSession = smtpClientFactory.getOrCreate(tenant);
+        var from = tenant.smtpFrom;
+
+        Exception lastError = null;
         for (int attempt = 1; attempt <= TENANT_SMTP_MAX_RETRIES; attempt++) {
             try {
                 log.infof("Sending via tenant SMTP (%s:%d) attempt %d/%d: document=%s, to=%s",
@@ -162,55 +164,61 @@ public class EmailService {
 
                 log.infof("Tenant SMTP send successful: document=%s, to=%s",
                         data.accessKey(), data.recipientEmails().getFirst());
-                return true;
+                return;
             } catch (Exception e) {
+                lastError = e;
                 log.warnf(e, "Tenant SMTP send attempt %d/%d failed for document %s",
                         attempt, TENANT_SMTP_MAX_RETRIES, data.accessKey());
             }
         }
-        return false;
+        throw new EmailSendException(
+                "Tenant SMTP failed after " + TENANT_SMTP_MAX_RETRIES
+                + " retries for document " + data.accessKey(), lastError);
     }
 
     /**
-     * Envía email via SMTP compartido de Key49 (mailer global de Quarkus).
+     * Envía el email de entrega vía Plunk. Descifra la API key del tenant,
+     * valida el destino y envía con adjuntos PDF + XML.
      */
-    private void sendViaSharedSmtp(EmailData data) {
-        var htmlBody = renderHtml(data);
-        var subject = buildSubject(data);
-
-        var mail = Mail.withHtml(
-                data.recipientEmails().getFirst(),
-                subject,
-                htmlBody
-        );
-
-        for (int i = 1; i < data.recipientEmails().size(); i++) {
-            mail.addCc(data.recipientEmails().get(i));
-        }
-
-        mail.setFrom(data.issuerName() + " <" + fromAddress + ">");
-
-        if (data.ridePdf() != null && data.ridePdf().length > 0) {
-            mail.addAttachment(data.rideFilename(), data.ridePdf(), "application/pdf");
-        }
-
-        if (data.authorizedXml() != null && data.authorizedXml().length > 0) {
-            mail.addAttachment(data.xmlFilename(), data.authorizedXml(), "application/xml");
-        }
-
-        log.infof("Sending via shared SMTP: document=%s, to=%s, cc=%d",
-                data.accessKey(),
-                data.recipientEmails().getFirst(),
-                data.recipientEmails().size() - 1);
-
-        try {
-            reactiveMailer.send(mail)
-                    .await().atMost(Duration.ofSeconds(sendTimeoutSeconds));
-        } catch (Exception error) {
-            log.errorf(error, "Failed to send email for document %s", data.accessKey());
+    private void sendViaPlunk(EmailData data, Tenant tenant) {
+        if (tenant.plunkApiKeyEnc == null || tenant.plunkApiKeyEnc.length == 0) {
             throw new EmailSendException(
-                    "Failed to send email for document " + data.accessKey(), error);
+                    "Tenant email_provider=plunk but plunk_api_key_enc is not configured | tenant=" + tenant.id);
         }
+
+        String apiKey;
+        try {
+            var masterKey = java.util.Base64.getDecoder()
+                    .decode(masterKeyBase64.orElseThrow(() ->
+                            new EmailSendException("Master key not configured")));
+            apiKey = new String(CertificateEncryptor.decrypt(tenant.plunkApiKeyEnc, masterKey),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (EmailSendException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new EmailSendException(
+                    "Failed to decrypt Plunk API key for tenant=" + tenant.id, e);
+        }
+
+        if (tenant.smtpFrom == null || tenant.smtpFrom.isBlank()) {
+            throw new EmailSendException(
+                    "Tenant email_provider=plunk but smtp_from is not configured | tenant=" + tenant.id
+                    + " — configure the sender email in portal settings");
+        }
+        var fromEmail = tenant.smtpFrom;
+        var fromName  = tenant.emailSenderName != null ? tenant.emailSenderName : tenant.legalName;
+        var to        = data.recipientEmails().getFirst();
+        var subject   = buildSubject(data);
+        var htmlBody  = renderHtml(data);
+
+        log.infof("Sending via Plunk | tenant=%s document=%s to=%s", tenant.id, data.accessKey(), to);
+
+        PlunkEmailSender.sendDocumentDelivery(
+                apiKey, fromEmail, fromName,
+                to, subject, htmlBody,
+                data.ridePdf(), data.rideFilename(),
+                data.authorizedXml(), data.xmlFilename(),
+                data.accessKey(), data.documentType());
     }
 
     private String renderHtml(EmailData data) {

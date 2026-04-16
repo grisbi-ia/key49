@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.doThrow;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.lenient;
@@ -33,14 +34,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.TenantCacheService;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.notify.email.PlatformEmailService;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.hash.HashCommands;
 import io.quarkus.redis.datasource.keys.KeyCommands;
 import io.quarkus.redis.datasource.value.ValueCommands;
-import io.smallrye.mutiny.Uni;
 
 /**
  * Tests unitarios para EmailVerificationService — verificación de email en
@@ -62,7 +62,7 @@ class EmailVerificationServiceTest {
     TenantCacheService tenantCacheService;
 
     @Mock
-    ReactiveMailer reactiveMailer;
+    PlatformEmailService platformEmailService;
 
     @Mock
     @SuppressWarnings("rawtypes")
@@ -93,8 +93,6 @@ class EmailVerificationServiceTest {
         lenient().when(redisDS.value(String.class, String.class)).thenReturn(valueCommands);
 
         setField("portalBaseUrl", "https://test.key49.ec");
-        setField("fromAddress", "test@key49.ec");
-        setField("sendTimeoutSeconds", 10);
 
         lenient().when(emailVerificationTemplate.data(anyString(), any())).thenReturn(templateInstance);
         lenient().when(templateInstance.data(anyString(), any())).thenReturn(templateInstance);
@@ -154,7 +152,6 @@ class EmailVerificationServiceTest {
         void successGeneratesTokenAndSendsEmail() {
             UUID tenantId = UUID.randomUUID();
             when(valueCommands.get("portal:verify-rate:admin@test.com")).thenReturn(null);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             var result = service.sendVerificationEmail(tenantId, "admin@test.com", "Empresa Test");
 
@@ -173,8 +170,8 @@ class EmailVerificationServiceTest {
             // Verifica TTL de 24 horas
             verify(keyCommands).pexpire(startsWith("portal:verify-email:"), eq(86400000L));
 
-            // Verifica email enviado
-            verify(reactiveMailer).send(any());
+            // Verifica email enviado vía PlatformEmailService
+            verify(platformEmailService).sendHtml(eq("admin@test.com"), anyString(), anyString());
         }
 
         @Test
@@ -183,7 +180,8 @@ class EmailVerificationServiceTest {
         void successEvenIfEmailFails() {
             UUID tenantId = UUID.randomUUID();
             when(valueCommands.get("portal:verify-rate:admin@test.com")).thenReturn(null);
-            when(reactiveMailer.send(any())).thenThrow(new RuntimeException("SMTP error"));
+            doThrow(new RuntimeException("SMTP error"))
+                    .when(platformEmailService).sendHtml(any(), any(), any());
 
             var result = service.sendVerificationEmail(tenantId, "admin@test.com", "Test");
 
@@ -198,7 +196,6 @@ class EmailVerificationServiceTest {
         void normalizesEmail() {
             UUID tenantId = UUID.randomUUID();
             when(valueCommands.get("portal:verify-rate:admin@test.com")).thenReturn(null);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             service.sendVerificationEmail(tenantId, "  Admin@Test.COM  ", "Test");
 
@@ -216,7 +213,6 @@ class EmailVerificationServiceTest {
             UUID tenantId = UUID.randomUUID();
             when(valueCommands.get("portal:verify-rate:admin@test.com")).thenReturn("1");
             when(keyCommands.pttl("portal:verify-rate:admin@test.com")).thenReturn(2000000L);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             service.sendVerificationEmail(tenantId, "admin@test.com", "Test");
 
@@ -229,7 +225,6 @@ class EmailVerificationServiceTest {
         void firstSendCreatesRateCounter() {
             UUID tenantId = UUID.randomUUID();
             when(valueCommands.get("portal:verify-rate:admin@test.com")).thenReturn(null);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             service.sendVerificationEmail(tenantId, "admin@test.com", "Test");
 

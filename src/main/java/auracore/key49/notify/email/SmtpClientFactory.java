@@ -23,7 +23,7 @@ import jakarta.mail.Session;
  * Fábrica de sesiones SMTP (Jakarta Mail) por tenant con caché LRU.
  *
  * <p>
- * Si el tenant tiene {@code smtpEnabled = true}, construye un {@link Session}
+ * Si el tenant tiene {@code smtp_host} configurado, construye un {@link Session}
  * con la configuración SMTP del tenant. La contraseña se descifra al momento de
  * construir la sesión.
  *

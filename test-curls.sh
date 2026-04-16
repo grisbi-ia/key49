@@ -14,7 +14,7 @@
 # ============================================================================
 
 BASE_URL="http://localhost:8080/v1"
-AUTH="Authorization: Bearer k49_VV3kF0q0BFhz5xD267DSryjc"
+AUTH="Authorization: Bearer k49_XmtdOWobngZ9NVYIwE1cPAkG"
 CT="Content-Type: application/json"
 TODAY=$(date +%Y-%m-%d)
 FISCAL_PERIOD=$(date +%m/%Y)
@@ -29,14 +29,14 @@ factura() {
     -d '{
       "establishment": "001",
       "issue_point": "999",
-      "sequence_number": "000000016",
+      "sequence_number": "000000027",
       "issue_date": "'"$TODAY"'",
       "recipient": {
         "id_type": "04",
         "id": "0105252704001",
         "name": "Juan Camaney",
         "address": "Quito, Av. Principal 123",
-        "email": "pvalarezo@grisbi.com.ec"
+        "email": "patriciovalarezo@gmail.com"
       },
       "items": [{
         "main_code": "SRV-001",

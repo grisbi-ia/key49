@@ -3,14 +3,13 @@ package auracore.key49.api.portal;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.PasswordHasher;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.notify.email.PlatformEmailService;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import io.quarkus.redis.datasource.RedisDataSource;
 import io.quarkus.redis.datasource.hash.HashCommands;
 import io.quarkus.redis.datasource.keys.KeyCommands;
 import io.quarkus.redis.datasource.value.ValueCommands;
-import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,7 +48,7 @@ class PasswordResetServiceTest {
     PasswordHasher passwordHasher;
 
     @Mock
-    ReactiveMailer reactiveMailer;
+    PlatformEmailService platformEmailService;
 
     @Mock
     @SuppressWarnings("rawtypes")
@@ -81,8 +80,6 @@ class PasswordResetServiceTest {
 
         // Inyectar config properties
         setField("portalBaseUrl", "https://test.key49.ec");
-        setField("fromAddress", "test@key49.ec");
-        setField("sendTimeoutSeconds", 10);
 
         // Mock Qute template
         lenient().when(passwordResetEmailTemplate.data(anyString(), any())).thenReturn(templateInstance);
@@ -163,7 +160,6 @@ class PasswordResetServiceTest {
 
             when(valueCommands.get("portal:reset-rate:admin@test.com")).thenReturn(null);
             when(tenantRepository.findByEmail("admin@test.com")).thenReturn(tenant);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             var result = service.requestReset("admin@test.com");
 
@@ -181,8 +177,8 @@ class PasswordResetServiceTest {
             // Verifica TTL de 30 min
             verify(keyCommands).pexpire(startsWith("portal:reset:"), eq(1800000L));
 
-            // Verifica email enviado
-            verify(reactiveMailer).send(any());
+            // Verifica email enviado vía PlatformEmailService
+            verify(platformEmailService).sendHtml(eq("admin@test.com"), anyString(), anyString());
         }
 
         @Test
@@ -196,7 +192,6 @@ class PasswordResetServiceTest {
             tenant.id = UUID.randomUUID();
             tenant.status = "active";
             when(tenantRepository.findByEmail("admin@test.com")).thenReturn(tenant);
-            when(reactiveMailer.send(any())).thenReturn(Uni.createFrom().voidItem());
 
             service.requestReset("admin@test.com");
 
@@ -218,7 +213,7 @@ class PasswordResetServiceTest {
             var result = service.requestReset("admin@test.com");
 
             assertTrue(result.success()); // No revela que el tenant está inactivo
-            verify(reactiveMailer, never()).send(any());
+            verify(platformEmailService, never()).sendHtml(any(), any(), any());
         }
 
         @Test
@@ -232,7 +227,8 @@ class PasswordResetServiceTest {
 
             when(valueCommands.get("portal:reset-rate:admin@test.com")).thenReturn(null);
             when(tenantRepository.findByEmail("admin@test.com")).thenReturn(tenant);
-            when(reactiveMailer.send(any())).thenThrow(new RuntimeException("SMTP error"));
+            doThrow(new RuntimeException("SMTP error"))
+                    .when(platformEmailService).sendHtml(any(), any(), any());
 
             var result = service.requestReset("admin@test.com");
 

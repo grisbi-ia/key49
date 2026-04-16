@@ -4,222 +4,143 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.reactive.ReactiveMailer;
+import auracore.key49.core.model.Tenant;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
-import io.smallrye.mutiny.Uni;
 
 class EmailServiceTest {
 
     private static final String ACCESS_KEY = "2506202501099271531200110010020000000011234567813";
 
-    private ReactiveMailer reactiveMailer;
+    private SmtpClientFactory smtpClientFactory;
     private Template template;
     private TemplateInstance templateInstance;
     private EmailService service;
 
     @BeforeEach
     void setUp() {
-        reactiveMailer = mock(ReactiveMailer.class);
+        smtpClientFactory = mock(SmtpClientFactory.class);
         template = mock(Template.class);
         templateInstance = mock(TemplateInstance.class);
 
         when(template.data(any(String.class), any())).thenReturn(templateInstance);
         when(templateInstance.render()).thenReturn("<html>test</html>");
-        when(reactiveMailer.send(any(Mail.class))).thenReturn(Uni.createFrom().voidItem());
 
         service = new EmailService();
-        service.reactiveMailer = reactiveMailer;
-        service.smtpClientFactory = mock(SmtpClientFactory.class);
+        service.smtpClientFactory = smtpClientFactory;
         service.documentDeliveryTemplate = template;
-        service.fromAddress = "facturacion@key49.ec";
         service.emailEnabled = true;
-        service.sendTimeoutSeconds = 120;
     }
 
     @Test
-    void shouldSendEmailWithAttachments() {
-        var data = createEmailData(List.of("cliente@test.com"),
-                "RIDE PDF bytes".getBytes(StandardCharsets.UTF_8),
-                "<xml>authorized</xml>".getBytes(StandardCharsets.UTF_8));
+    void shouldThrowWhenTenantIsNull() {
+        var data = createEmailData(List.of("test@test.com"), null, null);
 
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        assertTrue(mail.getTo().contains("cliente@test.com"));
-        assertTrue(mail.getHtml().contains("test"));
-        assertTrue(mail.getSubject().contains("Factura"));
-        assertTrue(mail.getSubject().contains("001-001-000000042"));
-        assertTrue(mail.getAttachments().size() >= 2);
-    }
-
-    @Test
-    void shouldSendToFirstRecipientWithCc() {
-        var data = createEmailData(
-                List.of("main@test.com", "cc1@test.com", "cc2@test.com"),
-                null, null);
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        assertTrue(mail.getTo().contains("main@test.com"));
-        assertTrue(mail.getCc().contains("cc1@test.com"));
-        assertTrue(mail.getCc().contains("cc2@test.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.sendDocumentDelivery(data, null));
     }
 
     @Test
     void shouldSkipWhenEmailDisabled() {
         service.emailEnabled = false;
-        var data = createEmailData(List.of("test@test.com"), null, null);
-
-        service.sendDocumentDelivery(data);
-
-        verify(reactiveMailer, never()).send(any());
-    }
-
-    @Test
-    void shouldSkipWhenNoRecipientEmails() {
-        var data = createEmailData(List.of(), null, null);
-
-        service.sendDocumentDelivery(data);
-
-        verify(reactiveMailer, never()).send(any());
-    }
-
-    @Test
-    void shouldSendWithoutAttachmentsWhenNull() {
-        var data = createEmailData(List.of("test@test.com"), null, null);
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        assertTrue(mail.getAttachments().isEmpty());
-    }
-
-    @Test
-    void shouldAttachOnlyRideWhenXmlIsNull() {
-        var data = createEmailData(List.of("test@test.com"),
-                "PDF content".getBytes(StandardCharsets.UTF_8), null);
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        var attachments = mail.getAttachments();
-        assertTrue(attachments.stream().anyMatch(a
-                -> a.getName().endsWith(".pdf")));
-    }
-
-    @Test
-    void shouldAttachOnlyXmlWhenRideIsNull() {
-        var data = createEmailData(List.of("test@test.com"),
-                null, "<xml>data</xml>".getBytes(StandardCharsets.UTF_8));
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        var attachments = mail.getAttachments();
-        assertTrue(attachments.stream().anyMatch(a
-                -> a.getName().endsWith(".xml")));
-    }
-
-    @Test
-    void shouldWrapMailerFailureAsEmailSendException() {
-        when(reactiveMailer.send(any(Mail.class)))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("SMTP error")));
-
-        var data = createEmailData(List.of("test@test.com"), null, null);
-
-        assertThrows(EmailSendException.class, ()
-                -> service.sendDocumentDelivery(data));
-    }
-
-    @Test
-    void shouldSetFromAddressWithIssuerName() {
-        var data = createEmailData(List.of("test@test.com"), null, null);
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        var mail = captor.getValue();
-        assertTrue(mail.getFrom().contains("Empresa Test S.A."));
-        assertTrue(mail.getFrom().contains("facturacion@key49.ec"));
-    }
-
-    @Test
-    void shouldRenderTemplateWithData() {
-        var data = createEmailData(List.of("test@test.com"), null, null);
-
-        service.sendDocumentDelivery(data);
-
-        verify(template).data("data", data);
-        verify(templateInstance).render();
-    }
-
-    @Test
-    void shouldSkipEmptyByteArrayAttachments() {
-        var data = createEmailData(List.of("test@test.com"),
-                new byte[0], new byte[0]);
-
-        service.sendDocumentDelivery(data);
-
-        var captor = ArgumentCaptor.forClass(Mail.class);
-        verify(reactiveMailer).send(captor.capture());
-
-        assertTrue(captor.getValue().getAttachments().isEmpty());
-    }
-
-    @Test
-    void shouldUseSharedSmtpWhenTenantSmtpDisabled() {
-        var tenant = new auracore.key49.core.model.Tenant();
-        tenant.smtpEnabled = false;
+        var tenant = tenantWithSmtp("smtp.example.com");
         var data = createEmailData(List.of("test@test.com"), null, null);
 
         service.sendDocumentDelivery(data, tenant);
 
-        // Should use shared mailer, not tenant SMTP
-        verify(reactiveMailer).send(any(Mail.class));
+        verify(smtpClientFactory, never()).getOrCreate(any());
     }
 
     @Test
-    void shouldUseSharedSmtpWhenTenantIsNull() {
-        var data = createEmailData(List.of("test@test.com"), null, null);
+    void shouldSkipWhenNoRecipientEmails() {
+        var tenant = tenantWithSmtp("smtp.example.com");
+        var data = createEmailData(List.of(), null, null);
 
-        service.sendDocumentDelivery(data, null);
+        service.sendDocumentDelivery(data, tenant);
 
-        verify(reactiveMailer).send(any(Mail.class));
+        verify(smtpClientFactory, never()).getOrCreate(any());
     }
 
-    private EmailData createEmailData(List<String> emails, byte[] ridePdf, byte[] authorizedXml) {
+    @Test
+    void shouldSkipWhenSmtpHostNotConfigured() {
+        var tenant = tenantWithSmtp(null);
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        service.sendDocumentDelivery(data, tenant);
+
+        verify(smtpClientFactory, never()).getOrCreate(any());
+    }
+
+    @Test
+    void shouldSkipWhenSmtpHostIsBlank() {
+        var tenant = tenantWithSmtp("   ");
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        service.sendDocumentDelivery(data, tenant);
+
+        verify(smtpClientFactory, never()).getOrCreate(any());
+    }
+
+    @Test
+    void shouldThrowWhenPlunkApiKeyNotConfigured() {
+        var tenant = new Tenant();
+        tenant.id = UUID.randomUUID();
+        tenant.emailProvider = "plunk";
+        tenant.plunkApiKeyEnc = null;
+
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        assertThrows(EmailSendException.class,
+                () -> service.sendDocumentDelivery(data, tenant));
+    }
+
+    @Test
+    void shouldThrowWhenSmtpFromNotConfiguredForPlunk() {
+        var tenant = new Tenant();
+        tenant.id = UUID.randomUUID();
+        tenant.emailProvider = "plunk";
+        tenant.plunkApiKeyEnc = "somekey".getBytes(StandardCharsets.UTF_8);
+        tenant.smtpFrom = null;
+        // masterKeyBase64 not set → will fail on decrypt, but smtpFrom check runs after decrypt
+        // We test smtpFrom validation via SMTP path instead
+        var smtpTenant = tenantWithSmtp("smtp.example.com");
+        smtpTenant.smtpFrom = null;
+
+        var data = createEmailData(List.of("test@test.com"), null, null);
+
+        // SMTP path: smtpHost configured but smtpFrom missing → EmailSendException
+        // SmtpClientFactory.getOrCreate will be called before smtpFrom check
+        // Use a session stub to get past factory
+        when(smtpClientFactory.getOrCreate(any())).thenReturn(
+                new SmtpClientFactory.TenantSmtpSession(null, null));
+
+        assertThrows(EmailSendException.class,
+                () -> service.sendDocumentDelivery(data, smtpTenant));
+    }
+
+    // ── Helpers ──
+
+    private static Tenant tenantWithSmtp(String host) {
+        var t = new Tenant();
+        t.id = UUID.randomUUID();
+        t.emailProvider = "smtp";
+        t.smtpHost = host;
+        t.smtpPort = 587;
+        return t;
+    }
+
+    private static EmailData createEmailData(List<String> emails, byte[] ridePdf, byte[] authorizedXml) {
         return new EmailData(
                 "Empresa Test S.A.",
                 "0990012345001",

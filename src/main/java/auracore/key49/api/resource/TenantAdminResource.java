@@ -408,23 +408,25 @@ public class TenantAdminResource {
 
         var tenant = tenantService.updateSmtpConfig(
                 id, request.host(), request.port(), request.user(),
-                encryptedPassword, request.fromAddress(), request.enabled(),
-                request.emailNotificationsEnabled());
+                encryptedPassword, request.fromAddress(),
+                request.emailNotificationsEnabled(), request.notifyFinalConsumer());
 
         // Invalidate cached SMTP client if config changed
         smtpClientFactory.invalidate(id);
 
+        boolean smtpConfigured = tenant.smtpHost != null && !tenant.smtpHost.isBlank();
         auditService.record(id, "admin", "smtp.configured", "tenant",
                 id, AuditService.resolveIp(httpRequest),
                 """
-                {"smtp_host":"%s","smtp_port":%s,"smtp_enabled":%s,"email_notifications":%s}""".formatted(
-                        tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled,
+                {"smtp_host":"%s","smtp_port":%s,"smtp_configured":%s,"email_notifications":%s}""".formatted(
+                        tenant.smtpHost, tenant.smtpPort, smtpConfigured,
                         tenant.emailNotificationsEnabled));
 
         var smtpResponse = new SmtpConfigResponse(
                 tenant.smtpHost, tenant.smtpPort, tenant.smtpUser,
                 tenant.smtpPasswordEnc != null && tenant.smtpPasswordEnc.length > 0,
-                tenant.smtpFrom, tenant.smtpEnabled, tenant.emailNotificationsEnabled);
+                tenant.smtpFrom, smtpConfigured, tenant.emailNotificationsEnabled,
+                tenant.notifyFinalConsumer);
         var body = ApiResponse.of(smtpResponse, requestId);
         return Response.ok()
                 .header("X-Request-Id", requestId)

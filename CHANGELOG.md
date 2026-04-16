@@ -5,6 +5,60 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.29.0] - 2026-04-16
+
+### Agregado
+
+- **Soporte de Plunk como proveedor de email** (T-110)
+  - `PlunkClient`: cliente HTTP stateless para la API REST de Plunk (`/v1/verify`, `/v1/send`, `/v1/track`). Validación de destino con soft-fail, adjuntos Base64, rastreo de eventos
+  - `PlunkEmailSender`: orquesta el flujo verify → send → track para envíos de documentos y plataforma
+  - `PlatformEmailService`: nuevo CDI bean que unifica SMTP compartido y Plunk para emails de plataforma (verificación de cuenta, recuperación de contraseña, alertas de plan). Canal seleccionable vía `KEY49_PLATFORM_EMAIL_PROVIDER` (smtp | plunk)
+  - `EmailProvider`: enum `SMTP` | `PLUNK`
+  - `Tenant.emailProvider` y `Tenant.plunkApiKeyEnc`: cada tenant puede configurar su propio canal de envío (SMTP propio o Plunk)
+  - **Portal settings**: selector de proveedor (SMTP / Plunk) con campo de API key siempre visible
+  - **Migraciones**: `V011__add_plunk_email_provider.sql` — columnas `email_provider` y `plunk_api_key_enc` en `tenants`
+  - **Variables de entorno** para canal de plataforma: `KEY49_PLATFORM_EMAIL_PROVIDER`, `KEY49_PLUNK_PLATFORM_API_KEY`, `KEY49_PLUNK_PLATFORM_FROM_EMAIL`, `KEY49_PLUNK_PLATFORM_FROM_NAME`
+
+- **Omisión de notificaciones a Consumidor Final** (T-110)
+  - `Tenant.notifyFinalConsumer` (default `true`): si `false`, el `NotifyConsumer` omite el envío de email cuando el receptor tiene identificación de todo nines (`9999999999` o `9999999999999`)
+  - `NotifyConsumer.isFinalConsumer()`: helper estático con detección por longitud (10 o 13 dígitos) y caracteres
+  - **Portal settings**: nuevo checkbox "Notificar a Consumidor Final" con descripción
+  - **Migración**: `V013__add_notify_final_consumer.sql`
+
+### Cambiado
+
+- **`EmailService`: sin fallback al SMTP compartido de Key49 para documentos de tenant**
+  - Cada tenant usa exclusivamente su canal configurado (Plunk o SMTP propio)
+  - Si no hay SMTP configurado (`smtp_host` ausente), el envío se omite con log de advertencia
+  - Eliminado overload `sendDocumentDelivery(EmailData)` sin tenant — el parámetro tenant es ahora obligatorio
+  - `sendViaTenantSmtp()`: lanza `EmailSendException` al agotar reintentos (antes retornaba `false`)
+
+- **`PlanAlertService`, `EmailVerificationService`, `PasswordResetService`**: migrados de inyección directa de `ReactiveMailer` a `PlatformEmailService`
+
+- **`smtp_enabled` eliminado** (simplificación)
+  - Columna eliminada de `tenants` — era redundante con la presencia de `smtp_host`
+  - El SMTP se considera configurado si `smtp_host` está presente
+  - **Migración**: `V012__remove_smtp_enabled.sql`
+  - `SmtpConfigRequest`: campo `enabled` eliminado del DTO
+  - Portal settings: eliminado checkbox "Habilitar SMTP personalizado" y referencia al servidor de Key49
+
+### Corregido
+
+- **`TenantCacheService`**: campos `email_provider` y `plunk_api_key_enc` ahora se serializan/deserializan en Redis. Sin este fix, tenants cacheados siempre usaban SMTP aunque tuvieran Plunk configurado
+- **`PlunkClient.buildSendBody()`**: campo `from` enviado como string plano (antes como objeto `{name, email}`). Plunk rechazaba el formato objeto con HTTP 422
+- **`PlunkClient.buildAttachmentsJson()`**: campo renombrado `type` → `contentType`. Plunk requiere `contentType` en adjuntos (HTTP 422 sin este fix)
+- **`EmailService.sendViaPlunk()`**: lanza `EmailSendException` si `smtp_from` no está configurado (antes usaba el `fromAddress` global de Key49 como fallback)
+
+### Tests
+
+- `PlunkClientTest`: 14 tests — parseo de respuestas, escaping JSON, construcción de adjuntos
+- `PlunkEmailSenderTest`: 7 tests — flujo verify/send/track con `mockStatic(PlunkClient.class)`
+- `EmailServiceTest`: reescrito para el nuevo comportamiento sin SMTP compartido
+- `NotifyConsumerTest`: 9 tests para `isFinalConsumer` + 5 casos para la lógica de omisión por Consumidor Final
+- `TenantAdminServiceTest`: adaptado a DTOs sin `enabled`, con `notifyFinalConsumer`
+
+---
+
 ## [0.28.0] - 2026-04-13
 
 ### Cambiado

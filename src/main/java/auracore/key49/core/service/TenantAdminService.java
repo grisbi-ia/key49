@@ -281,11 +281,37 @@ public class TenantAdminService {
         return tenant;
     }
 
+    // ── Configurar proveedor de email por tenant ──
+    @Transactional
+    public Tenant updateEmailProvider(UUID id, String emailProvider, byte[] plunkApiKeyEnc) {
+        Tenant tenant = tenantRepository.findById(id);
+        if (tenant == null) {
+            throw new TenantException("TENANT_NOT_FOUND", "Tenant not found: " + id, 404);
+        }
+
+        if (emailProvider != null && !emailProvider.isBlank()) {
+            var provider = emailProvider.strip().toLowerCase();
+            if (!provider.equals("smtp") && !provider.equals("plunk")) {
+                throw new TenantException("VALIDATION_ERROR",
+                        "emailProvider must be 'smtp' or 'plunk'", 400);
+            }
+            tenant.emailProvider = provider;
+        }
+        if (plunkApiKeyEnc != null) {
+            tenant.plunkApiKeyEnc = plunkApiKeyEnc;
+        }
+        tenant.updatedAt = Instant.now();
+
+        Log.infof("Email provider updated | tenantId=%s provider=%s", id, tenant.emailProvider);
+        tenantCacheService.invalidate(id, tenant.schemaName);
+        return tenant;
+    }
+
     // ── Configurar SMTP por tenant ──
     @Transactional
     public Tenant updateSmtpConfig(UUID id, String smtpHost, Integer smtpPort,
             String smtpUser, byte[] encryptedPassword, String smtpFrom,
-            Boolean enabled, Boolean emailNotificationsEnabled) {
+            Boolean emailNotificationsEnabled, Boolean notifyFinalConsumer) {
         Tenant tenant = tenantRepository.findById(id);
         if (tenant == null) {
             throw new TenantException("TENANT_NOT_FOUND",
@@ -307,30 +333,17 @@ public class TenantAdminService {
         if (smtpFrom != null) {
             tenant.smtpFrom = smtpFrom;
         }
-        if (enabled != null) {
-            if (enabled) {
-                // Validate required fields before enabling
-                var host = smtpHost != null ? smtpHost : tenant.smtpHost;
-                var port = smtpPort != null ? smtpPort : tenant.smtpPort;
-                if (host == null || host.isBlank()) {
-                    throw new TenantException("VALIDATION_ERROR",
-                            "smtp_host is required when enabling SMTP", 400);
-                }
-                if (port == null) {
-                    throw new TenantException("VALIDATION_ERROR",
-                            "smtp_port is required when enabling SMTP", 400);
-                }
-            }
-            tenant.smtpEnabled = enabled;
-        }
         if (emailNotificationsEnabled != null) {
             tenant.emailNotificationsEnabled = emailNotificationsEnabled;
         }
+        if (notifyFinalConsumer != null) {
+            tenant.notifyFinalConsumer = notifyFinalConsumer;
+        }
         tenant.updatedAt = Instant.now();
 
-        Log.infof("SMTP config updated | tenantId=%s host=%s port=%s enabled=%s emailNotifications=%s",
-                id, tenant.smtpHost, tenant.smtpPort, tenant.smtpEnabled,
-                tenant.emailNotificationsEnabled);
+        Log.infof("SMTP config updated | tenantId=%s host=%s port=%s emailNotifications=%s notifyFinalConsumer=%s",
+                id, tenant.smtpHost, tenant.smtpPort, tenant.emailNotificationsEnabled,
+                tenant.notifyFinalConsumer);
         tenantCacheService.invalidate(id, tenant.schemaName);
         return tenant;
     }

@@ -198,8 +198,13 @@ public class TenantCacheService {
             map.put("smtp_password_enc", java.util.Base64.getEncoder().encodeToString(t.smtpPasswordEnc));
         }
         putIfNotNull(map, "smtp_from", t.smtpFrom);
-        map.put("smtp_enabled", String.valueOf(t.smtpEnabled));
         map.put("email_notifications_enabled", String.valueOf(t.emailNotificationsEnabled));
+        map.put("notify_final_consumer", String.valueOf(t.notifyFinalConsumer));
+        // Email provider per-tenant
+        map.put("email_provider", t.emailProvider);
+        if (t.plunkApiKeyEnc != null) {
+            map.put("plunk_api_key_enc", java.util.Base64.getEncoder().encodeToString(t.plunkApiKeyEnc));
+        }
         if (t.createdAt != null) {
             map.put("created_at", t.createdAt.toString());
         }
@@ -242,9 +247,14 @@ public class TenantCacheService {
         var smtpPwdEnc = data.get("smtp_password_enc");
         t.smtpPasswordEnc = smtpPwdEnc != null ? java.util.Base64.getDecoder().decode(smtpPwdEnc) : null;
         t.smtpFrom = data.get("smtp_from");
-        t.smtpEnabled = Boolean.parseBoolean(data.get("smtp_enabled"));
         t.emailNotificationsEnabled = Boolean.parseBoolean(
                 data.getOrDefault("email_notifications_enabled", "true"));
+        t.notifyFinalConsumer = Boolean.parseBoolean(
+                data.getOrDefault("notify_final_consumer", "true"));
+        // Email provider per-tenant
+        t.emailProvider = data.getOrDefault("email_provider", "smtp");
+        var plunkKeyEnc = data.get("plunk_api_key_enc");
+        t.plunkApiKeyEnc = plunkKeyEnc != null ? java.util.Base64.getDecoder().decode(plunkKeyEnc) : null;
         var createdAt = data.get("created_at");
         t.createdAt = createdAt != null ? Instant.parse(createdAt) : null;
         var updatedAt = data.get("updated_at");

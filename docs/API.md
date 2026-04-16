@@ -1,12 +1,18 @@
 # API REST — Key49
 
+Plataforma de facturación electrónica SRI Ecuador. Esta referencia cubre todos los endpoints disponibles, ejemplos de request/response y catálogo de errores.
+
+---
+
 ## Base URL
 
 ```
-Desarrollo: http://localhost:8080/v1
-Producción: https://api.key49.ec/v1
-Pruebas:    https://sandbox.key49.ec/v1
+Desarrollo:  http://localhost:8080/v1
+Sandbox:     https://sandbox.key49.ec/v1
+Producción:  https://api.key49.ec/v1
 ```
+
+---
 
 ## Autenticación
 
@@ -16,30 +22,29 @@ Todas las peticiones a `/v1/*` requieren un API Key en el header `Authorization`
 Authorization: Bearer k49_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Los API keys tienen prefijo `k49_` seguido de 24 caracteres aleatorios. El `environment` del tenant determina si opera contra el SRI de pruebas o producción.
+Los API keys tienen el prefijo `k49_` seguido de 24 caracteres aleatorios. El ambiente de operación (SRI pruebas o producción) lo determina la configuración del tenant, no el API key.
 
-**Ejemplo curl:**
+**Ejemplo rápido:**
 
 ```bash
 curl -s http://localhost:8080/v1/tenant/profile \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
-**Paths públicos** (no requieren autenticación): `/q/*`, `/portal/login`, `/openapi`, `/swagger-ui`.
+**Paths públicos** (sin autenticación): `/q/*`, `/portal/login`, `/portal/register/*`, `/openapi`, `/swagger-ui`.
+
+---
 
 ## Rate Limiting
 
-Los límites de tasa se aplican **por API key** según el plan del tenant. Existen dos categorías:
+Los límites se aplican por API key, según el plan del tenant:
 
-- **Write RPM**: operaciones de escritura (`POST /v1/invoices`, etc.)
-- **Read RPM**: operaciones de lectura (`GET /v1/invoices`, `GET /v1/documents`, etc.)
-
-| Plan       | Write RPM | Read RPM | Total RPM |
-| ---------- | --------- | -------- | --------- |
-| DEMO       | 10        | 30       | 40        |
-| STARTER    | 30        | 100      | 130       |
-| BUSINESS   | 60        | 200      | 260       |
-| ENTERPRISE | 200       | 600      | 800       |
+| Plan       | Escritura (POST) | Lectura (GET) |
+| ---------- | :--------------: | :-----------: |
+| DEMO       | 10 rpm           | 30 rpm        |
+| STARTER    | 30 rpm           | 100 rpm       |
+| BUSINESS   | 60 rpm           | 200 rpm       |
+| ENTERPRISE | 200 rpm          | 600 rpm       |
 
 **Headers de respuesta:**
 
@@ -49,52 +54,37 @@ X-RateLimit-Remaining: 25
 X-RateLimit-Reset: 1712234567
 ```
 
-Al exceder el límite: HTTP 429 con header `Retry-After` y error code `RATE_LIMIT_EXCEEDED`.
+Al exceder el límite: HTTP **429** con header `Retry-After` y error code `RATE_LIMIT_EXCEEDED`.
 
-Los límites se ajustan automáticamente al cambiar de plan (aprobación de renovación).
+---
 
 ## Idempotencia
 
-Todas las operaciones de creación soportan idempotencia via header:
+Todas las operaciones de creación aceptan:
 
 ```
-X-Idempotency-Key: unique-string-from-client
+X-Idempotency-Key: <string único del cliente>
 ```
 
-Si se envía el mismo key, se retorna el resultado original sin reprocesar. Si se envía el mismo key con un body distinto, se retorna HTTP 409 `IDEMPOTENCY_CONFLICT`.
-
-## Headers de Respuesta Comunes
-
-Todas las respuestas incluyen los siguientes headers:
-
-```
-X-Request-Id: req_abc123              # ID único de Key49 para trazabilidad
-X-Trace-Id: 4bf92f3577b347a8...       # OpenTelemetry trace ID (si habilitado)
-X-RateLimit-Limit: 100               # Límite de requests por minuto
-X-RateLimit-Remaining: 95            # Requests restantes en la ventana
-X-RateLimit-Reset: 1712234567        # Timestamp UNIX cuando se renueva la ventana
-Content-Type: application/json
-```
-
-El `X-Request-Id` se incluye también en el body dentro de `meta.request_id`.
+Si se envía el mismo key, se retorna el resultado original sin reprocesar. Si el mismo key llega con un body diferente: HTTP **409** `IDEMPOTENCY_CONFLICT`.
 
 ---
 
 ## Formato de Respuestas
 
-### Respuesta exitosa
+### Éxito
 
 ```json
 {
   "data": { ... },
   "meta": {
-    "request_id": "req_abc123",
-    "timestamp": "2026-04-04T10:30:00Z"
+    "request_id": "req_abc123def456",
+    "timestamp": "2026-04-14T15:30:00Z"
   }
 }
 ```
 
-### Respuesta con lista (paginada)
+### Lista paginada
 
 ```json
 {
@@ -108,40 +98,107 @@ El `X-Request-Id` se incluye también en el body dentro de `meta.request_id`.
 }
 ```
 
-### Respuesta de error
+### Error
 
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "El campo receptor.identificacion es requerido",
+    "message": "Request contiene campos inválidos",
     "details": [
       {
-        "field": "receptor.identificacion",
-        "message": "No puede estar vacío",
-        "code": "REQUIRED"
+        "field": "recipient.id",
+        "message": "RUC debe tener 13 dígitos",
+        "code": "INVALID_FORMAT"
       }
     ]
   },
   "meta": {
-    "request_id": "req_abc123"
+    "request_id": "req_abc123def456"
   }
 }
 ```
 
 ---
 
-## Endpoints
+## Catálogos SRI (referencia rápida)
 
-### 1. Facturas (Invoices)
+### Tipos de identificación (`id_type`)
 
-#### POST /v1/invoices
+| Código | Tipo            | Longitud |
+| ------ | --------------- | -------- |
+| `04`   | RUC             | 13 díg.  |
+| `05`   | Cédula          | 10 díg.  |
+| `06`   | Pasaporte       | 3-20 car.|
+| `07`   | Consumidor final| 13 díg.  |
 
-Crear y enviar una factura electrónica al SRI.
+### Tipos de impuesto (`code`)
 
-> **Nota**: Los campos `establishment`, `issue_point` y `sequence_number` son responsabilidad del cliente. Key49 no gestiona secuenciales. La `issue_date` debe ser la fecha del día actual (emisión en tiempo real).
->
-> **Almacenamiento**: Key49 persiste los datos resumen del documento (receptor, totales, estado) en la tabla `documents`. Los ítems y formas de pago NO se almacenan en tablas separadas — se preservan en el `request_payload` original y en los XML almacenados en MinIO.
+| Código | Tipo   |
+| ------ | ------ |
+| `2`    | IVA    |
+| `3`    | ICE    |
+| `5`    | IRBPNR |
+
+### Tarifas IVA (`rate_code`)
+
+| Código | Tarifa |
+| ------ | ------ |
+| `0`    | 0%     |
+| `2`    | 12%    |
+| `3`    | 14%    |
+| `4`    | 15%    |
+| `6`    | No objeto IVA |
+| `7`    | Exento |
+
+### Formas de pago (`payment_method`)
+
+| Código | Forma de pago       |
+| ------ | ------------------- |
+| `01`   | Efectivo            |
+| `15`   | Compensación deudas |
+| `16`   | Tarjeta de débito   |
+| `17`   | Dinero electrónico  |
+| `18`   | Tarjeta prepago     |
+| `19`   | Tarjeta de crédito  |
+| `20`   | Transferencia       |
+| `21`   | Cheque              |
+
+### Tipos de comprobante (`document_type`)
+
+| Código | Tipo                         |
+| ------ | ---------------------------- |
+| `01`   | Factura                      |
+| `03`   | Liquidación de compra        |
+| `04`   | Nota de crédito              |
+| `05`   | Nota de débito               |
+| `06`   | Guía de remisión             |
+| `07`   | Comprobante de retención     |
+
+---
+
+## Estados de un Documento
+
+| Estado       | Descripción                                                  |
+| ------------ | ------------------------------------------------------------ |
+| `CREATED`    | Documento creado, pendiente de firma                         |
+| `SIGNED`     | XML firmado con XAdES-BES, pendiente de envío al SRI         |
+| `SENT`       | Enviado al SRI por SOAP, pendiente de autorización           |
+| `RECEIVED`   | SRI confirmó recepción, pendiente de consulta de autorización|
+| `AUTHORIZED` | Autorizado por el SRI                                        |
+| `NOTIFIED`   | Email con RIDE + XML enviado al receptor                     |
+| `REJECTED`   | Rechazado por el SRI (error de validación)                   |
+| `RETRY`      | Error temporal, reintentando con backoff                     |
+| `FAILED`     | Reintentos agotados (requiere intervención manual)           |
+| `VOIDED`     | Anulado localmente (el contribuyente debe anular en el SRI)  |
+
+---
+
+## 1. Facturas — `POST /v1/invoices`
+
+Emite una factura electrónica tipo `01`.
+
+> La `issue_date` debe ser la fecha actual en zona horaria `America/Guayaquil`. Key49 valida esto antes de procesar. Los secuenciales (`sequence_number`) son responsabilidad del cliente.
 
 **curl:**
 
@@ -154,7 +211,7 @@ curl -s -X POST http://localhost:8080/v1/invoices \
     "establishment": "001",
     "issue_point": "001",
     "sequence_number": "000000042",
-    "issue_date": "'$(date +%Y-%m-%d)'",
+    "issue_date": "2026-04-14",
     "recipient": {
       "id_type": "04",
       "id": "1790012345001",
@@ -170,8 +227,8 @@ curl -s -X POST http://localhost:8080/v1/invoices \
         "description": "Servicio de hosting mensual",
         "unit_of_measure": "UNIDAD",
         "quantity": 1,
-        "unit_price": 50.0,
-        "discount": 0.0,
+        "unit_price": 50.00,
+        "discount": 0.00,
         "taxes": [
           {
             "code": "2",
@@ -184,67 +241,47 @@ curl -s -X POST http://localhost:8080/v1/invoices \
     "payments": [
       {
         "payment_method": "20",
-        "total": 57.5,
+        "total": 57.50,
         "term": 0,
         "time_unit": "days"
       }
     ],
     "additional_info": {
-      "Dirección": "Av. Principal 123",
-      "Email": "contabilidad@cliente.com"
+      "Orden de compra": "OC-2026-0042",
+      "Contrato": "CT-2026-001"
     }
   }' | jq .
 ```
 
-**Request:**
+**Request — campos:**
 
-```json
-{
-  "establishment": "001",
-  "issue_point": "001",
-  "sequence_number": "000000042",
-  "issue_date": "2026-04-04",
-  "recipient": {
-    "id_type": "04",
-    "id": "1790012345001",
-    "name": "Empresa Cliente S.A.",
-    "address": "Av. Principal 123, Quito",
-    "email": "contabilidad@cliente.com",
-    "phone": "0991234567"
-  },
-  "items": [
-    {
-      "main_code": "PROD-001",
-      "auxiliary_code": "7861234567890",
-      "description": "Servicio de hosting mensual",
-      "unit_of_measure": "UNIDAD",
-      "quantity": 1,
-      "unit_price": 50.0,
-      "discount": 0.0,
-      "taxes": [
-        {
-          "code": "2",
-          "rate_code": "4",
-          "rate": 15.0
-        }
-      ]
-    }
-  ],
-  "payments": [
-    {
-      "payment_method": "20",
-      "total": 57.5,
-      "term": 0,
-      "time_unit": "days"
-    }
-  ],
-  "additional_info": {
-    "Dirección": "Av. Principal 123",
-    "Email": "contabilidad@cliente.com",
-    "Teléfono": "0991234567"
-  }
-}
-```
+| Campo                        | Tipo            | Req | Descripción                                    |
+| ---------------------------- | --------------- | :-: | ---------------------------------------------- |
+| `establishment`              | string `^\d{3}$`| ✓   | Código establecimiento (3 dígitos)             |
+| `issue_point`                | string `^\d{3}$`| ✓   | Punto de emisión (3 dígitos)                   |
+| `sequence_number`            | string `^\d{9}$`| ✓   | Secuencial (9 dígitos, ej: `000000042`)        |
+| `issue_date`                 | date `YYYY-MM-DD`| ✓  | Fecha de emisión (debe ser hoy en EC)          |
+| `recipient.id_type`          | string          | ✓   | Código tipo identificación (ver catálogo)      |
+| `recipient.id`               | string          | ✓   | RUC, cédula o pasaporte del receptor           |
+| `recipient.name`             | string          | ✓   | Razón social o nombre del receptor             |
+| `recipient.address`          | string          |     | Dirección del receptor                         |
+| `recipient.email`            | string          |     | Email para envío del RIDE                      |
+| `recipient.phone`            | string          |     | Teléfono del receptor                          |
+| `items[].main_code`          | string          | ✓   | Código principal del producto/servicio         |
+| `items[].auxiliary_code`     | string          |     | Código auxiliar (ej: código de barras)         |
+| `items[].description`        | string          | ✓   | Descripción del ítem                           |
+| `items[].unit_of_measure`    | string          |     | Unidad de medida (ej: `UNIDAD`, `KG`)          |
+| `items[].quantity`           | decimal         | ✓   | Cantidad                                       |
+| `items[].unit_price`         | decimal         | ✓   | Precio unitario sin IVA                        |
+| `items[].discount`           | decimal         |     | Descuento en valor absoluto (default: 0)       |
+| `items[].taxes[].code`       | string          | ✓   | Tipo de impuesto (`2`=IVA, `3`=ICE)            |
+| `items[].taxes[].rate_code`  | string          | ✓   | Código de tarifa del catálogo SRI              |
+| `items[].taxes[].rate`       | decimal         | ✓   | Porcentaje (ej: `15.0`)                        |
+| `payments[].payment_method`  | string          | ✓   | Código de forma de pago (ver catálogo)         |
+| `payments[].total`           | decimal         | ✓   | Monto de este medio de pago                    |
+| `payments[].term`            | integer         |     | Plazo en unidades (default: 0)                 |
+| `payments[].time_unit`       | string          |     | Unidad del plazo: `days`, `months`             |
+| `additional_info`            | map string      |     | Información adicional (clave-valor libre)      |
 
 **Response (202 Accepted):**
 
@@ -256,40 +293,31 @@ curl -s -X POST http://localhost:8080/v1/invoices \
     "establishment": "001",
     "issue_point": "001",
     "sequence_number": "000000042",
-    "access_key": "0404202601179001234500110010010000000421234567817",
+    "access_key": "1404202601179001234500110010010000000421234567817",
     "status": "SENT",
-    "issue_date": "2026-04-04",
-    "total_amount": 57.5,
+    "issue_date": "2026-04-14",
+    "total_amount": 57.50,
     "recipient": {
       "id": "1790012345001",
       "name": "Empresa Cliente S.A."
     },
-    "created_at": "2026-04-04T10:30:00Z"
+    "created_at": "2026-04-14T20:30:00Z"
+  },
+  "meta": {
+    "request_id": "req_abc123def456",
+    "timestamp": "2026-04-14T20:30:00Z"
   }
 }
 ```
 
-**Posibles status en la respuesta inicial:**
-
-- `SENT` — XML enviado al SRI exitosamente, pendiente de autorización
-- `RECEIVED` — SRI confirmó recepción, pendiente autorización
-- `RETRY` — Error temporal con SRI, se reintentará automáticamente
-- `REJECTED` — Error de validación del SRI (ver `sri_messages`)
-
----
-
-#### GET /v1/invoices/:id
-
-Consultar el estado y datos de una factura.
-
-**curl:**
+### `GET /v1/invoices/:id`
 
 ```bash
 curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851 \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
-**Response (200 OK):**
+**Response (200 OK) — documento autorizado:**
 
 ```json
 {
@@ -299,113 +327,93 @@ curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851 \
     "establishment": "001",
     "issue_point": "001",
     "sequence_number": "000000042",
-    "access_key": "0404202601179001234500110010010000000421234567817",
-    "authorization_number": "0404202601179001234500110010010000000421234567817",
+    "access_key": "1404202601179001234500110010010000000421234567817",
+    "authorization_number": "1404202601179001234500110010010000000421234567817",
     "status": "AUTHORIZED",
-    "issue_date": "2026-04-04",
-    "authorization_date": "2026-04-04T10:30:15Z",
+    "issue_date": "2026-04-14",
+    "authorization_date": "2026-04-14T20:30:15Z",
     "recipient": {
       "id_type": "04",
       "id": "1790012345001",
       "name": "Empresa Cliente S.A.",
       "email": "contabilidad@cliente.com"
     },
-    "subtotal_before_tax": 50.0,
-    "vat_amount": 7.5,
-    "total_amount": 57.5,
+    "subtotal_before_tax": 50.00,
+    "vat_amount": 7.50,
+    "total_amount": 57.50,
     "sri_messages": [],
     "downloads": {
-      "xml": "/invoices/d290f1ee.../xml",
-      "ride": "/invoices/d290f1ee.../ride"
+      "xml": "/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/xml",
+      "ride": "/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/ride"
     },
     "retry_count": 0,
-    "created_at": "2026-04-04T10:30:00Z",
-    "updated_at": "2026-04-04T10:30:15Z"
+    "created_at": "2026-04-14T20:30:00Z",
+    "updated_at": "2026-04-14T20:30:15Z"
   }
 }
 ```
 
----
-
-#### GET /v1/invoices
-
-Listar facturas con filtros y paginación.
+### `GET /v1/invoices`
 
 **Query params:**
 
-- `status` — filtrar por estado (CREATED, SIGNED, SENT, RECEIVED, AUTHORIZED, NOTIFIED, REJECTED, FAILED, RETRY, VOIDED)
-- `date_from` — fecha de emisión desde (YYYY-MM-DD)
-- `date_to` — fecha de emisión hasta
-- `recipient_id` — filtrar por RUC/cédula del receptor
-- `access_key` — buscar por clave de acceso (exacto, 49 dígitos)
-- `document_type` — filtrar por tipo de documento (01, 04, 05, etc.)
-- `q` — búsqueda libre por nombre o identificación del receptor
-- `page` — página (default: 1)
-- `per_page` — registros por página (default: 20, max: 100)
-- `sort` — campo de ordenamiento (default: `-issue_date`)
-
-**curl (listar con filtros):**
+| Param          | Descripción                                              |
+| -------------- | -------------------------------------------------------- |
+| `status`       | Estado del documento (ver tabla de estados)              |
+| `date_from`    | Fecha desde `YYYY-MM-DD`                                 |
+| `date_to`      | Fecha hasta `YYYY-MM-DD`                                 |
+| `recipient_id` | RUC/cédula del receptor                                  |
+| `access_key`   | Clave de acceso exacta (49 dígitos)                      |
+| `document_type`| Tipo de comprobante (`01`, `04`, `05`, etc.)             |
+| `q`            | Búsqueda libre por nombre o identificación del receptor  |
+| `page`         | Página (default: 1)                                      |
+| `per_page`     | Registros por página (default: 20, máx: 100)             |
+| `sort`         | Ordenamiento (default: `-issue_date`)                    |
 
 ```bash
-# Listar facturas autorizadas
+# Facturas autorizadas
 curl -s "http://localhost:8080/v1/invoices?status=AUTHORIZED&page=1&per_page=10" \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 
-# Filtrar por rango de fechas
+# Por rango de fechas
 curl -s "http://localhost:8080/v1/invoices?date_from=2026-04-01&date_to=2026-04-30" \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 
-# Buscar por receptor
+# Por receptor
 curl -s "http://localhost:8080/v1/invoices?recipient_id=1790012345001" \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
-
-# Búsqueda libre por nombre
-curl -s "http://localhost:8080/v1/invoices?q=Empresa%20Cliente" \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
----
+### `GET /v1/invoices/:id/xml`
 
-#### GET /v1/invoices/:id/xml
-
-Descargar el XML autorizado del comprobante.
-
-**curl:**
+Descarga el XML autorizado firmado con XAdES-BES.
 
 ```bash
-curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/xml \
+curl -s http://localhost:8080/v1/invoices/d290f1ee.../xml \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
   -o factura.xml
 ```
 
-**Response:** `Content-Type: application/xml`
+Respuesta: `Content-Type: application/xml`
 
----
+### `GET /v1/invoices/:id/ride`
 
-#### GET /v1/invoices/:id/ride
-
-Descargar el RIDE (PDF) del comprobante.
-
-**curl:**
+Descarga el RIDE (PDF) del comprobante.
 
 ```bash
-curl -s http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/ride \
+curl -s http://localhost:8080/v1/invoices/d290f1ee.../ride \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
   -o factura.pdf
 ```
 
-**Response:** `Content-Type: application/pdf`
+Respuesta: `Content-Type: application/pdf`
 
----
+### `POST /v1/invoices/:id/resend-email`
 
-#### POST /v1/invoices/:id/resend-email
-
-Reenviar el email con RIDE + XML al receptor. Solo disponible para documentos en estado `AUTHORIZED` o `NOTIFIED`.
-
-**curl:**
+Reenvía el email con RIDE + XML al receptor. Solo disponible en estado `AUTHORIZED` o `NOTIFIED`.
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/resend-email \
+curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee.../resend-email \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
@@ -414,87 +422,497 @@ curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d70174
 ```json
 {
   "data": {
-    "message": "Email reenviado a contabilidad@cliente.com",
-    "sent_at": "2026-04-04T11:00:00Z"
+    "message": "Email reenviado exitosamente",
+    "sent_at": "2026-04-14T21:00:00Z"
   }
 }
 ```
 
----
+### `POST /v1/invoices/:id/void`
 
-### 2. Notas de Crédito (Credit Notes) — Fase 3
+Anula localmente un documento. Key49 **no anula en el SRI** — eso lo hace el contribuyente en el portal del SRI. Solo registra la anulación para trazabilidad interna.
 
-#### POST /credit-notes
+> **Restricciones:** estado debe ser `AUTHORIZED` o `NOTIFIED`; plazo máximo hasta el día 7 del mes siguiente; facturas a consumidor final (`id_type = "07"`) no pueden anularse.
 
-```json
-{
-  "establishment": "001",
-  "issue_point": "001",
-  "sequence_number": "000000001",
-  "issue_date": "2026-04-04",
-  "modified_document": {
-    "type": "01",
-    "number": "001-001-000000042",
-    "issue_date": "2026-04-01"
-  },
-  "reason": "Devolución parcial de mercadería",
-  "recipient": { ... },
-  "items": [ ... ]
-}
+```bash
+curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee.../void \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Error en datos del receptor"}' | jq .
 ```
-
-### 3. Comprobantes de Retención (Withholdings) — Fase 3
-
-#### POST /withholdings
-
-### 4. Notas de Débito (Debit Notes) — Fase 3
-
-#### POST /debit-notes
-
-### 5. Guías de Remisión (Shipping Guides) — Fase 3
-
-#### POST /shipping-guides
-
-### 6. Liquidaciones de Compra (Purchase Settlements) — Fase 3
-
-#### POST /purchase-settlements
-
----
-
-### 7. Consultas SRI
-
-#### GET /sri/authorize/:accessKey
-
-Consultar el estado de autorización de un comprobante directamente al SRI por su clave de acceso.
 
 **Response (200 OK):**
 
 ```json
 {
   "data": {
-    "access_key": "0404202601...",
-    "sri_status": "AUTORIZADO",
-    "authorization_date": "2026-04-04T10:30:15Z",
-    "authorization_number": "0404202601...",
-    "document_xml": "<xml>...</xml>",
-    "messages": []
+    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+    "status": "VOIDED",
+    "voided_at": "2026-04-14T21:05:00Z",
+    "void_reason": "Error en datos del receptor",
+    "access_key": "1404202601179001234500110010010000000421234567817"
   }
 }
 ```
 
 ---
 
-### 8. Envío de XML Raw (Canal Avanzado) — Fase 2
+## 2. Notas de Crédito — `POST /v1/credit-notes`
 
-Para integradores que ya generan su propio XML conforme a la ficha técnica del SRI. Key49 valida el XSD, genera la clave de acceso, firma, envía y gestiona todo el ciclo de vida.
+Emite una nota de crédito electrónica tipo `04` para modificar o anular parcialmente una factura previa.
 
-Ver ADR-006 en ARCHITECTURE.md para la decisión de diseño.
+```bash
+curl -s -X POST http://localhost:8080/v1/credit-notes \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: nc-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000001",
+    "issue_date": "2026-04-14",
+    "modified_document_code": "01",
+    "modified_document_number": "001-001-000000042",
+    "modified_document_date": "2026-04-10",
+    "reason": "Devolución parcial de mercadería defectuosa",
+    "recipient": {
+      "id_type": "04",
+      "id": "1790012345001",
+      "name": "Empresa Cliente S.A.",
+      "email": "contabilidad@cliente.com",
+      "phone": "0991234567"
+    },
+    "items": [
+      {
+        "internal_code": "PROD-001",
+        "additional_code": "7861234567890",
+        "description": "Devolución servicio de hosting",
+        "quantity": 1,
+        "unit_price": 20.00,
+        "discount": 0.00,
+        "taxes": [
+          {
+            "code": "2",
+            "rate_code": "4",
+            "rate": 15.0
+          }
+        ]
+      }
+    ],
+    "additional_info": {
+      "Motivo": "Producto defectuoso"
+    }
+  }' | jq .
+```
 
-#### POST /v1/documents/raw
+**Request — campos:**
 
-Enviar un comprobante electrónico como XML pre-armado.
+| Campo                           | Tipo   | Req | Descripción                                               |
+| ------------------------------- | ------ | :-: | --------------------------------------------------------- |
+| `establishment`                 | string | ✓   | Código establecimiento (3 dígitos)                        |
+| `issue_point`                   | string | ✓   | Punto de emisión (3 dígitos)                              |
+| `sequence_number`               | string | ✓   | Secuencial (9 dígitos)                                    |
+| `issue_date`                    | date   | ✓   | Fecha de emisión (debe ser hoy en EC)                     |
+| `modified_document_code`        | string | ✓   | Tipo del comprobante modificado (ej: `01`)                |
+| `modified_document_number`      | string | ✓   | Número del comprobante modificado (`estab-pto-secuencial`)|
+| `modified_document_date`        | date   | ✓   | Fecha del comprobante modificado                          |
+| `reason`                        | string | ✓   | Motivo de la nota de crédito                              |
+| `recipient`                     | object | ✓   | Datos del receptor (igual que factura)                    |
+| `items[].internal_code`         | string | ✓   | Código interno del ítem                                   |
+| `items[].additional_code`       | string |     | Código adicional                                          |
+| `items[].description`           | string | ✓   | Descripción del ítem devuelto/modificado                  |
+| `items[].quantity`              | decimal| ✓   | Cantidad                                                  |
+| `items[].unit_price`            | decimal| ✓   | Precio unitario (sin IVA)                                 |
+| `items[].discount`              | decimal|     | Descuento                                                 |
+| `items[].taxes`                 | array  | ✓   | Impuestos (igual estructura que factura)                  |
+| `additional_info`               | map    |     | Información adicional libre                               |
 
-**curl:**
+**Response (202 Accepted):** igual estructura que factura pero `document_type: "04"`.
+
+Los endpoints `GET /v1/credit-notes`, `GET /v1/credit-notes/:id`, `/xml`, `/ride`, `/resend-email` y `/void` funcionan igual que en facturas.
+
+---
+
+## 3. Notas de Débito — `POST /v1/debit-notes`
+
+Emite una nota de débito electrónica tipo `05`. A diferencia de la nota de crédito, usa **motivos con valor** en lugar de ítems con cantidades.
+
+```bash
+curl -s -X POST http://localhost:8080/v1/debit-notes \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: nd-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000001",
+    "issue_date": "2026-04-14",
+    "modified_document_code": "01",
+    "modified_document_number": "001-001-000000042",
+    "modified_document_date": "2026-04-10",
+    "recipient": {
+      "id_type": "04",
+      "id": "1790012345001",
+      "name": "Empresa Cliente S.A.",
+      "email": "contabilidad@cliente.com",
+      "phone": "0991234567"
+    },
+    "reasons": [
+      {
+        "description": "Ajuste por diferencia de precio",
+        "amount": 10.00
+      },
+      {
+        "description": "Interés por mora (30 días)",
+        "amount": 2.50
+      }
+    ],
+    "taxes": [
+      {
+        "code": "2",
+        "rate_code": "4",
+        "rate": 15.0
+      }
+    ],
+    "payments": [
+      {
+        "payment_method": "20",
+        "total": 14.38,
+        "term": 15,
+        "time_unit": "days"
+      }
+    ],
+    "additional_info": {
+      "Referencia": "Factura 001-001-000000042"
+    }
+  }' | jq .
+```
+
+**Request — campos específicos de nota de débito:**
+
+| Campo                          | Tipo   | Req | Descripción                                       |
+| ------------------------------ | ------ | :-: | ------------------------------------------------- |
+| `establishment`                | string | ✓   | Código establecimiento (3 dígitos)                |
+| `issue_point`                  | string | ✓   | Punto de emisión (3 dígitos)                      |
+| `sequence_number`              | string | ✓   | Secuencial (9 dígitos)                            |
+| `issue_date`                   | date   | ✓   | Fecha de emisión (debe ser hoy en EC)             |
+| `modified_document_code`       | string | ✓   | Tipo del comprobante modificado                   |
+| `modified_document_number`     | string | ✓   | Número del comprobante modificado                 |
+| `modified_document_date`       | date   | ✓   | Fecha del comprobante modificado                  |
+| `recipient`                    | object | ✓   | Datos del receptor                                |
+| `reasons[].description`        | string | ✓   | Descripción del motivo de débito                  |
+| `reasons[].amount`             | decimal| ✓   | Valor del motivo (sin IVA)                        |
+| `taxes[].code`                 | string | ✓   | Tipo de impuesto                                  |
+| `taxes[].rate_code`            | string | ✓   | Código de tarifa                                  |
+| `taxes[].rate`                 | decimal| ✓   | Porcentaje                                        |
+| `payments[].payment_method`    | string | ✓   | Forma de pago                                     |
+| `payments[].total`             | decimal| ✓   | Monto                                             |
+| `payments[].term`              | integer|     | Plazo                                             |
+| `payments[].time_unit`         | string |     | Unidad del plazo (`days`, `months`)               |
+| `additional_info`              | map    |     | Información adicional libre                       |
+
+**Response (202 Accepted):** igual estructura que factura pero `document_type: "05"`.
+
+Los endpoints `GET /v1/debit-notes`, `GET /v1/debit-notes/:id`, `/xml`, `/ride`, `/resend-email` y `/void` funcionan igual.
+
+---
+
+## 4. Comprobantes de Retención — `POST /v1/withholdings`
+
+Emite un comprobante de retención electrónico tipo `07`. El agente de retención emite este comprobante hacia sus proveedores.
+
+```bash
+curl -s -X POST http://localhost:8080/v1/withholdings \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: ret-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000001",
+    "issue_date": "2026-04-14",
+    "fiscal_period": "04/2026",
+    "related_party": false,
+    "subject": {
+      "id_type": "04",
+      "id": "0992345678001",
+      "name": "Proveedor Servicios S.A.",
+      "subject_type": "01",
+      "email": "facturacion@proveedor.com",
+      "phone": "0987654321"
+    },
+    "supporting_documents": [
+      {
+        "support_code": "01",
+        "document_code": "01",
+        "document_number": "001-001-000000150",
+        "issue_date": "2026-04-12",
+        "accounting_date": "2026-04-12",
+        "authorization_number": "1204202601099234567800110010010000001501234567890",
+        "payment_locality": "01",
+        "regime_type": "01",
+        "payment_country": "593",
+        "double_taxation": "NO",
+        "subject_to_retention": "SI",
+        "fiscal_regime": "01",
+        "total_without_tax": 500.00,
+        "total_amount": 575.00,
+        "taxes": [
+          {
+            "tax_code": "2",
+            "rate_code": "4",
+            "taxable_base": 500.00,
+            "rate": 15.0,
+            "amount": 75.00
+          }
+        ],
+        "withholdings": [
+          {
+            "code": "2",
+            "retention_code": "9",
+            "taxable_base": 75.00,
+            "retention_rate": 30.0,
+            "retained_amount": 22.50
+          },
+          {
+            "code": "1",
+            "retention_code": "303",
+            "taxable_base": 500.00,
+            "retention_rate": 10.0,
+            "retained_amount": 50.00
+          }
+        ],
+        "payments": [
+          {
+            "payment_method": "20",
+            "total": 575.00
+          }
+        ]
+      }
+    ],
+    "additional_info": {
+      "Contrato": "CT-2026-015"
+    }
+  }' | jq .
+```
+
+**Request — campos:**
+
+| Campo                                   | Tipo    | Req | Descripción                                          |
+| --------------------------------------- | ------- | :-: | ---------------------------------------------------- |
+| `establishment`                         | string  | ✓   | Código establecimiento (3 dígitos)                   |
+| `issue_point`                           | string  | ✓   | Punto de emisión (3 dígitos)                         |
+| `sequence_number`                       | string  | ✓   | Secuencial (9 dígitos)                               |
+| `issue_date`                            | date    | ✓   | Fecha de emisión (debe ser hoy en EC)                |
+| `fiscal_period`                         | string  | ✓   | Período fiscal (`MM/YYYY`, ej: `04/2026`)            |
+| `related_party`                         | boolean | ✓   | ¿Sujeto es parte relacionada?                        |
+| `subject.id_type`                       | string  | ✓   | Tipo de identificación del sujeto retenido           |
+| `subject.id`                            | string  | ✓   | Identificación del sujeto retenido                   |
+| `subject.name`                          | string  | ✓   | Razón social del sujeto retenido                     |
+| `subject.subject_type`                  | string  | ✓   | Tipo de sujeto (`01`=persona natural, `02`=sociedad) |
+| `subject.email`                         | string  |     | Email                                                |
+| `supporting_documents[].support_code`  | string  | ✓   | Código del sustento tributario (catálogo SRI)        |
+| `supporting_documents[].document_code` | string  | ✓   | Tipo del comprobante de sustento                     |
+| `supporting_documents[].document_number`| string | ✓   | Número del comprobante (`estab-pto-sec`)             |
+| `supporting_documents[].issue_date`    | date    | ✓   | Fecha de emisión del sustento                        |
+| `supporting_documents[].accounting_date`| date   | ✓   | Fecha de contabilización                             |
+| `supporting_documents[].authorization_number`| string| ✓ | Número de autorización del sustento                 |
+| `supporting_documents[].taxes`         | array   | ✓   | Impuestos del documento de sustento                  |
+| `supporting_documents[].withholdings`  | array   | ✓   | Líneas de retención (código + porcentaje)            |
+| `supporting_documents[].payments`      | array   | ✓   | Formas de pago del sustento                          |
+| `additional_info`                       | map     |     | Información adicional libre                          |
+
+**Response (202 Accepted):** igual estructura que factura pero `document_type: "07"`.
+
+Los endpoints `GET /v1/withholdings`, `GET /v1/withholdings/:id`, `/xml`, `/ride`, `/resend-email` y `/void` funcionan igual.
+
+---
+
+## 5. Guías de Remisión — `POST /v1/waybills`
+
+Emite una guía de remisión electrónica tipo `06`. No tiene impuestos, pagos ni totales — es un documento de transporte.
+
+```bash
+curl -s -X POST http://localhost:8080/v1/waybills \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: gr-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000001",
+    "issue_date": "2026-04-14",
+    "departure_address": "Bodega Principal, Av. Industrial 45, Quito",
+    "carrier": {
+      "id_type": "05",
+      "id": "1712345678",
+      "name": "Juan Pérez Transportes",
+      "email": "juan.perez@transportes.com",
+      "phone": "0991122334"
+    },
+    "transport_start_date": "2026-04-14",
+    "transport_end_date": "2026-04-15",
+    "license_plate": "PBY-1234",
+    "addressees": [
+      {
+        "id": "1790012345001",
+        "name": "Empresa Cliente S.A.",
+        "address": "Av. Principal 123, Quito",
+        "transfer_reason": "Venta",
+        "destination_establishment": "001",
+        "route": "Quito - Guayaquil",
+        "support_document_code": "01",
+        "support_document_number": "001-001-000000042",
+        "support_document_auth_number": "1404202601179001234500110010010000000421234567817",
+        "support_document_issue_date": "2026-04-14",
+        "items": [
+          {
+            "main_code": "PROD-001",
+            "auxiliary_code": "7861234567890",
+            "description": "Servidor rack 2U",
+            "quantity": 2,
+            "additional_details": [
+              {
+                "name": "Número de serie",
+                "value": "SRV-2026-001"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "additional_info": {
+      "Temperatura": "Ambiente"
+    }
+  }' | jq .
+```
+
+**Request — campos:**
+
+| Campo                                        | Tipo    | Req | Descripción                                     |
+| -------------------------------------------- | ------- | :-: | ----------------------------------------------- |
+| `establishment`                              | string  | ✓   | Código establecimiento (3 dígitos)              |
+| `issue_point`                                | string  | ✓   | Punto de emisión (3 dígitos)                    |
+| `sequence_number`                            | string  | ✓   | Secuencial (9 dígitos)                          |
+| `issue_date`                                 | date    | ✓   | Fecha de emisión (debe ser hoy en EC)           |
+| `departure_address`                          | string  | ✓   | Dirección de partida                            |
+| `carrier.id_type`                            | string  | ✓   | Tipo de identificación del transportista        |
+| `carrier.id`                                 | string  | ✓   | Identificación del transportista                |
+| `carrier.name`                               | string  | ✓   | Nombre del transportista                        |
+| `transport_start_date`                       | date    | ✓   | Fecha inicio del traslado                       |
+| `transport_end_date`                         | date    | ✓   | Fecha fin del traslado                          |
+| `license_plate`                              | string  | ✓   | Placa del vehículo (ej: `PBY-1234`)             |
+| `addressees[].id`                            | string  | ✓   | Identificación del destinatario                 |
+| `addressees[].name`                          | string  | ✓   | Nombre del destinatario                         |
+| `addressees[].address`                       | string  | ✓   | Dirección del destinatario                      |
+| `addressees[].transfer_reason`               | string  | ✓   | Razón del traslado                              |
+| `addressees[].destination_establishment`     | string  |     | Establecimiento de destino                      |
+| `addressees[].route`                         | string  |     | Ruta del traslado                               |
+| `addressees[].support_document_code`        | string  | ✓   | Tipo del documento de sustento                  |
+| `addressees[].support_document_number`      | string  | ✓   | Número del documento de sustento                |
+| `addressees[].support_document_auth_number` | string  |     | Número de autorización del sustento             |
+| `addressees[].support_document_issue_date`  | date    |     | Fecha del documento de sustento                 |
+| `addressees[].items[].main_code`            | string  | ✓   | Código del ítem transportado                    |
+| `addressees[].items[].description`          | string  | ✓   | Descripción del ítem                            |
+| `addressees[].items[].quantity`             | decimal | ✓   | Cantidad                                        |
+| `addressees[].items[].additional_details`  | array   |     | Detalles adicionales (`name`/`value`)           |
+| `additional_info`                            | map     |     | Información adicional libre                     |
+
+**Response (202 Accepted):** igual estructura que factura pero `document_type: "06"`. Las guías no tienen `total_amount`.
+
+Los endpoints `GET /v1/waybills`, `GET /v1/waybills/:id`, `/xml` y `/ride` funcionan igual.
+
+---
+
+## 6. Liquidaciones de Compra — `POST /v1/purchase-clearances`
+
+Emite una liquidación de compra electrónica tipo `03`, usada cuando el proveedor no está obligado a emitir comprobante.
+
+```bash
+curl -s -X POST http://localhost:8080/v1/purchase-clearances \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: lc-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000001",
+    "issue_date": "2026-04-14",
+    "supplier": {
+      "id_type": "05",
+      "id": "1712345678",
+      "name": "Pedro Artesano Quito",
+      "address": "Mercado Central, Puesto 45",
+      "email": "pedro@correo.com",
+      "phone": "0991234567"
+    },
+    "items": [
+      {
+        "main_code": "ART-001",
+        "auxiliary_code": "",
+        "description": "Artesanías de madera - lote 20 unidades",
+        "unit_of_measure": "UNIDAD",
+        "quantity": 20,
+        "unit_price": 15.00,
+        "discount": 0.00,
+        "taxes": [
+          {
+            "code": "2",
+            "rate_code": "0",
+            "rate": 0.0
+          }
+        ]
+      }
+    ],
+    "payments": [
+      {
+        "payment_method": "01",
+        "total": 300.00,
+        "term": 0,
+        "time_unit": "days"
+      }
+    ],
+    "additional_info": {
+      "Evento": "Feria artesanal 2026"
+    }
+  }' | jq .
+```
+
+**Request — campos:**
+
+| Campo                        | Tipo    | Req | Descripción                                   |
+| ---------------------------- | ------- | :-: | --------------------------------------------- |
+| `establishment`              | string  | ✓   | Código establecimiento (3 dígitos)            |
+| `issue_point`                | string  | ✓   | Punto de emisión (3 dígitos)                  |
+| `sequence_number`            | string  | ✓   | Secuencial (9 dígitos)                        |
+| `issue_date`                 | date    | ✓   | Fecha de emisión (debe ser hoy en EC)         |
+| `supplier.id_type`           | string  | ✓   | Tipo de identificación del proveedor          |
+| `supplier.id`                | string  | ✓   | Identificación del proveedor                  |
+| `supplier.name`              | string  | ✓   | Nombre del proveedor                          |
+| `supplier.address`           | string  |     | Dirección del proveedor                       |
+| `supplier.email`             | string  |     | Email                                         |
+| `items[].main_code`          | string  | ✓   | Código del ítem                               |
+| `items[].description`        | string  | ✓   | Descripción                                   |
+| `items[].unit_of_measure`    | string  |     | Unidad de medida                              |
+| `items[].quantity`           | decimal | ✓   | Cantidad                                      |
+| `items[].unit_price`         | decimal | ✓   | Precio unitario                               |
+| `items[].discount`           | decimal |     | Descuento                                     |
+| `items[].taxes`              | array   | ✓   | Impuestos                                     |
+| `payments[].payment_method`  | string  | ✓   | Forma de pago                                 |
+| `payments[].total`           | decimal | ✓   | Monto                                         |
+| `payments[].term`            | integer |     | Plazo                                         |
+| `payments[].time_unit`       | string  |     | Unidad del plazo                              |
+| `additional_info`            | map     |     | Información adicional libre                   |
+
+**Response (202 Accepted):** igual que factura pero `document_type: "03"`.
+
+Los endpoints `GET /v1/purchase-clearances`, `GET /v1/purchase-clearances/:id`, `/xml`, `/ride`, `/resend-email` y `/void` funcionan igual.
+
+---
+
+## 7. Envío de XML Raw — `POST /v1/documents/raw`
+
+Para integradores que ya generan su propio XML conforme a la ficha técnica del SRI. Key49 valida el XSD, genera la clave de acceso, firma y gestiona el ciclo de vida completo.
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/documents/raw \
@@ -505,13 +923,14 @@ curl -s -X POST http://localhost:8080/v1/documents/raw \
   -d @factura.xml | jq .
 ```
 
-**Request:**
+**Headers requeridos:**
 
-```
-Content-Type: application/xml
-X-Idempotency-Key: unique-string-from-client
-X-Document-Type: 01
-```
+| Header              | Descripción                                                  |
+| ------------------- | ------------------------------------------------------------ |
+| `X-Document-Type`   | Tipo de comprobante: `01`, `03`, `04`, `05`, `06`, `07`      |
+| `X-Idempotency-Key` | Clave de idempotencia (recomendado)                          |
+
+**Estructura mínima del XML:**
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -525,19 +944,15 @@ X-Document-Type: 01
     <ptoEmi>001</ptoEmi>
     <secuencial>000000042</secuencial>
     <dirMatriz>Quito, Av. Principal 123</dirMatriz>
-    <!-- claveAcceso se omite: Key49 la genera -->
-    <!-- codDoc se infiere del header X-Document-Type -->
+    <!-- claveAcceso: Key49 siempre la genera, ignorará cualquier valor aquí -->
   </infoTributaria>
-  <!-- ... resto del XML conforme al XSD del SRI -->
+  <!-- ... resto del XML conforme al XSD del SRI vigente ... -->
 </factura>
 ```
 
-**Notas importantes:**
-
-- El header `X-Document-Type` es obligatorio: `01` (factura), `03` (liquidación), `04` (NC), `05` (ND), `06` (guía), `07` (retención).
-- Key49 **siempre genera** la clave de acceso (49 dígitos con módulo 11), reemplazando cualquier valor que venga en `<claveAcceso>`.
-- El XML debe conformar al XSD vigente del tipo de documento. Key49 valida contra XSD antes de procesar.
-- Key49 extrae automáticamente del XML: datos del receptor y totales para persistir en la tabla `documents`. Los ítems y pagos no se almacenan en tablas separadas — se preservan en el XML almacenado en MinIO.
+**Notas:**
+- Key49 **siempre genera** la clave de acceso (49 dígitos, módulo 11).
+- El XML debe conformar al XSD vigente. Key49 valida antes de procesar.
 - El `<codDoc>` dentro de `<infoTributaria>` debe coincidir con `X-Document-Type`.
 
 **Response (202 Accepted):**
@@ -550,46 +965,86 @@ X-Document-Type: 01
     "establishment": "001",
     "issue_point": "001",
     "sequence_number": "000000042",
-    "access_key": "0404202601179001234500110010010000000421234567817",
+    "access_key": "1404202601179001234500110010010000000421234567817",
     "status": "SENT",
     "origin": "XML_RAW",
-    "issue_date": "2026-04-04",
-    "total_amount": 57.5,
-    "created_at": "2026-04-04T10:30:00Z"
+    "issue_date": "2026-04-14",
+    "total_amount": 57.50,
+    "created_at": "2026-04-14T20:30:00Z"
   }
 }
 ```
 
-**Errores específicos del endpoint raw:**
+### `GET /v1/documents/raw/:id`
 
-| Código HTTP | Error Code                | Descripción                                          |
-| ----------- | ------------------------- | ---------------------------------------------------- |
-| 400         | `INVALID_XML_STRUCTURE`   | XML mal formado o no parseable                       |
-| 400         | `XSD_VALIDATION_FAILED`   | XML no pasa validación contra XSD del SRI            |
-| 400         | `DOCUMENT_TYPE_MISMATCH`  | `X-Document-Type` no coincide con `<codDoc>` del XML |
-| 400         | `MISSING_DOCUMENT_TYPE`   | Header `X-Document-Type` no proporcionado            |
-| 422         | `UNSUPPORTED_XSD_VERSION` | Versión de XSD no soportada por Key49                |
+Consultar estado de un documento enviado por canal raw. Misma estructura de respuesta que `GET /v1/invoices/:id`.
 
-#### GET /v1/documents/raw/:id
+---
 
-Consultar el estado de un documento enviado por XML raw. Misma estructura de respuesta que `GET /v1/invoices/:id`.
+## 8. Exportación Masiva — `GET /v1/documents/export`
 
-**curl:**
+Exporta documentos en formato CSV con streaming. Útil para conciliaciones contables.
 
 ```bash
-curl -s http://localhost:8080/v1/documents/raw/d290f1ee-6c54-4b01-90e6-d701748f0851 \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
+# Exportar facturas de abril 2026
+curl -s "http://localhost:8080/v1/documents/export?from=2026-04-01&to=2026-04-30&document_type=01" \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -o abril-2026.csv
+
+# Solo autorizadas
+curl -s "http://localhost:8080/v1/documents/export?from=2026-04-01&to=2026-04-30&status=AUTHORIZED" \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
+  -o autorizadas-abril.csv
+```
+
+**Query params:**
+
+| Param           | Req | Descripción                                           |
+| --------------- | :-: | ----------------------------------------------------- |
+| `from`          | ✓   | Fecha desde `YYYY-MM-DD`                              |
+| `to`            | ✓   | Fecha hasta `YYYY-MM-DD`                              |
+| `format`        |     | Formato de salida (solo `csv` por ahora)              |
+| `status`        |     | Filtrar por estado del documento                      |
+| `document_type` |     | Filtrar por tipo (`01`, `03`, `04`, `05`, `06`, `07`) |
+| `recipient_id`  |     | Filtrar por RUC/cédula del receptor                   |
+
+**Respuesta:** `Content-Type: text/csv` con máximo 10.000 filas.
+
+**Columnas CSV:**
+
+```
+access_key, document_type, establishment, issue_point, sequence_number,
+recipient_id, recipient_name, total_amount, status, issue_date, authorization_date
 ```
 
 ---
 
-### 9. Gestión de Tenant (Perfil)
+## 9. Consulta SRI — `GET /v1/sri/authorize/:accessKey`
 
-#### GET /v1/tenant/profile
+Consulta el estado de autorización de un comprobante directamente al SRI.
 
-Obtener datos del tenant autenticado.
+```bash
+curl -s "http://localhost:8080/v1/sri/authorize/1404202601179001234500110010010000000421234567817" \
+  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
+```
 
-**curl:**
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "access_key": "1404202601179001234500110010010000000421234567817",
+    "sri_status": "AUTORIZADO",
+    "authorization_date": "2026-04-14T20:30:15Z",
+    "authorization_number": "1404202601179001234500110010010000000421234567817",
+    "messages": []
+  }
+}
+```
+
+---
+
+## 10. Perfil del Tenant — `GET /v1/tenant/profile`
 
 ```bash
 curl -s http://localhost:8080/v1/tenant/profile \
@@ -607,22 +1062,32 @@ curl -s http://localhost:8080/v1/tenant/profile \
     "trade_name": "Demo Corp",
     "main_address": "Av. Amazonas N24-345, Quito",
     "environment": "test",
-    "webhook_url": null,
-    "email_sender_name": null,
-    "reply_email": null,
-    "certificate": null,
-    "schema_name": "tenant_demo",
     "status": "active",
-    "created_at": "2026-04-04T00:00:00Z"
+    "certificate": {
+      "subject": "CN=EMPRESA DEMO S.A., O=Security Data",
+      "serial": "1234567890ABCDEF",
+      "expires_at": "2027-04-14T00:00:00Z",
+      "days_remaining": 365,
+      "valid": true
+    },
+    "plan": {
+      "plan_type": "starter",
+      "document_quota": 500,
+      "documents_used": 127,
+      "plan_starts_at": "2026-04-01T00:00:00Z",
+      "plan_expires_at": "2026-05-01T00:00:00Z"
+    },
+    "webhook_url": "https://mi-app.com/webhooks/key49",
+    "email_sender_name": "Facturación Demo",
+    "reply_email": "facturacion@demo.com",
+    "created_at": "2026-01-15T00:00:00Z"
   }
 }
 ```
 
-#### PUT /v1/tenant/profile
+### `PUT /v1/tenant/profile`
 
-Actualizar datos del tenant (razón social, dirección, webhook, email). No permite modificar campos administrativos como `status` o `rate_limit_rpm`.
-
-**curl:**
+Actualiza datos del tenant (no permite modificar `status`, `rate_limit_rpm` ni campos administrativos).
 
 ```bash
 curl -s -X PUT http://localhost:8080/v1/tenant/profile \
@@ -631,7 +1096,7 @@ curl -s -X PUT http://localhost:8080/v1/tenant/profile \
   -d '{
     "legal_name": "Empresa Demo S.A.",
     "trade_name": "Demo Corp Actualizado",
-    "main_address": "Av. República, Quito",
+    "main_address": "Av. República 456, Quito",
     "webhook_url": "https://mi-app.com/webhooks/key49",
     "webhook_secret": "mi_secreto_webhook_123",
     "email_sender_name": "Facturación Demo",
@@ -639,16 +1104,14 @@ curl -s -X PUT http://localhost:8080/v1/tenant/profile \
   }' | jq .
 ```
 
-#### POST /v1/tenant/certificate
+### `POST /v1/tenant/certificate`
 
-Subir o actualizar el certificado .p12.
-
-**curl:**
+Sube o actualiza el certificado digital `.p12`.
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/tenant/certificate \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
-  -F "certificate=@/ruta/al/certificado.p12" \
+  -F "certificate=@/ruta/certificado.p12" \
   -F "password=contraseña_del_certificado" | jq .
 ```
 
@@ -657,19 +1120,15 @@ curl -s -X POST http://localhost:8080/v1/tenant/certificate \
 ```json
 {
   "data": {
-    "subject": "CN=EMPRESA S.A., O=Security Data",
+    "subject": "CN=EMPRESA DEMO S.A., O=Security Data",
     "serial": "1234567890ABCDEF",
-    "expires_at": "2027-04-04T00:00:00Z",
+    "expires_at": "2027-04-14T00:00:00Z",
     "valid": true
   }
 }
 ```
 
-#### GET /v1/tenant/certificate/status
-
-Verificar el estado del certificado (vigencia, expiración).
-
-**curl:**
+### `GET /v1/tenant/certificate/status`
 
 ```bash
 curl -s http://localhost:8080/v1/tenant/certificate/status \
@@ -681,10 +1140,10 @@ curl -s http://localhost:8080/v1/tenant/certificate/status \
 ```json
 {
   "data": {
-    "subject": "CN=EMPRESA S.A., O=Security Data",
+    "subject": "CN=EMPRESA DEMO S.A., O=Security Data",
     "serial": "1234567890ABCDEF",
-    "expires_at": "2027-04-04T00:00:00Z",
-    "issuer": "CN=Autoridad de Certificación, O=Security Data",
+    "issuer": "CN=Security Data, O=Security Data S.A.",
+    "expires_at": "2027-04-14T00:00:00Z",
     "days_remaining": 365,
     "valid": true
   }
@@ -693,13 +1152,11 @@ curl -s http://localhost:8080/v1/tenant/certificate/status \
 
 ---
 
-### 10. Gestión de API Keys
+## 11. Gestión de API Keys
 
-#### POST /v1/tenant/api-keys
+### `POST /v1/tenant/api-keys`
 
-Crear una nueva API key para el tenant autenticado. El `raw_key` solo se devuelve una vez en esta respuesta — no es recuperable después.
-
-**curl:**
+Crea un nuevo API key. El `raw_key` **solo se devuelve una vez** en esta respuesta.
 
 ```bash
 curl -s -X POST http://localhost:8080/v1/tenant/api-keys \
@@ -724,61 +1181,32 @@ curl -s -X POST http://localhost:8080/v1/tenant/api-keys \
     "expires_at": "2027-12-31T23:59:59Z",
     "status": "active",
     "raw_key": "k49_a1B2c3D4e5F6g7H8i9J0kLmN",
-    "created_at": "2026-04-06T10:30:00Z"
+    "created_at": "2026-04-14T20:30:00Z"
   }
 }
 ```
 
-> **Importante**: Guardar el `raw_key` de forma segura. No se puede recuperar después de esta respuesta.
+> **Guardar el `raw_key` de forma segura. No es recuperable después de esta respuesta.**
 
-#### GET /v1/tenant/api-keys
+### `GET /v1/tenant/api-keys`
 
-Listar todas las API keys del tenant autenticado (sin incluir `raw_key`).
-
-**curl:**
+Lista todos los API keys del tenant (sin incluir `raw_key`).
 
 ```bash
 curl -s http://localhost:8080/v1/tenant/api-keys \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
-**Response (200 OK):**
+### `GET /v1/tenant/api-keys/:id`
 
-```json
-{
-  "data": [
-    {
-      "api_key_id": "b1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "key_prefix": "k49",
-      "name": "Dev Local Key",
-      "last_used_at": "2026-04-06T10:25:00Z",
-      "expires_at": null,
-      "status": "active",
-      "created_at": "2026-04-04T00:00:00Z"
-    }
-  ]
-}
-```
+Consulta un API key específico.
 
-#### GET /v1/tenant/api-keys/:id
+### `DELETE /v1/tenant/api-keys/:id`
 
-Consultar una API key específica.
-
-**curl:**
+Revoca un API key (irreversible).
 
 ```bash
-curl -s http://localhost:8080/v1/tenant/api-keys/b1b2c3d4-e5f6-7890-abcd-ef1234567890 \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
-```
-
-#### DELETE /v1/tenant/api-keys/:id
-
-Revocar una API key. Una vez revocada, no puede reactivarse.
-
-**curl:**
-
-```bash
-curl -s -X DELETE http://localhost:8080/v1/tenant/api-keys/c1d2e3f4-a5b6-7890-cdef-123456789012 \
+curl -s -X DELETE http://localhost:8080/v1/tenant/api-keys/c1d2e3f4-... \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
 
@@ -788,138 +1216,22 @@ curl -s -X DELETE http://localhost:8080/v1/tenant/api-keys/c1d2e3f4-a5b6-7890-cd
 {
   "data": {
     "api_key_id": "c1d2e3f4-a5b6-7890-cdef-123456789012",
-    "key_prefix": "k49",
     "name": "Integración ERP",
     "status": "revoked"
   }
 }
 ```
 
-**Errores:** 404 si la key no pertenece al tenant, 409 si ya está revocada.
-
 ---
 
-### 11. Administración de Tenants (Admin)
-
-> Estos endpoints requieren autenticación de administrador.
-
-#### POST /v1/admin/tenants
-
-Registrar un nuevo tenant en el sistema.
-
-**curl:**
-
-```bash
-curl -s -X POST http://localhost:8080/v1/admin/tenants \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ruc": "0991234567001",
-    "legal_name": "Nueva Empresa S.A.",
-    "trade_name": "NuevaCorp",
-    "main_address": "Guayaquil, Av. 9 de Octubre",
-    "environment": "test",
-    "schema_name": "tenant_nuevacorp"
-  }' | jq .
-```
-
-> **Nota**: Esto solo registra el tenant. La creación del esquema PostgreSQL y sus tablas es manual (ver [DB-ADMIN.md](DB-ADMIN.md)).
-
-#### GET /v1/admin/tenants
-
-Listar tenants con filtros.
-
-**curl:**
-
-```bash
-# Listar todos
-curl -s "http://localhost:8080/v1/admin/tenants" \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
-
-# Filtrar por estado
-curl -s "http://localhost:8080/v1/admin/tenants?status=active&page=1&per_page=10" \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
-```
-
-#### GET /v1/admin/tenants/:id
-
-Consultar detalle de un tenant.
-
-#### PUT /v1/admin/tenants/:id
-
-Actualizar datos de un tenant (incluye campos admin como `status`, `rate_limit_rpm`).
-
-#### POST /v1/admin/tenants/:id/certificate
-
-Subir certificado .p12 de un tenant (admin).
-
-#### GET /v1/admin/tenants/:id/certificate/status
-
-Consultar estado del certificado de un tenant (admin).
-
----
-
-### 12. Anulación Local de Documentos
-
-#### POST /v1/invoices/:id/void
-
-Marcar un documento autorizado como anulado localmente. Key49 NO anula en el SRI — eso lo hace el contribuyente en el portal del SRI. Key49 solo registra la anulación local para trazabilidad interna.
-
-> **Requisitos**: el documento debe estar en estado `AUTHORIZED` o `NOTIFIED`. Solo se puede anular hasta el día 7 del mes siguiente a la emisión. Facturas a consumidor final (`recipient_id_type = "07"`) no pueden anularse.
-
-**curl:**
-
-```bash
-curl -s -X POST http://localhost:8080/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851/void \
-  -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" \
-  -H "Content-Type: application/json" \
-  -d '{"reason": "Error en datos del receptor"}' | jq .
-```
-
-**Request:**
-
-```json
-{
-  "reason": "Error en datos del receptor"
-}
-```
-
-**Response (200 OK):**
-
-```json
-{
-  "data": {
-    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
-    "status": "VOIDED",
-    "voided_at": "2026-04-05T14:00:00Z",
-    "void_reason": "Error en datos del receptor",
-    "access_key": "0404202601179001234500110010010000000421234567817"
-  }
-}
-```
-
-**Errores:**
-
-| Código HTTP | Error Code                    | Descripción                                       |
-| ----------- | ----------------------------- | ------------------------------------------------- |
-| 409         | `INVALID_STATE_TRANSITION`    | Documento no está en estado AUTHORIZED o NOTIFIED |
-| 422         | `VOID_PERIOD_EXPIRED`         | Superó el día 7 del mes siguiente a la emisión    |
-| 422         | `FINAL_CONSUMER_NOT_VOIDABLE` | Facturas a consumidor final no pueden anularse    |
-
----
-
-### 13. Métricas
-
-#### GET /v1/metrics/summary
-
-Resumen de actividad del tenant: documentos hoy, este mes, certificado y última factura.
-
-**curl:**
+## 12. Métricas del Tenant — `GET /v1/metrics/summary`
 
 ```bash
 curl -s http://localhost:8080/v1/metrics/summary \
   -H "Authorization: Bearer k49_DemoKey49DevLocalTest0000" | jq .
 ```
+
+**Response (200 OK):**
 
 ```json
 {
@@ -937,24 +1249,24 @@ curl -s http://localhost:8080/v1/metrics/summary \
       "failed": 5
     },
     "certificate_expires_in_days": 180,
-    "last_invoice_at": "2026-04-04T10:30:00Z"
+    "last_invoice_at": "2026-04-14T20:30:00Z"
   }
 }
 ```
 
 ---
 
-### 14. Gestión de Planes y Renovación
+## 13. Planes y Renovaciones
 
-#### Portal: Página de plan actual
+### Portal: Ver plan actual
 
 ```
 GET /portal/plan
 ```
 
-Página HTML que muestra el plan actual del tenant, planes disponibles, y permite solicitar renovación/cambio de plan.
+Página HTML con plan actual, cuota usada, historial y planes disponibles.
 
-#### Portal: Solicitar renovación
+### Portal: Solicitar renovación
 
 ```
 POST /portal/plan/renew
@@ -963,71 +1275,451 @@ Content-Type: multipart/form-data
 
 | Campo           | Tipo   | Descripción                                          |
 | --------------- | ------ | ---------------------------------------------------- |
-| `requestedPlan` | string | Código del plan: `starter`, `business`, `enterprise` |
-| `paymentProof`  | file   | Comprobante de pago (imagen/PDF)                     |
+| `requestedPlan` | string | Plan solicitado: `starter`, `business`, `enterprise` |
+| `paymentProof`  | file   | Comprobante de pago (imagen o PDF)                   |
 | `notes`         | string | Notas adicionales (opcional)                         |
 
-**Respuesta**: Redirect a `/portal/plan` con mensaje de éxito o error.
+Respuesta: redirect a `/portal/plan` con mensaje de confirmación.
 
-#### Admin: Listar renovaciones
+---
 
-```bash
-curl -s http://localhost:8080/v1/admin/renewals?status=pending&page=1&per_page=20 \
-  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
-```
+## 14. Administración de Tenants
 
-**Query params**: `status` (pending, approved, rejected), `page`, `per_page`.
+> Estos endpoints requieren el header `X-Admin-Token` con el token de administrador.
 
-#### Admin: Detalle de renovación
+### `POST /v1/admin/tenants`
 
-```bash
-curl -s http://localhost:8080/v1/admin/renewals/{id} \
-  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
-```
-
-#### Admin: Aprobar renovación
+Registra un nuevo tenant. Crea el registro en la BD y provisiona el esquema PostgreSQL automáticamente.
 
 ```bash
-curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/approve \
-  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
-```
-
-**Efecto**: actualiza plan del tenant, resetea cuota de documentos, ajusta rate limits según el nuevo plan, crea registro de auditoría.
-
-#### Admin: Rechazar renovación
-
-```bash
-curl -s -X POST http://localhost:8080/v1/admin/renewals/{id}/reject \
+curl -s -X POST http://localhost:8080/v1/admin/tenants \
   -H "X-Admin-Token: $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"reason": "Comprobante de pago inválido"}' | jq .
+  -d '{
+    "ruc": "0991234567001",
+    "legal_name": "Nueva Empresa S.A.",
+    "trade_name": "NuevaCorp",
+    "main_address": "Guayaquil, Av. 9 de Octubre 123",
+    "required_accounting": false,
+    "special_taxpayer": null,
+    "micro_enterprise_regime": false,
+    "withholding_agent": null,
+    "environment": "test",
+    "schema_name": "tenant_nuevacorp"
+  }' | jq .
+```
+
+**Campos del request:**
+
+| Campo                    | Tipo    | Req | Descripción                              |
+| ------------------------ | ------- | :-: | ---------------------------------------- |
+| `ruc`                    | string  | ✓   | RUC del emisor (13 dígitos)              |
+| `legal_name`             | string  | ✓   | Razón social                             |
+| `trade_name`             | string  |     | Nombre comercial                         |
+| `main_address`           | string  | ✓   | Dirección matriz                         |
+| `required_accounting`    | boolean | ✓   | Obligado a llevar contabilidad           |
+| `special_taxpayer`       | string  |     | Código contribuyente especial            |
+| `micro_enterprise_regime`| boolean | ✓   | Régimen microempresa                     |
+| `withholding_agent`      | string  |     | Resolución agente de retención           |
+| `environment`            | string  | ✓   | `test` o `production`                    |
+| `schema_name`            | string  | ✓   | Nombre del esquema PostgreSQL (único)    |
+
+**Response (201 Created):**
+
+```json
+{
+  "data": {
+    "tenant_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "ruc": "0991234567001",
+    "legal_name": "Nueva Empresa S.A.",
+    "environment": "test",
+    "status": "pending",
+    "schema_name": "tenant_nuevacorp",
+    "created_at": "2026-04-14T20:30:00Z"
+  }
+}
+```
+
+### `GET /v1/admin/tenants`
+
+Lista tenants con paginación.
+
+```bash
+# Todos los tenants
+curl -s "http://localhost:8080/v1/admin/tenants" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+
+# Filtrar por estado
+curl -s "http://localhost:8080/v1/admin/tenants?status=active&page=1&per_page=20" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Query params:** `status` (active, suspended, pending, failed), `page`, `per_page`.
+
+### `GET /v1/admin/tenants/:id`
+
+Consulta el detalle completo de un tenant, incluyendo configuración de plan y certificado.
+
+```bash
+curl -s "http://localhost:8080/v1/admin/tenants/b2c3d4e5-..." \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+### `PUT /v1/admin/tenants/:id`
+
+Actualiza datos de un tenant. Permite modificar campos administrativos como `status` y `rate_limit_rpm`.
+
+```bash
+curl -s -X PUT "http://localhost:8080/v1/admin/tenants/b2c3d4e5-..." \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "active",
+    "rate_limit_rpm": 60,
+    "environment": "production",
+    "legal_name": "Nueva Empresa S.A. Actualizado"
+  }' | jq .
+```
+
+**Campos del request (todos opcionales — solo se actualizan los campos incluidos):**
+
+| Campo                    | Tipo    | Descripción                                |
+| ------------------------ | ------- | ------------------------------------------ |
+| `legal_name`             | string  | Razón social                               |
+| `trade_name`             | string  | Nombre comercial                           |
+| `main_address`           | string  | Dirección matriz                           |
+| `required_accounting`    | boolean | Obligado a llevar contabilidad             |
+| `special_taxpayer`       | string  | Código contribuyente especial              |
+| `micro_enterprise_regime`| boolean | Régimen microempresa                       |
+| `withholding_agent`      | string  | Resolución agente de retención             |
+| `environment`            | string  | `test` o `production`                      |
+| `webhook_url`            | string  | URL de webhook                             |
+| `webhook_secret`         | string  | Secreto HMAC para firma de webhook         |
+| `rate_limit_rpm`         | integer | Límite total de RPM (anula write+read)     |
+| `rate_limit_write_rpm`   | integer | Límite de escritura en RPM                 |
+| `rate_limit_read_rpm`    | integer | Límite de lectura en RPM                   |
+| `email_sender_name`      | string  | Nombre del remitente en emails             |
+| `reply_email`            | string  | Email de respuesta                         |
+| `status`                 | string  | `active`, `suspended`, `pending`, `failed` |
+
+### `PUT /v1/admin/tenants/:id/smtp`
+
+Configura el proveedor de email de un tenant (SMTP propio o Plunk). Todos los campos son opcionales — solo se actualizan los incluidos.
+
+```bash
+curl -s -X PUT "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../smtp" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "user": "facturacion@empresa.com",
+    "password": "contraseña_app",
+    "from": "noreply@empresa.com",
+    "email_notifications_enabled": true,
+    "notify_final_consumer": false
+  }' | jq .
+```
+
+**Campos del request (todos opcionales):**
+
+| Campo                          | Tipo    | Descripción                                                           |
+| ------------------------------ | ------- | --------------------------------------------------------------------- |
+| `host`                         | string  | Servidor SMTP (ej: `smtp.gmail.com`)                                  |
+| `port`                         | integer | Puerto SMTP (1–65535, ej: 587)                                        |
+| `user`                         | string  | Usuario SMTP                                                          |
+| `password`                     | string  | Contraseña SMTP (se cifra en reposo, nunca se devuelve en texto plano)|
+| `from`                         | string  | Dirección remitente (ej: `noreply@empresa.com`)                       |
+| `email_notifications_enabled`  | boolean | Si `false`, no se envían emails de documentos aunque SMTP esté configurado |
+| `notify_final_consumer`        | boolean | Si `false`, omite el email cuando el receptor es Consumidor Final (identificación todo 9s) |
+
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "user": "facturacion@empresa.com",
+    "password_configured": true,
+    "from": "noreply@empresa.com",
+    "enabled": true,
+    "email_notifications_enabled": true,
+    "notify_final_consumer": false
+  }
+}
+```
+
+> `enabled` es `true` cuando `host` está configurado. `password_configured` indica si hay contraseña guardada sin revelarla.
+
+### `POST /v1/admin/tenants/:id/smtp/test`
+
+Prueba la conectividad SMTP del tenant. Si `reply_email` está configurado, envía un email de prueba.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../smtp/test" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "data": {
+    "success": true,
+    "message": "Connection OK. Test email sent to facturacion@empresa.com"
+  }
+}
+```
+
+**Errores:** `SMTP_NOT_CONFIGURED` (422) si no hay SMTP configurado; `SMTP_CONNECTION_FAILED` (422) si no se puede conectar; `SMTP_SEND_FAILED` (422) si falla el envío del email de prueba.
+
+---
+
+### `POST /v1/admin/tenants/:id/certificate`
+
+Sube el certificado `.p12` de un tenant como administrador.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../certificate" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -F "certificate=@/ruta/certificado.p12" \
+  -F "password=contraseña_del_certificado" | jq .
+```
+
+### `GET /v1/admin/tenants/:id/certificate/status`
+
+Consulta el estado del certificado de un tenant.
+
+```bash
+curl -s "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../certificate/status" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
 ```
 
 ---
 
-## Health Checks y Observabilidad
+## 15. Administración de Renovaciones
 
-### GET /q/health
+### `GET /v1/admin/renewals`
 
-Health check general (readiness + liveness combinados).
+Lista solicitudes de renovación de plan.
 
-**curl:**
+```bash
+curl -s "http://localhost:8080/v1/admin/renewals?status=pending&page=1&per_page=20" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Query params:** `status` (pending, approved, rejected), `page`, `per_page`.
+
+### `GET /v1/admin/renewals/:id`
+
+Detalle de una solicitud, incluyendo enlace al comprobante de pago en MinIO.
+
+```bash
+curl -s "http://localhost:8080/v1/admin/renewals/{id}" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+### `POST /v1/admin/renewals/:id/approve`
+
+Aprueba una renovación. Actualiza el plan del tenant, resetea la cuota de documentos y ajusta el rate limit.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/renewals/{id}/approve" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
+```
+
+**Efecto:** actualiza `plan_type`, `document_quota`, `plan_expires_at`, `rate_limit_rpm` del tenant; crea registro en `plan_renewals`; envía webhook `plan.approved` al tenant.
+
+### `POST /v1/admin/renewals/:id/reject`
+
+Rechaza una solicitud con motivo.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/renewals/{id}/reject" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Comprobante de pago ilegible"}' | jq .
+```
+
+---
+
+## Webhooks
+
+Key49 envía webhooks `POST` al `webhook_url` del tenant cuando ocurren eventos importantes.
+
+### Headers
+
+```
+Content-Type: application/json
+X-Key49-Signature: sha256=<hmac-sha256-del-body>
+X-Key49-Event: document.authorized
+X-Key49-Delivery: del_uuid
+X-Key49-Timestamp: 2026-04-14T20:30:15Z
+```
+
+### Verificación de firma
+
+El body del webhook debe verificarse antes de procesarlo. Key49 firma el body raw con HMAC-SHA256 usando el `webhook_secret` configurado en el tenant.
+
+```java
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
+/**
+ * Verifica la firma HMAC-SHA256 de un webhook recibido de Key49.
+ *
+ * @param secret          webhook_secret configurado en el tenant
+ * @param rawBody         body del request tal como llegó (sin parsear)
+ * @param signatureHeader valor del header X-Key49-Signature (ej: "sha256=abc123...")
+ * @return true si la firma es válida
+ */
+public static boolean verifyWebhookSignature(String secret, byte[] rawBody, String signatureHeader) {
+    if (signatureHeader == null || !signatureHeader.startsWith("sha256=")) {
+        return false;
+    }
+    try {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        byte[] expected = mac.doFinal(rawBody);
+        byte[] actual = hexToBytes(signatureHeader.substring("sha256=".length()));
+        return MessageDigest.isEqual(expected, actual); // comparación en tiempo constante
+    } catch (Exception e) {
+        return false;
+    }
+}
+
+private static byte[] hexToBytes(String hex) {
+    int len = hex.length();
+    byte[] data = new byte[len / 2];
+    for (int i = 0; i < len; i += 2) {
+        data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                + Character.digit(hex.charAt(i + 1), 16));
+    }
+    return data;
+}
+```
+
+**Ejemplo de uso en un endpoint JAX-RS:**
+
+```java
+@POST
+@Path("/webhooks/key49")
+@Consumes(MediaType.APPLICATION_JSON)
+public Response receiveWebhook(
+        byte[] body,
+        @HeaderParam("X-Key49-Signature") String signature,
+        @HeaderParam("X-Key49-Event") String event) {
+
+    if (!verifyWebhookSignature(WEBHOOK_SECRET, body, signature)) {
+        return Response.status(Response.Status.UNAUTHORIZED).build();
+    }
+
+    // Procesar el evento
+    switch (event) {
+        case "document.authorized" -> handleAuthorized(body);
+        case "document.rejected"   -> handleRejected(body);
+        case "plan.approved"       -> handlePlanApproved(body);
+        default                    -> Log.infof("Evento desconocido: %s", event);
+    }
+
+    return Response.ok().build(); // responder 2xx para confirmar entrega
+}
+```
+
+> **Importante:** usar siempre `MessageDigest.isEqual()` para la comparación — evita ataques de timing. Nunca comparar las firmas con `equals()` o `==`.
+
+### Eventos y payloads
+
+**`document.authorized`**
+
+```json
+{
+  "event": "document.authorized",
+  "data": {
+    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+    "document_type": "01",
+    "access_key": "1404202601...",
+    "authorization_number": "1404202601...",
+    "status": "AUTHORIZED",
+    "authorization_date": "2026-04-14T20:30:15Z",
+    "total_amount": 57.50,
+    "recipient": {
+      "id": "1790012345001",
+      "name": "Empresa Cliente S.A."
+    }
+  },
+  "timestamp": "2026-04-14T20:30:15Z"
+}
+```
+
+**`document.rejected`**
+
+```json
+{
+  "event": "document.rejected",
+  "data": {
+    "id": "d290f1ee-...",
+    "document_type": "01",
+    "access_key": "1404202601...",
+    "status": "REJECTED",
+    "sri_messages": [
+      {
+        "identifier": "35",
+        "message": "CLAVE ACCESO REGISTRADA",
+        "type": "ERROR"
+      }
+    ]
+  },
+  "timestamp": "2026-04-14T20:30:15Z"
+}
+```
+
+**`document.failed`** — reintentos agotados. Misma estructura que `rejected`.
+
+**`document.email_sent`** — email con RIDE enviado al receptor.
+
+**`document.email_failed`** — fallo en envío de email.
+
+**`certificate.expiring`** — certificado expira en menos de 30 días.
+
+**`plan.approved`** — renovación de plan aprobada por el administrador.
+
+**`plan.expired`** — plan expirado (emitido por el job de reset mensual).
+
+**`plan.rejected`** — solicitud de renovación rechazada.
+
+### Reintentos de webhook
+
+- 3 intentos con backoff: 10 s → 60 s → 300 s
+- Se espera HTTP 2xx como confirmación
+- Si falla los 3 intentos, se marca `failed` en `webhook_deliveries`
+
+---
+
+## Health Checks
+
+### `GET /q/health`
+
+Health check combinado (readiness + liveness).
 
 ```bash
 curl -s http://localhost:8080/q/health | jq .
 ```
 
-### GET /q/health/ready
+### `GET /q/health/ready`
 
-Solo readiness: verifica que PostgreSQL, Redis, RabbitMQ y MinIO estén accesibles. Incluye alerta si un certificado vence en menos de 30 días.
+Verifica PostgreSQL, Redis, RabbitMQ y MinIO. Alerta si el certificado expira en menos de 30 días.
 
 ```bash
 curl -s http://localhost:8080/q/health/ready | jq .
 ```
 
-### GET /q/health/live
+### `GET /q/health/live`
 
-Solo liveness: verifica que los endpoints WSDL del SRI estén accesibles (Recepción y Autorización).
+Verifica que los endpoints WSDL del SRI sean accesibles.
 
 ```bash
 curl -s http://localhost:8080/q/health/live | jq .
@@ -1037,244 +1729,106 @@ curl -s http://localhost:8080/q/health/live | jq .
 
 ## Portal Web
 
-El portal web es una interfaz para consultar documentos, gestionar el plan y autoregistrarse como tenant. Usa server-side rendering con Qute + HTMX + Pico CSS.
+Interfaz web para gestionar documentos, plan y autoregistro. Renderizado server-side con Qute + HTMX + Pico CSS.
 
-### Rutas del Portal
+### Rutas del portal (autenticado)
 
-| Ruta                           | Método | Descripción                                                        |
-| ------------------------------ | ------ | ------------------------------------------------------------------ |
-| `/portal/login`                | GET    | Formulario de login (email + contraseña)                           |
-| `/portal/login`                | POST   | Procesar login, crear sesión Redis                                 |
-| `/portal/logout`               | GET    | Cerrar sesión, eliminar cookie                                     |
-| `/portal/`                     | GET    | Dashboard: lista de documentos con filtros y paginación            |
-| `/portal/documents/:id`        | GET    | Detalle del documento: estado, timeline, totales, enlaces descarga |
-| `/portal/documents/:id/status` | GET    | Fragmento HTML del badge de estado (para polling HTMX)             |
-| `/portal/plan`                 | GET    | Página de plan actual, planes disponibles, historial               |
-| `/portal/plan/renew`           | POST   | Solicitar renovación/cambio de plan (multipart)                    |
-| `/portal/settings/profile`     | GET    | Configuración de perfil del tenant                                 |
-| `/portal/settings/certificate` | GET    | Gestión de certificado digital .p12                                |
-| `/portal/settings/smtp`        | GET    | Configuración SMTP para notificaciones                             |
-| `/portal/settings/webhook`     | GET    | Configuración de URL y secreto webhook                             |
-| `/portal/settings/delete`      | GET    | Solicitud de eliminación de cuenta                                 |
+| Ruta                           | Método | Descripción                                              |
+| ------------------------------ | ------ | -------------------------------------------------------- |
+| `/portal/login`                | GET    | Formulario de login                                      |
+| `/portal/login`                | POST   | Procesar login, crear sesión Redis (TTL 30 min)          |
+| `/portal/logout`               | GET    | Cerrar sesión                                            |
+| `/portal/`                     | GET    | Dashboard con lista de documentos                        |
+| `/portal/documents/:id`        | GET    | Detalle del documento: estado, timeline, descargas       |
+| `/portal/documents/:id/status` | GET    | Fragmento HTML del badge de estado (HTMX polling 5 s)   |
+| `/portal/plan`                 | GET    | Plan actual, planes disponibles, historial               |
+| `/portal/plan/renew`           | POST   | Solicitar renovación (multipart)                         |
+| `/portal/settings/profile`     | GET    | Configuración del perfil del tenant                      |
+| `/portal/settings/certificate` | GET    | Gestión del certificado digital .p12                     |
+| `/portal/settings/smtp`        | GET    | Configuración de email (SMTP / Plunk) y notificaciones   |
+| `/portal/settings/webhook`     | GET    | Configuración de webhook                                 |
+| `/portal/settings/delete`      | GET    | Solicitud de eliminación de cuenta                       |
+| `/portal/forgot-password`      | GET    | Solicitud de recuperación de contraseña                  |
+| `/portal/reset-password`       | GET    | Formulario de nueva contraseña (token en query param)    |
 
-### Rutas de Autoregistro (públicas)
+### Rutas de autoregistro (públicas)
 
-| Ruta                          | Método | Descripción                                                       |
-| ----------------------------- | ------ | ----------------------------------------------------------------- |
-| `/portal/register`            | GET    | Paso 1: formulario de datos del contribuyente (RUC, razón social) |
-| `/portal/register/verify-ruc` | POST   | Validación AJAX del RUC (HTMX)                                    |
-| `/portal/register/step1`      | POST   | Procesar paso 1                                                   |
-| `/portal/register/step2`      | GET    | Paso 2: configuración de emisión (establecimiento, punto emisión) |
-| `/portal/register/step2`      | POST   | Procesar paso 2                                                   |
-| `/portal/register/step3`      | GET    | Paso 3: confirmación (resumen empresa + certificado + plan)       |
-| `/portal/register/step3`      | POST   | Procesar paso 3 y crear tenant                                    |
-| `/portal/verify`              | GET    | Verificación de email (token en query param)                      |
-
-### Flujo de autenticación del Portal
-
-1. El usuario accede a `/portal/login`
-2. Ingresa su email y contraseña
-3. El sistema valida las credenciales, crea una sesión en Redis (TTL 30 min)
-4. Establece cookie `KEY49_SESSION` (HttpOnly, SameSite=Lax)
-5. Redirige al dashboard (`/portal/`)
-6. Cada request renueva el TTL de la sesión
-7. Logout elimina la sesión de Redis y la cookie
-
-### Stack del Portal
-
-- **Pico CSS v2**: estilos semánticos sin clases
-- **HTMX v2.0.4**: interactividad sin JavaScript manual
-- **Polling**: `hx-trigger="every 5s"` para actualizar estado de documentos en proceso
+| Ruta                          | Método | Descripción                                              |
+| ----------------------------- | ------ | -------------------------------------------------------- |
+| `/portal/register`            | GET    | Paso 1: datos del contribuyente                          |
+| `/portal/register/verify-ruc` | POST   | Validación AJAX del RUC (HTMX)                           |
+| `/portal/register/step1`      | POST   | Procesar paso 1                                          |
+| `/portal/register/step2`      | GET    | Paso 2: configuración de emisión                         |
+| `/portal/register/step2`      | POST   | Procesar paso 2                                          |
+| `/portal/register/step3`      | GET    | Paso 3: confirmación y creación                          |
+| `/portal/register/step3`      | POST   | Crear tenant y enviar email de verificación              |
+| `/portal/verify`              | GET    | Verificación de email (`?token=...`)                     |
 
 ---
 
 ## OpenAPI / Swagger
 
-### GET /q/openapi
-
-Especificación OpenAPI 3.x en formato YAML/JSON.
-
 ```bash
-curl -s http://localhost:8080/q/openapi | head -50
+# Especificación OpenAPI YAML
+curl -s http://localhost:8080/q/openapi
+
+# Swagger UI (solo en desarrollo — deshabilitado en producción)
+open http://localhost:8080/q/swagger-ui
 ```
-
----
-
-## Webhooks
-
-Key49 envía webhooks POST al `webhook_url` del tenant cuando un documento cambia de estado.
-
-### Headers del Webhook
-
-```
-Content-Type: application/json
-X-Key49-Signature: sha256=abc123...    (HMAC-SHA256 del body con webhook_secret)
-X-Key49-Event: document.authorized
-X-Key49-Delivery: del_uuid
-X-Key49-Timestamp: 2026-04-04T10:30:15Z
-```
-
-### Payload del Webhook
-
-```json
-{
-  "event": "document.authorized",
-  "data": {
-    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
-    "document_type": "01",
-    "access_key": "0404202601...",
-    "authorization_number": "0404202601...",
-    "status": "AUTHORIZED",
-    "authorization_date": "2026-04-04T10:30:15Z",
-    "total_amount": 57.5,
-    "recipient": {
-      "id": "1790012345001",
-      "name": "Empresa Cliente S.A."
-    }
-  },
-  "timestamp": "2026-04-04T10:30:15Z"
-}
-```
-
-### Eventos de Webhook
-
-| Evento                  | Descripción                                         |
-| ----------------------- | --------------------------------------------------- |
-| `document.authorized`   | Comprobante autorizado por el SRI                   |
-| `document.rejected`     | Comprobante rechazado por el SRI (error de negocio) |
-| `document.failed`       | Comprobante falló después de agotar reintentos      |
-| `document.email_sent`   | Email con RIDE enviado al receptor                  |
-| `document.email_failed` | Fallo en envío de email                             |
-| `certificate.expiring`  | Certificado expira en menos de 30 días              |
-
-### Reintentos de Webhook
-
-- 3 intentos con backoff: 10s, 60s, 300s
-- Se espera HTTP 2xx como confirmación de entrega
-- Si falla los 3 intentos, se marca como `failed` en `webhook_deliveries`
-
-### Verificación de Firma del Webhook
-
-El integrador debe verificar la firma HMAC-SHA256 del body usando su `webhook_secret`:
-
-```
-expected = HMAC-SHA256(webhook_secret, raw_body)
-actual   = header X-Key49-Signature (sin prefijo "sha256=")
-```
-
-Rechazar el webhook si las firmas no coinciden.
 
 ---
 
 ## Catálogo de Errores
 
-### Errores Generales
+### Errores generales
 
-| Código HTTP | Error Code                   | Descripción                                                                                                                                                                                                             |
-| ----------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400         | `VALIDATION_ERROR`           | Uno o más campos del request son inválidos                                                                                                                                                                              |
-| 400         | `INVALID_ESTABLISHMENT`      | `establishment` no tiene formato 3 dígitos numéricos                                                                                                                                                                    |
-| 400         | `INVALID_ISSUE_POINT`        | `issue_point` no tiene formato 3 dígitos numéricos                                                                                                                                                                      |
-| 400         | `INVALID_SEQUENCE_NUMBER`    | `sequence_number` no tiene formato 9 dígitos numéricos                                                                                                                                                                  |
-| 400         | `INVALID_RECIPIENT_ID`       | Identificación del receptor no pasa validación de formato (RUC/cédula)                                                                                                                                                  |
-| 400         | `INVALID_ISSUE_DATE`         | `issue_date` no es la fecha actual (America/Guayaquil)                                                                                                                                                                  |
-| 401         | `UNAUTHORIZED`               | API key no proporcionado o inválido                                                                                                                                                                                     |
-| 401         | `API_KEY_EXPIRED`            | API key expirado                                                                                                                                                                                                        |
-| 401         | `API_KEY_REVOKED`            | API key revocado                                                                                                                                                                                                        |
-| 403         | `TENANT_SUSPENDED`           | Tenant suspendido, no puede emitir documentos                                                                                                                                                                           |
-| 404         | `DOCUMENT_NOT_FOUND`         | Documento no encontrado                                                                                                                                                                                                 |
-| 409         | `DUPLICATE_DOCUMENT`         | Documento activo/completado ya existe con el mismo tipo, establecimiento, punto de emisión y secuencial. Si el documento existente estaba en estado `REJECTED` o `FAILED`, se recicla automáticamente y se retorna 202. |
-| 409         | `IDEMPOTENCY_CONFLICT`       | `X-Idempotency-Key` ya usado con un request distinto                                                                                                                                                                    |
-| 409         | `INVALID_STATE_TRANSITION`   | Transición de estado no permitida (ver state machine en ARCHITECTURE.md)                                                                                                                                                |
-| 422         | `CERTIFICATE_NOT_CONFIGURED` | Tenant no tiene certificado .p12 configurado                                                                                                                                                                            |
-| 422         | `CERTIFICATE_EXPIRED`        | Certificado .p12 del tenant está expirado                                                                                                                                                                               |
-| 429         | `RATE_LIMIT_EXCEEDED`        | Se excedió el límite de requests por minuto                                                                                                                                                                             |
-| 500         | `INTERNAL_ERROR`             | Error interno de Key49                                                                                                                                                                                                  |
-| 502         | `SRI_UNAVAILABLE`            | No se pudo contactar al SRI (timeout o conexión rechazada)                                                                                                                                                              |
+| HTTP | Código                        | Descripción                                                                                       |
+| ---- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| 400  | `VALIDATION_ERROR`            | Uno o más campos son inválidos (ver `details`)                                                    |
+| 400  | `INVALID_ESTABLISHMENT`       | `establishment` no tiene 3 dígitos                                                                |
+| 400  | `INVALID_ISSUE_POINT`         | `issue_point` no tiene 3 dígitos                                                                  |
+| 400  | `INVALID_SEQUENCE_NUMBER`     | `sequence_number` no tiene 9 dígitos                                                              |
+| 400  | `INVALID_RECIPIENT_ID`        | RUC o cédula del receptor no pasa validación                                                      |
+| 400  | `INVALID_ISSUE_DATE`          | `issue_date` no es la fecha actual en `America/Guayaquil`                                         |
+| 400  | `INVALID_XML_STRUCTURE`       | XML mal formado (canal raw)                                                                       |
+| 400  | `XSD_VALIDATION_FAILED`       | XML no pasa validación XSD del SRI (canal raw)                                                    |
+| 400  | `DOCUMENT_TYPE_MISMATCH`      | `X-Document-Type` no coincide con `<codDoc>` del XML                                             |
+| 400  | `MISSING_DOCUMENT_TYPE`       | Falta header `X-Document-Type` en canal raw                                                       |
+| 401  | `UNAUTHORIZED`                | API key no proporcionado o inválido                                                               |
+| 401  | `API_KEY_EXPIRED`             | API key expirado                                                                                  |
+| 401  | `API_KEY_REVOKED`             | API key revocado                                                                                  |
+| 403  | `TENANT_SUSPENDED`            | Tenant suspendido                                                                                 |
+| 403  | `QUOTA_EXCEEDED`              | Se agotó la cuota de documentos del plan actual                                                   |
+| 404  | `DOCUMENT_NOT_FOUND`          | Documento no encontrado                                                                           |
+| 409  | `DUPLICATE_DOCUMENT`          | Ya existe un documento activo con el mismo tipo/establecimiento/punto/secuencial. Si estaba en `REJECTED` o `FAILED`, se recicla automáticamente y retorna 202. |
+| 409  | `IDEMPOTENCY_CONFLICT`        | `X-Idempotency-Key` ya usado con un request diferente                                             |
+| 409  | `INVALID_STATE_TRANSITION`    | Transición de estado no permitida                                                                 |
+| 422  | `CERTIFICATE_NOT_CONFIGURED`  | Tenant no tiene certificado .p12 cargado                                                          |
+| 422  | `CERTIFICATE_EXPIRED`         | Certificado .p12 expirado                                                                         |
+| 422  | `UNSUPPORTED_XSD_VERSION`     | Versión de XSD no soportada                                                                       |
+| 422  | `VOID_PERIOD_EXPIRED`         | Superó el día 7 del mes siguiente a la emisión para anular                                        |
+| 422  | `FINAL_CONSUMER_NOT_VOIDABLE` | Facturas a consumidor final no pueden anularse                                                    |
+| 429  | `RATE_LIMIT_EXCEEDED`         | Límite de requests por minuto excedido                                                            |
+| 500  | `INTERNAL_ERROR`              | Error interno de Key49                                                                            |
+| 502  | `SRI_UNAVAILABLE`             | No se pudo contactar al SRI                                                                       |
 
-### Errores de XML Raw (POST /documents/raw)
+### Códigos de detalle de validación (`details[].code`)
 
-| Código HTTP | Error Code                | Descripción                                          |
-| ----------- | ------------------------- | ---------------------------------------------------- |
-| 400         | `INVALID_XML_STRUCTURE`   | XML mal formado o no parseable                       |
-| 400         | `XSD_VALIDATION_FAILED`   | XML no pasa validación contra XSD del SRI            |
-| 400         | `DOCUMENT_TYPE_MISMATCH`  | `X-Document-Type` no coincide con `<codDoc>` del XML |
-| 400         | `MISSING_DOCUMENT_TYPE`   | Header `X-Document-Type` no proporcionado            |
-| 422         | `UNSUPPORTED_XSD_VERSION` | Versión de XSD no soportada por Key49                |
+| Código           | Descripción                                              |
+| ---------------- | -------------------------------------------------------- |
+| `REQUIRED`       | Campo obligatorio no proporcionado                       |
+| `INVALID_FORMAT` | Formato incorrecto                                       |
+| `INVALID_VALUE`  | Valor no reconocido en catálogo SRI                      |
+| `OUT_OF_RANGE`   | Valor fuera del rango permitido                          |
+| `TOO_LONG`       | Valor excede la longitud máxima                          |
 
-### Errores de Anulación (POST /invoices/:id/void)
+### Códigos de error del SRI (referencia)
 
-| Código HTTP | Error Code                    | Descripción                                       |
-| ----------- | ----------------------------- | ------------------------------------------------- |
-| 409         | `INVALID_STATE_TRANSITION`    | Documento no está en estado AUTHORIZED o NOTIFIED |
-| 422         | `VOID_PERIOD_EXPIRED`         | Superó el día 7 del mes siguiente a la emisión    |
-| 422         | `FINAL_CONSUMER_NOT_VOIDABLE` | Facturas a consumidor final no pueden anularse    |
-
-### Formato de Error con Detalles de Validación
-
-Cuando `code = "VALIDATION_ERROR"`, el campo `details` contiene el desglose por campo:
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Request contiene campos inválidos",
-    "details": [
-      {
-        "field": "recipient.id",
-        "message": "RUC debe tener 13 dígitos",
-        "code": "INVALID_FORMAT"
-      },
-      {
-        "field": "sequence_number",
-        "message": "Debe tener exactamente 9 dígitos numéricos",
-        "code": "INVALID_FORMAT"
-      }
-    ]
-  },
-  "meta": {
-    "request_id": "req_abc123"
-  }
-}
-```
-
-### Códigos de Detalle de Validación
-
-| Code             | Descripción                                                    |
-| ---------------- | -------------------------------------------------------------- |
-| `REQUIRED`       | Campo obligatorio no proporcionado                             |
-| `INVALID_FORMAT` | Formato incorrecto (ej: RUC no tiene 13 dígitos)               |
-| `INVALID_VALUE`  | Valor no reconocido (ej: `tax.code` no existe en catálogo SRI) |
-| `OUT_OF_RANGE`   | Valor fuera de rango permitido (ej: `quantity` negativa)       |
-| `TOO_LONG`       | Valor excede longitud máxima                                   |
-
----
-
-## Códigos de Error
-
-| Código HTTP | Error Code            | Descripción                         |
-| ----------- | --------------------- | ----------------------------------- |
-| 400         | `VALIDATION_ERROR`    | Datos de entrada inválidos          |
-| 400         | `INVALID_XML`         | XML generado no pasa validación XSD |
-| 401         | `UNAUTHORIZED`        | API key inválido o expirado         |
-| 403         | `FORBIDDEN`           | Sin permisos para esta operación    |
-| 404         | `NOT_FOUND`           | Recurso no encontrado               |
-| 409         | `DUPLICATE`           | Idempotency key ya procesada        |
-| 422         | `CERTIFICATE_EXPIRED` | Certificado .p12 expirado           |
-| 422         | `CERTIFICATE_MISSING` | No hay certificado configurado      |
-| 422         | `SRI_REJECTED`        | SRI rechazó el comprobante          |
-| 429         | `RATE_LIMITED`        | Se excedió el rate limit            |
-| 500         | `INTERNAL_ERROR`      | Error interno del servidor          |
-| 502         | `SRI_UNAVAILABLE`     | SRI no disponible (se reintentará)  |
-| 503         | `SERVICE_UNAVAILABLE` | Servicio en mantenimiento           |
-
-## Códigos de Error del SRI (referencia)
-
-| Código | Descripción                         | Acción                               |
-| ------ | ----------------------------------- | ------------------------------------ |
-| 35     | Documento ya registrado             | No reintentar, marcar como duplicado |
-| 43     | Clave de acceso registrada          | Regenerar clave, reintentar          |
-| 45     | Fecha fuera de rango permitido      | No reintentar, notificar             |
-| 52     | Error en estructura del comprobante | No reintentar, revisar XML           |
-| 65     | Fecha de emisión mayor a la actual  | No reintentar, notificar             |
-| 70     | Clave de acceso inválida            | Regenerar clave, reintentar          |
+| Código | Descripción                     | Acción en Key49                      |
+| ------ | ------------------------------- | ------------------------------------ |
+| 35     | Documento ya registrado         | No reintentar → `REJECTED`           |
+| 43     | Clave de acceso ya registrada   | Regenerar clave y reintentar         |
+| 45     | Fecha fuera de rango            | No reintentar → `REJECTED`           |
+| 52     | Error en estructura             | No reintentar → `REJECTED`           |
+| 65     | Fecha de emisión mayor a actual | No reintentar → `REJECTED`           |
+| 70     | Clave de acceso inválida        | Regenerar clave y reintentar         |

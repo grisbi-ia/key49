@@ -22,9 +22,8 @@ import javax.sql.DataSource;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import auracore.key49.notify.email.PlatformEmailService;
 import auracore.key49.notify.webhook.WebhookUrlValidator;
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -64,10 +63,7 @@ public class PlanAlertService {
     DataSource dataSource;
 
     @Inject
-    Mailer mailer;
-
-    @ConfigProperty(name = "key49.email.from", defaultValue = "facturacion@key49.ec")
-    String fromAddress;
+    PlatformEmailService platformEmailService;
 
     @ConfigProperty(name = "key49.email.enabled", defaultValue = "true")
     boolean emailEnabled;
@@ -257,8 +253,7 @@ public class PlanAlertService {
 
     private void sendEmail(String to, String subject, String body) {
         try {
-            mailer.send(Mail.withText(to, subject, body)
-                    .setFrom("Key49 <" + fromAddress + ">"));
+            platformEmailService.sendText(to, subject, body);
             log.infof("Plan alert email sent | to=%s subject=%s", to, subject);
         } catch (Exception e) {
             log.errorf(e, "Failed to send plan alert email | to=%s", to);

@@ -1,7 +1,7 @@
 {#include portal/layout}
-{#title}Configuración SMTP{/title}
+{#title}Configuración de Email{/title}
 {#body}
-<h3>Configuración SMTP</h3>
+<h3>Configuración de Email</h3>
 
 {#if error}
 <article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
@@ -15,11 +15,53 @@
 </article>
 {/if}
 
-<p>Configure su servidor SMTP para enviar las notificaciones de comprobantes electrónicos directamente desde su dominio.</p>
+<!-- ── Proveedor activo ── -->
+<form method="post" action="/portal/settings/email-provider" id="providerForm">
+    <article>
+        <header><strong>Proveedor de envío de email</strong></header>
+        <p style="margin-bottom: 1rem;">Seleccione cómo se enviarán las notificaciones de comprobantes electrónicos a sus clientes.</p>
 
+        <fieldset>
+            <label>
+                <input type="radio" id="providerSmtp" name="emailProvider" value="smtp"
+                    {#if tenant.emailProvider != 'plunk'}checked{/if}>
+                <strong>SMTP propio o compartido</strong>
+                <small> — use su servidor de correo o el predeterminado de Key49</small>
+            </label>
+            <label>
+                <input type="radio" id="providerPlunk" name="emailProvider" value="plunk"
+                    {#if tenant.emailProvider == 'plunk'}checked{/if}>
+                <strong>Plunk</strong>
+                <small> — servicio externo con trazabilidad de entregas y validación de destinos</small>
+            </label>
+        </fieldset>
+
+        <!-- Plunk API key — siempre visible -->
+        <div style="margin-top: 1rem;">
+            <label for="plunkApiKey">API Key de Plunk
+                <input type="password" id="plunkApiKey" name="plunkApiKey" autocomplete="off"
+                    placeholder="{#if tenant.plunkApiKeyEnc}••••••••  (guardada — deje en blanco para mantener){#else}sk_live_...{/if}">
+            </label>
+            {#if tenant.plunkApiKeyEnc}
+            <small>Tiene una API key guardada. Deje el campo en blanco para conservarla o ingrese una nueva para reemplazarla.</small>
+            {#else}
+            <small>Ingrese su API key de Plunk. La encontrará en su panel bajo <em>Settings → API Keys</em>.</small>
+            {/if}
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+            <button type="submit">Guardar proveedor</button>
+        </div>
+    </article>
+</form>
+
+<hr>
+
+<!-- ── SMTP propio ── -->
 <form method="post" action="/portal/settings/smtp">
     <article>
-        <header><strong>Servidor SMTP</strong></header>
+        <header><strong>Configuración SMTP</strong></header>
+        <p>Configure su servidor SMTP para enviar notificaciones directamente desde su dominio.</p>
 
         <div class="grid">
             <div>
@@ -58,24 +100,30 @@
             <input type="email" name="smtpFrom" value="{tenant.smtpFrom ?: ''}"
                 placeholder="facturacion@miempresa.com">
         </label>
+        <small>
+            Requerido cuando el proveedor es <strong>Plunk</strong>. Debe ser un dominio verificado en su cuenta de Plunk.
+        </small>
     </article>
 
     <article>
         <header><strong>Opciones</strong></header>
         <label>
-            <input type="checkbox" name="smtpEnabled" {#if tenant.smtpEnabled}checked{/if}>
-            Habilitar SMTP personalizado
-        </label>
-        <small>Si no se habilita, se usará el servidor de correo predeterminado de Key49.</small>
-        <br><br>
-        <label>
             <input type="checkbox" name="emailNotificationsEnabled" {#if tenant.emailNotificationsEnabled}checked{/if}>
             Enviar notificaciones por email al autorizar documentos
         </label>
+        <small>Si no está habilitado, no se enviará ningún email al autorizar documentos.</small>
+        <br><br>
+        <label>
+            <input type="checkbox" name="notifyFinalConsumer" {#if tenant.notifyFinalConsumer}checked{/if}>
+            Notificar a Consumidor Final
+        </label>
+        <small>Si no está habilitado, se omiten los emails cuando el receptor es Consumidor Final
+            (identificación <code>9999999999</code> o <code>9999999999999</code>).
+            Útil para reducir envíos innecesarios en ventas al por menor.</small>
     </article>
 
     <div style="display: flex; gap: 1rem; align-items: center;">
-        <button type="submit">Guardar configuración</button>
+        <button type="submit">Guardar SMTP</button>
     </div>
 </form>
 
@@ -84,6 +132,7 @@
     <button type="submit" class="outline secondary">Probar conexión SMTP</button>
 </form>
 {/if}
+
 
 {/body}
 {/include}
