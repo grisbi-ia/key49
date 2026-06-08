@@ -1,5 +1,6 @@
-# Build output
-target/
+# Build output (except quarkus-app which is needed for VPS Dockerfile.jvm)
+target/*
+!target/quarkus-app/
 
 # IDE
 .idea/

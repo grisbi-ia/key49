@@ -1,0 +1,37 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Key49 — Dockerfile para VPS (runtime only, SIN compilar)   ║
+# ║  La app se compila en local: mvn package -DskipTests         ║
+# ║  El artefacto target/quarkus-app/ se copia al VPS           ║
+# ║  Este Dockerfile solo copia y ejecuta — build instantáneo   ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+FROM eclipse-temurin:25-jre-alpine
+WORKDIR /app
+
+# Solo curl para healthcheck + zona horaria Ecuador
+RUN apk add --no-cache curl tzdata \
+    && cp /usr/share/zoneinfo/America/Guayaquil /etc/localtime \
+    && echo "America/Guayaquil" > /etc/timezone
+
+# Usuario no-root
+RUN addgroup -S key49 && adduser -S key49 -G key49
+
+# Copiar artefacto PRE-COMPILADO (generado con mvn package en local)
+COPY target/quarkus-app/ /app/
+RUN chown -R key49:key49 /app
+
+USER key49
+EXPOSE 8080
+
+ENV QUARKUS_PROFILE=prod
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 \
+    -XX:+UseG1GC \
+    -XX:+UseStringDeduplication \
+    -XX:+ExitOnOutOfMemoryError \
+    -Djava.security.egd=file:/dev/urandom \
+    -Dquarkus.http.host=0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/q/health/ready || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/quarkus-run.jar"]

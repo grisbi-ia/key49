@@ -17,6 +17,7 @@ import auracore.key49.core.model.PlanRenewal;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.service.AuditService;
 import auracore.key49.core.service.RenewalAdminService;
+import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.qute.Location;
@@ -59,11 +60,17 @@ public class PortalAdminResource {
     @Location("portal/admin/renewals")
     Template renewals;
 
+    @Location("portal/admin/tenants")
+    Template adminTenants;
+
     @Inject
     RenewalAdminService renewalService;
 
     @Inject
     TenantRepository tenantRepository;
+
+    @Inject
+    TenantAdminService tenantAdminService;
 
     @Inject
     ObjectStorageService storageService;
@@ -242,6 +249,100 @@ public class PortalAdminResource {
         }
     }
 
+    // ── Tenant Approvals (Admin) ──
+
+    /**
+     * GET /portal/admin/tenants — Lista de tenants pendientes de aprobación.
+     */
+    @GET
+    @Path("/tenants")
+    public Response listPendingTenants(
+            @QueryParam("token") String token,
+            @QueryParam("page") @DefaultValue("1") int page,
+            @QueryParam("successMsg") String successMsg,
+            @QueryParam("error") String error) {
+
+        var authError = validateToken(token);
+        if (authError != null) {
+            return authError;
+        }
+
+        int perPage = 20;
+        var result = tenantAdminService.listAll(page, perPage, Optional.of("pending_approval"));
+        var pendingCount = tenantAdminService.countByStatus("pending_approval");
+
+        return Response.ok(adminTenants
+                .data("items", result.items().stream().map(t -> new TenantRow(
+                        t.id,
+                        formatDateTime(t.createdAt),
+                        t.legalName,
+                        t.ruc,
+                        t.email,
+                        t.environment,
+                        t.status)).toList())
+                .data("page", page)
+                .data("total", result.total())
+                .data("pages", (int) Math.ceil((double) result.total() / perPage))
+                .data("pendingCount", pendingCount)
+                .data("token", token)
+                .data("successMsg", successMsg)
+                .data("error", error)
+                .data("title", "Aprobación de Tenants")
+                .render()).build();
+    }
+
+    /**
+     * POST /portal/admin/tenants/{id}/approve — Aprobar un tenant.
+     */
+    @POST
+    @Path("/tenants/{id}/approve")
+    public Response approveTenant(
+            @PathParam("id") UUID id,
+            @QueryParam("token") String token,
+            @FormParam("notes") String notes) {
+
+        var authError = validateToken(token);
+        if (authError != null) {
+            return authError;
+        }
+
+        try {
+            var tenant = tenantAdminService.approve(id, notes);
+            log.infof("Admin portal approved tenant | id=%s ruc=%s", id, tenant.ruc);
+            return redirectToTenantList(token, "Tenant " + tenant.legalName + " aprobado exitosamente", null);
+        } catch (TenantAdminService.TenantException e) {
+            return redirectToTenantList(token, null, e.getMessage());
+        }
+    }
+
+    /**
+     * POST /portal/admin/tenants/{id}/reject — Rechazar un tenant.
+     */
+    @POST
+    @Path("/tenants/{id}/reject")
+    public Response rejectTenant(
+            @PathParam("id") UUID id,
+            @QueryParam("token") String token,
+            @FormParam("reason") String reason) {
+
+        var authError = validateToken(token);
+        if (authError != null) {
+            return authError;
+        }
+
+        if (reason == null || reason.isBlank()) {
+            return redirectToTenantList(token, null, "El motivo de rechazo es obligatorio");
+        }
+
+        try {
+            var tenant = tenantAdminService.reject(id, reason);
+            log.infof("Admin portal rejected tenant | id=%s ruc=%s reason=%s", id, tenant.ruc, reason);
+            return redirectToTenantList(token, "Tenant " + tenant.legalName + " rechazado", null);
+        } catch (TenantAdminService.TenantException e) {
+            return redirectToTenantList(token, null, e.getMessage());
+        }
+    }
+
     // ── Helpers ──
     private Response validateToken(String token) {
         if (adminToken.isEmpty() || adminToken.get().isBlank()) {
@@ -267,6 +368,17 @@ public class PortalAdminResource {
 
     private Response redirectToList(String token, String successMsg, String error) {
         var sb = new StringBuilder("/portal/admin/renewals?token=").append(encodeQuery(token));
+        if (successMsg != null) {
+            sb.append("&successMsg=").append(encodeQuery(successMsg));
+        }
+        if (error != null) {
+            sb.append("&error=").append(encodeQuery(error));
+        }
+        return Response.seeOther(URI.create(sb.toString())).build();
+    }
+
+    private Response redirectToTenantList(String token, String successMsg, String error) {
+        var sb = new StringBuilder("/portal/admin/tenants?token=").append(encodeQuery(token));
         if (successMsg != null) {
             sb.append("&successMsg=").append(encodeQuery(successMsg));
         }

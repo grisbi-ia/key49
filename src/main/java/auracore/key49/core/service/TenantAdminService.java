@@ -109,6 +109,58 @@ public class TenantAdminService {
         }
     }
 
+    // ── Aprobación de tenant ──
+
+    /**
+     * Aprueba un tenant en estado pending_approval, activándolo.
+     * Solo el admin de plataforma puede ejecutar esta acción.
+     */
+    @Transactional
+    public Tenant approve(UUID id, String notes) {
+        var tenant = findById(id);
+
+        if (!"pending_approval".equals(tenant.status)) {
+            throw new TenantException("INVALID_STATUS",
+                    "El tenant no está pendiente de aprobación (estado actual: " + tenant.status + ")", 409);
+        }
+
+        tenant.status = "active";
+        tenant.updatedAt = Instant.now();
+        tenantCacheService.invalidate(tenant.id, tenant.schemaName);
+
+        Log.infof("Tenant approved | id=%s ruc=%s schema=%s notes=%s",
+                tenant.id, tenant.ruc, tenant.schemaName, notes != null ? notes : "—");
+        return tenant;
+    }
+
+    /**
+     * Rechaza un tenant en estado pending_approval, suspendiéndolo.
+     */
+    @Transactional
+    public Tenant reject(UUID id, String reason) {
+        var tenant = findById(id);
+
+        if (!"pending_approval".equals(tenant.status)) {
+            throw new TenantException("INVALID_STATUS",
+                    "El tenant no está pendiente de aprobación (estado actual: " + tenant.status + ")", 409);
+        }
+
+        tenant.status = "suspended";
+        tenant.updatedAt = Instant.now();
+        tenantCacheService.invalidate(tenant.id, tenant.schemaName);
+
+        Log.infof("Tenant rejected | id=%s ruc=%s schema=%s reason=%s",
+                tenant.id, tenant.ruc, tenant.schemaName, reason != null ? reason : "—");
+        return tenant;
+    }
+
+    /**
+     * Cuenta tenants por estado.
+     */
+    public long countByStatus(String status) {
+        return tenantRepository.count("status", status);
+    }
+
     // ── Obtener tenant por ID ──
     public Tenant findById(UUID id) {
         Tenant tenant = tenantRepository.findById(id);

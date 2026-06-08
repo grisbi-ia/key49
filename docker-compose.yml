@@ -1,49 +1,29 @@
 # Key49 — Infraestructura de desarrollo local
 # Uso: docker compose up -d
+# NOTA: Para producción, usar docker-compose.prod.yml
 
 services:
-  # ── PostgreSQL (comentado: se usa instalación local en puerto 5433) ──
-  # En PRODUCCIÓN: des-comentar este servicio o apuntar a un PostgreSQL gestionado.
-  # postgres:
-  #   image: postgres:16-alpine
-  #   container_name: key49-postgres
-  #   environment:
-  #     POSTGRES_DB: key49
-  #     POSTGRES_USER: postgres
-  #     POSTGRES_PASSWORD: 1234abcd
-  #   ports:
-  #     - "5433:5432"
-  #   volumes:
-  #     - key49-pgdata:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U postgres -d key49"]
-  #     interval: 5s
-  #     timeout: 3s
-  #     retries: 5
-
-  # ── PgBouncer: connection pooler en modo transaction ──
-  # En desarrollo apunta al PostgreSQL local del host (host.docker.internal:5433).
-  # En PRODUCCIÓN: cambiar pgbouncer.ini para apuntar al host de PostgreSQL real
-  # y des-comentar depends_on si PostgreSQL corre como servicio Docker.
-  pgbouncer:
-    image: edoburu/pgbouncer:latest
-    container_name: key49-pgbouncer
-    # depends_on:          # Des-comentar en producción si PostgreSQL es servicio Docker
-    #   postgres:
-    #     condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+  # ── PostgreSQL 16 ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: key49-postgres
+    environment:
+      POSTGRES_DB: key49
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234abcd
     ports:
-      - "6432:6432"
+      - "5433:5432"
     volumes:
-      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      - key49-pgdata:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./docker/postgres/init-dev-docker.sh:/docker-entrypoint-initdb.d/00-init-dev.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "psql -h 127.0.0.1 -p 6432 -U postgres -d key49 -c 'SELECT 1' > /dev/null 2>&1 || pg_isready -h 127.0.0.1 -p 6432"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d key49"]
       interval: 5s
       timeout: 3s
       retries: 5
 
+  # ── RabbitMQ 3.13 ──
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: key49-rabbitmq
@@ -61,19 +41,21 @@ services:
       timeout: 5s
       retries: 5
 
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: key49-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - key49-redis:/data
-  #   healthcheck:
-  #     test: ["CMD", "redis-cli", "ping"]
-  #     interval: 5s
-  #     timeout: 3s
-  #     retries: 5
+  # ── Redis 7 ──
+  redis:
+    image: redis:7-alpine
+    container_name: key49-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - key49-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
+  # ── MinIO ──
   minio:
     image: minio/minio:latest
     container_name: key49-minio
@@ -93,7 +75,7 @@ services:
       retries: 5
 
 volumes:
-  # key49-pgdata:    # Des-comentar si se usa PostgreSQL como servicio Docker
+  key49-pgdata:
   key49-rabbitmq:
-  # key49-redis:
+  key49-redis:
   key49-minio:

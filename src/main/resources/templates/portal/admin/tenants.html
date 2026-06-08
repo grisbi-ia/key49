@@ -1,0 +1,220 @@
+{@String token}
+{@String successMsg}
+{@String error}
+{@int page}
+{@long total}
+{@int pages}
+{@long pendingCount}
+{@java.util.List<auracore.key49.api.portal.TenantRow> items}
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{title} — Key49 Admin</title>
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        :root {
+            --pico-font-size: 15px;
+        }
+
+        .status-ok {
+            background-color: #2ecc40;
+            color: #fff;
+        }
+
+        .status-error {
+            background-color: #ff4136;
+            color: #fff;
+        }
+
+        .status-pending {
+            background-color: #f0ad4e;
+            color: #fff;
+        }
+
+        .status-suspended {
+            background-color: #adb5bd;
+            color: #fff;
+        }
+
+        mark[class^="status-"] {
+            padding: 0.15em 0.5em;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        nav .brand {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        nav .badge {
+            background-color: var(--pico-primary);
+            color: #fff;
+            border-radius: 50px;
+            padding: 0.15em 0.6em;
+            font-size: 0.8em;
+        }
+
+        .tenant-card {
+            border: 1px solid var(--pico-muted-border-color);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tenant-card header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .tenant-card .meta {
+            color: var(--pico-muted-color);
+            font-size: 0.85em;
+        }
+
+        .tenant-card .actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 3rem 0;
+            color: var(--pico-muted-color);
+        }
+
+        /* Approve/reject modals */
+        dialog article {
+            max-width: 450px;
+        }
+
+        dialog textarea {
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><span class="brand">🔑 Key49 Admin</span></li>
+        </ul>
+        <ul>
+            <li><a href="/portal/admin/tenants?token={token}">Aprobaciones
+                    {#if pendingCount > 0}
+                    <span class="badge">{pendingCount}</span>
+                    {/if}
+                </a></li>
+            <li><a href="/portal/admin/renewals?token={token}">Renovaciones</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <hgroup>
+            <h1>{title}</h1>
+            <p>{pendingCount} tenant{#if pendingCount != 1}s{/if} pendiente{#if pendingCount != 1}s{/if} de
+                aprobación</p>
+        </hgroup>
+
+        {#if successMsg}
+        <article style="background-color:#d4edda;border-color:#2ecc40;">
+            ✅ {successMsg}
+        </article>
+        {/if}
+        {#if error}
+        <article style="background-color:#f8d7da;border-color:#ff4136;">
+            ❌ {error}
+        </article>
+        {/if}
+
+        {#if items.isEmpty()}
+        <div class="no-results">
+            <p>🎉 No hay tenants pendientes de aprobación</p>
+            <p class="meta">Cuando un nuevo usuario complete el registro y verifique su email, aparecerá aquí.</p>
+        </div>
+        {#else}
+        {#for tenant in items}
+        <div class="tenant-card">
+            <header>
+                <strong>{tenant.legalName}</strong>
+                <mark class="status-pending">PENDIENTE</mark>
+            </header>
+            <div class="meta">
+                <div><small>RUC:</small> {tenant.ruc}</div>
+                <div><small>Email:</small> {tenant.email}</div>
+                <div><small>Ambiente:</small> {tenant.environment.toUpperCase()}</div>
+                <div><small>Registrado:</small> {tenant.createdAt}</div>
+            </div>
+            <div class="actions">
+                <form method="post"
+                    action="/portal/admin/tenants/{tenant.id}/approve?token={token}"
+                    onsubmit="return confirm('¿Aprobar el tenant {tenant.legalName} ({tenant.ruc})?')"
+                    style="display:inline;">
+                    <input type="hidden" name="notes" value="">
+                    <button class="contrast" style="background-color:#2ecc40;border-color:#2ecc40;color:#fff;">
+                        ✅ Aprobar
+                    </button>
+                </form>
+
+                <button class="secondary"
+                    style="background-color:#ff4136;border-color:#ff4136;color:#fff;"
+                    onclick="document.getElementById('reject-dialog-{tenant.id}').showModal()">
+                    ❌ Rechazar
+                </button>
+
+                <dialog id="reject-dialog-{tenant.id}">
+                    <article>
+                        <header>
+                            <strong>Rechazar tenant</strong>
+                        </header>
+                        <p>{tenant.legalName} ({tenant.ruc})</p>
+                        <form method="post"
+                            action="/portal/admin/tenants/{tenant.id}/reject?token={token}">
+                            <label>
+                                Motivo del rechazo:
+                                <textarea name="reason" rows="3" required
+                                    placeholder="Ej: RUC inválido, datos de empresa incorrectos..."></textarea>
+                            </label>
+                            <div class="grid" style="margin-top:1rem;">
+                                <button class="secondary"
+                                    onclick="document.getElementById('reject-dialog-{tenant.id}').close();return false;">
+                                    Cancelar
+                                </button>
+                                <button style="background-color:#ff4136;border-color:#ff4136;color:#fff;">
+                                    Rechazar
+                                </button>
+                            </div>
+                        </form>
+                    </article>
+                </dialog>
+            </div>
+        </div>
+        {/for}
+
+        {#if pages > 1}
+        <nav>
+            <ul style="justify-content:center;">
+                {#if page > 1}
+                <li><a href="/portal/admin/tenants?token={token}&page={page - 1}"
+                        role="button" class="secondary">← Anterior</a></li>
+                {/if}
+                <li><small>Página {page} de {pages}</small></li>
+                {#if page < pages}
+                <li><a href="/portal/admin/tenants?token={token}&page={page + 1}"
+                        role="button" class="secondary">Siguiente →</a></li>
+                {/if}
+            </ul>
+        </nav>
+        {/if}
+        {/if}
+    </main>
+</body>
+
+</html>

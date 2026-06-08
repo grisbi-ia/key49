@@ -1,6 +1,6 @@
 # Key49 — Dockerfile de Producción (Multi-stage, JVM)
 # Build: docker build -t key49:latest .
-# Run:   docker run -p 8080:8080 --env-file .env key49:latest
+# Run:   docker run -p 8080:8080 --env-file .env.prod key49:latest
 
 # ── Stage 1: Compilación con Maven ──
 FROM maven:3.9-eclipse-temurin-25 AS build
@@ -8,11 +8,11 @@ WORKDIR /build
 
 # Copiar solo POM para cache de dependencias
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
+RUN mvn dependency:go-offline -B -q
 
-# Copiar fuente y compilar
+# Copiar fuente y compilar (con perfil prod, sin tests)
 COPY src/ src/
-RUN mvn clean package -DskipTests -B \
+RUN mvn clean package -DskipTests -Dquarkus.profile=prod -B -q \
     && mv target/quarkus-app /quarkus-app
 
 # ── Stage 2: Runtime JRE mínimo ──
@@ -22,8 +22,7 @@ WORKDIR /app
 # Paquetes mínimos: curl para healthcheck, tzdata para zona horaria
 RUN apk add --no-cache curl tzdata \
     && cp /usr/share/zoneinfo/America/Guayaquil /etc/localtime \
-    && echo "America/Guayaquil" > /etc/timezone \
-    && apk del tzdata
+    && echo "America/Guayaquil" > /etc/timezone
 
 # Usuario no-root
 RUN addgroup -S key49 && adduser -S key49 -G key49
@@ -34,6 +33,9 @@ COPY --from=build --chown=key49:key49 /quarkus-app/ ./
 USER key49
 
 EXPOSE 8080
+
+# Perfil de Quarkus: producción
+ENV QUARKUS_PROFILE=prod
 
 # JVM flags de producción
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 \

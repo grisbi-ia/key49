@@ -106,7 +106,8 @@ public class ApiKeyAuthFilter {
                 || path.startsWith("/portal")
                 || path.startsWith("/v1/admin/")
                 || path.equals("/openapi")
-                || path.equals("/swagger-ui");
+                || path.equals("/swagger-ui")
+                || path.equals("/") || path.isEmpty();
     }
 
     private Response unauthorizedResponse(String message) {

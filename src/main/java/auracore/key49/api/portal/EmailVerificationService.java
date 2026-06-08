@@ -165,13 +165,18 @@ public class EmailVerificationService {
             return new VerifyResult(true, null); // Ya verificado, idempotente
         }
 
-        if (!"pending".equals(tenant.status)) {
+        if (!"pending".equals(tenant.status) && !"pending_approval".equals(tenant.status)) {
             return new VerifyResult(false,
-                    "La cuenta no se encuentra en estado pendiente (estado actual: " + tenant.status + ")");
+                    "La cuenta no se encuentra en estado pendiente de verificación (estado actual: " + tenant.status + ")");
+        }
+
+        if ("pending_approval".equals(tenant.status)) {
+            // Ya verificado previamente — idempotente
+            return new VerifyResult(true, null);
         }
 
         tenant.emailVerified = true;
-        tenant.status = "active";
+        tenant.status = "pending_approval";
         tenant.updatedAt = Instant.now();
 
         // Invalidar caché Redis del tenant

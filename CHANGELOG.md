@@ -5,6 +5,56 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.30.0] - 2026-06-08
+
+### Agregado
+
+- **Despliegue Docker de Producción**
+  - `docker-compose.prod.yml`: orquestación completa con 7 servicios (Key49, PostgreSQL, PgBouncer, Redis, RabbitMQ, MinIO, Traefik)
+  - `Dockerfile.jvm`: build runtime-only con artefacto pre-compilado, sin Maven (10 segundos)
+  - `setup-vps.sh`: script de instalación todo-en-uno para VPS Ubuntu (instala Docker, configura firewall, genera secretos, despliega)
+  - `package-for-vps.sh`: script de build local + empaquetado para envío al VPS
+  - `docker/traefik/traefik.yml`: reverse proxy con SSL automático Let's Encrypt (dominio key49.apx5.com)
+  - `docker/pgbouncer/pgbouncer.prod.ini`: connection pooler para producción
+  - `docker/postgres/init-prod.sh`: inicialización automática de BD con tablas, clone_schema, compatibilidad PgBouncer MD5
+  - `docker/postgres/init-dev-docker.sh`: inicialización de BD para desarrollo con tenant demo
+  - `docker/generate-secrets.sh`: generador de contraseñas seguras
+  - `docker/README.md`: documentación completa de ambos entornos (dev + prod)
+  - `DEPLOY-VPS.md`: instrucciones para el agente Pi en el VPS
+
+- **Flujo de Aprobación de Tenants**
+  - Nuevo estado `pending_approval`: tenant verifica email pero requiere aprobación admin antes de emitir documentos
+  - Migración `V014__add_pending_approval_status.sql`: agrega `pending_approval` al CHECK constraint de `tenants.status`
+  - `TenantAdminService.approve()` / `reject()`: métodos de aprobación y rechazo con notas/motivo
+  - `PortalAdminResource`: nuevos endpoints `GET /portal/admin/tenants`, `POST /portal/admin/tenants/{id}/approve`, `POST /portal/admin/tenants/{id}/reject`
+  - Template `portal/admin/tenants.html`: panel admin con lista de tenants pendientes, botones aprobar/rechazar con diálogo de motivo
+  - `EmailVerificationService`: después de verificar email, el tenant pasa a `pending_approval` en vez de `active`
+
+- **Root Redirect**
+  - `RootRedirectResource.java`: endpoint `GET /` que redirige con HTTP 303 a `/portal/login`
+  - `ApiKeyAuthFilter.isPublicPath()`: agrega `/` como ruta pública (sin requerir API key)
+
+### Cambiado
+
+- **Dockerfile**: actualizado con perfil prod, JVM flags optimizados, healthcheck
+- **docker-compose.yml**: servicios de desarrollo descomentados (PostgreSQL, Redis) con init automático
+- **.env.prod**: configurado con Plunk como proveedor de email, SMTP deshabilitado para despliegue inicial
+- **application.properties**: OpenTelemetry exporter por defecto cambiado de `otlp` a `cdi` (compatible nativo Quarkus 3.34)
+- **OpenTelemetry**: exporter default `cdi` en vez de `otlp` (no requiere dependencia extra)
+
+### Corregido
+
+- **Traefik v3.3 → v3.7**: compatibilidad con Docker Engine 29.x
+- **RabbitMQ**: eliminadas variables de entorno deprecadas (`RABBITMQ_VM_MEMORY_HIGH_WATERMARK`, `RABBITMQ_DISK_FREE_LIMIT`)
+- **SMTP**: host vacío causaba error de validación en Quarkus; configurado con mock para despliegue sin SMTP
+- **PgBouncer**: compatibilidad MD5 forzada en PostgreSQL 16 (SCRAM-SHA-256 → MD5)
+- **ACM Email**: hardcodeado `patriciovalarezo@gmail.com` en `traefik.yml` (expansión de variables no funciona en todas las versiones)
+- **Docker Compose**: symlink `.env` → `.env.prod` automático en `setup-vps.sh` para resolver variables
+
+### Documentación
+
+- `DEPLOY-NOVEDADES.md`: bitácora de los 9 problemas encontrados y resueltos durante el despliegue inicial
+
 ## [0.29.0] - 2026-04-16
 
 ### Agregado

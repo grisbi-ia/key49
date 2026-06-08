@@ -1,0 +1,5 @@
+# ╔══════════════════════════════════════════════════════╗
+# ║  Key49 — userlist.txt para PgBouncer (Producción)   ║
+# ║  Generado por docker/prod-init.sh                    ║
+# ║  Formato: "user" "password"                          ║
+# ╚══════════════════════════════════════════════════════╝

@@ -1496,6 +1496,48 @@ curl -s "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../certificate/status"
   -H "X-Admin-Token: $ADMIN_TOKEN" | jq .
 ```
 
+### `POST /v1/admin/tenants/:id/approve`
+
+Aprueba un tenant en estado `pending_approval`, activándolo para que pueda emitir comprobantes.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../approve" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"notes": "Documentación verificada"}' | jq .
+```
+
+### `POST /v1/admin/tenants/:id/reject`
+
+Rechaza un tenant en estado `pending_approval`, suspendiéndolo. Requiere un motivo.
+
+```bash
+curl -s -X POST "http://localhost:8080/v1/admin/tenants/b2c3d4e5-.../reject" \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "RUC inválido — no pasa validación módulo 11"}' | jq .
+```
+
+### Estados de un Tenant
+
+| Estado | Descripción |
+|--------|-------------|
+| `pending` | Registro inicial, pendiente de verificar email |
+| `pending_approval` | Email verificado, esperando aprobación del admin |
+| `active` | Aprobado, puede emitir comprobantes |
+| `suspended` | Suspendido (rechazado o desactivado por admin) |
+| `failed` | Falló el provisioning del esquema PostgreSQL |
+
+### Flujo de Aprobación (Portal Admin)
+
+Además de los endpoints API, existe un panel web para gestionar aprobaciones:
+
+```
+https://key49.apx5.com/portal/admin/tenants?token={ADMIN_TOKEN}
+```
+
+Desde este panel el administrador puede ver la lista de tenants pendientes, aprobarlos con un clic, o rechazarlos especificando un motivo.
+
 ---
 
 ## 15. Administración de Renovaciones
