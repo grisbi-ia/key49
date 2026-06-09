@@ -199,6 +199,8 @@ Si se envía el mismo key, se retorna el resultado original sin reprocesar. Si e
 Emite una factura electrónica tipo `01`.
 
 > La `issue_date` debe ser la fecha actual en zona horaria `America/Guayaquil`. Key49 valida esto antes de procesar. Los secuenciales (`sequence_number`) son responsabilidad del cliente.
+>
+> **Clave de acceso opcional:** Si el cliente envía `access_key` (49 dígitos con módulo 11 válido), Key49 la valida contra `establishment`, `issue_point`, `sequence_number`, `issue_date` y los datos del tenant. Si coincide, se usa tal cual. Si no se envía o es inválida, Key49 la genera automáticamente.
 
 **curl:**
 
@@ -261,6 +263,7 @@ curl -s -X POST http://localhost:8080/v1/invoices \
 | `issue_point`                | string `^\d{3}$`| ✓   | Punto de emisión (3 dígitos)                   |
 | `sequence_number`            | string `^\d{9}$`| ✓   | Secuencial (9 dígitos, ej: `000000042`)        |
 | `issue_date`                 | date `YYYY-MM-DD`| ✓  | Fecha de emisión (debe ser hoy en EC)          |
+| `access_key`                 | string          |     | Clave de acceso de 49 dígitos (opcional). Si se envía, Key49 la valida y la usa; si no, la genera automáticamente. |
 | `recipient.id_type`          | string          | ✓   | Código tipo identificación (ver catálogo)      |
 | `recipient.id`               | string          | ✓   | RUC, cédula o pasaporte del receptor           |
 | `recipient.name`             | string          | ✓   | Razón social o nombre del receptor             |

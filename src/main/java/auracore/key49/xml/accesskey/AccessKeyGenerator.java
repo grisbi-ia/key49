@@ -115,6 +115,93 @@ public final class AccessKeyGenerator {
     }
 
     /**
+     * Valida que una clave de acceso pre-generada por el cliente coincida con
+     * los datos del request/tenant. Si el dígito verificador es inválido
+     * o algún componente no coincide, la clave se considera inválida y Key49
+     * la regenerará.
+     *
+     * @param accessKey      clave de 49 dígitos propuesta por el cliente
+     * @param issueDate      fecha de emisión del request
+     * @param documentType   tipo de documento (ej: {@code INVOICE})
+     * @param ruc            RUC del tenant emisor (13 dígitos)
+     * @param environment    ambiente SRI del tenant
+     * @param establishment  establecimiento (3 dígitos)
+     * @param issuePoint     punto de emisión (3 dígitos)
+     * @param sequenceNumber secuencial (9 dígitos)
+     * @return true si todos los componentes coinciden y el dígito verificador es correcto
+     */
+    public static boolean validateAgainst(String accessKey,
+                                          LocalDate issueDate,
+                                          DocumentType documentType,
+                                          String ruc,
+                                          SriEnvironment environment,
+                                          String establishment,
+                                          String issuePoint,
+                                          String sequenceNumber) {
+        if (accessKey == null || accessKey.length() != ACCESS_KEY_LENGTH) {
+            return false;
+        }
+        if (!accessKey.matches("\\d{49}")) {
+            return false;
+        }
+
+        // Validar dígito verificador módulo 11
+        if (!isValid(accessKey)) {
+            return false;
+        }
+
+        // Parsear y validar componentes
+        try {
+            var parts = parse(accessKey);
+
+            // Fecha: ddmmaaaa
+            var expectedDate = issueDate.format(DATE_FORMAT);
+            if (!expectedDate.equals(parts.date())) {
+                return false;
+            }
+
+            // Tipo documento
+            if (!documentType.sriCode().equals(parts.documentType())) {
+                return false;
+            }
+
+            // RUC emisor
+            if (!ruc.equals(parts.ruc())) {
+                return false;
+            }
+
+            // Ambiente
+            if (!environment.sriCode().equals(parts.environment())) {
+                return false;
+            }
+
+            // Establecimiento
+            if (!establishment.equals(parts.establishment())) {
+                return false;
+            }
+
+            // Punto emisión
+            if (!issuePoint.equals(parts.issuePoint())) {
+                return false;
+            }
+
+            // Secuencial
+            if (!sequenceNumber.equals(parts.sequenceNumber())) {
+                return false;
+            }
+
+            // Tipo emisión debe ser 1 (normal)
+            if (!EMISSION_TYPE_NORMAL.equals(parts.emissionType())) {
+                return false;
+            }
+
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
      * Extrae los componentes de una clave de acceso.
      *
      * @param accessKey clave de acceso de 49 dígitos

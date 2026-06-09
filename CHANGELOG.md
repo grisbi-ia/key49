@@ -5,6 +5,42 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.31.0] - 2026-06-09
+
+### Agregado
+
+- **Clave de acceso pre-generada por el cliente (POS)**
+  - `CreateInvoiceRequest.accessKey`: campo opcional para que el cliente envíe una clave de 49 dígitos pre-generada
+  - `AccessKeyGenerator.validateAgainst()`: valida todos los componentes de la clave contra `establishment`, `issue_point`, `sequence_number`, `issue_date`, RUC del tenant y ambiente SRI; si el dígito verificador módulo 11 es inválido o algún componente no coincide, se regenera
+  - `SignConsumer`: antes de generar la clave, verifica si el documento ya tiene una válida del cliente; si es válida la usa, si no la regenera con warning en log
+  - Caso de uso: punto de venta (POS) necesita imprimir el ticket con la clave de acceso de inmediato, sin esperar al flujo asíncrono de firma
+
+- **Reenvío de email de verificación**
+  - `EmailVerificationService.resendVerification(email)`: reenvía verificación buscando tenant por email (auto-servicio, no revela si el email existe)
+  - `EmailVerificationService.resendVerificationByTenantId(id)`: reenvío manual desde panel admin sin rate limiting
+  - `POST /portal/resend-verification`: endpoint portal para que el usuario solicite reenvío
+  - `POST /portal/admin/tenants/{id}/resend-verification`: endpoint admin para reenviar manualmente
+
+- **Endpoint de prueba de email**
+  - `POST /portal/admin/test-email`: envía un email de prueba vía Plunk con token de admin, útil para validar configuración
+
+- **Guía de integración para agentes Pi**
+  - `docs/INTEGRATION-GUIDE.md`: instrucciones completas para enviar facturas desde otro proyecto, con ejemplos en curl y JavaScript, manejo de errores, polling, catálogos SRI
+
+- **Tests de integración Plunk**
+  - `PlunkIntegrationTest`: 15 tests con servidor HTTP fake simulando la API de Plunk (`/v1/verify`, `/v1/send`, `/v1/track`), cubriendo flujos completos de `sendPlatform` y `sendDocumentDelivery`
+
+### Cambiado
+
+- `PlunkClient.BASE_URL`: de `static final` a `static` para permitir tests con servidor fake
+
+### Corregido
+
+- `KEY49_EMAIL_ENABLED=false` en `.env.prod` bloqueaba todos los emails de plataforma; documentado y corregido
+- `docker-compose.prod.yml`: expuesto puerto `127.0.0.1:5432` de PostgreSQL para conexiones con túnel SSH
+- `package-for-vps.sh`: corregido `--exclude` que eliminaba `target/quarkus-app/` del tar
+- `EmailVerificationServiceTest`: corregido `status` esperado de `"active"` a `"pending_approval"`
+
 ## [0.30.0] - 2026-06-08
 
 ### Agregado

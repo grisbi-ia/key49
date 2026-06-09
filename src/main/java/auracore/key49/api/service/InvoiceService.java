@@ -118,6 +118,7 @@ public class InvoiceService {
         log.infof("Recycling failed document %s (was %s) for resubmission", doc.id, doc.status);
 
         doc.issueDate = request.issueDate();
+        doc.accessKey = request.accessKey();
         doc.recipientIdType = request.recipient().idType();
         doc.recipientId = request.recipient().id();
         doc.recipientName = request.recipient().name();
@@ -136,7 +137,7 @@ public class InvoiceService {
         }
 
         doc.status = DocumentStatus.CREATED;
-        doc.accessKey = null;
+        doc.accessKey = request.accessKey();
         doc.authorizationNumber = null;
         doc.authorizationDate = null;
         doc.sriSubmissionDate = null;

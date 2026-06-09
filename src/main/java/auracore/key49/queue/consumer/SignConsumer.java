@@ -134,9 +134,23 @@ public class SignConsumer {
             var docType = DocumentType.fromSriCode(doc.documentType);
             var sriEnv = resolveEnvironment(tenant.environment);
 
-            var accessKey = AccessKeyGenerator.generate(
-                    doc.issueDate, docType, tenant.ruc, sriEnv,
-                    doc.establishment, doc.issuePoint, doc.sequenceNumber);
+            String accessKey;
+            if (doc.accessKey != null && !doc.accessKey.isBlank()
+                    && AccessKeyGenerator.validateAgainst(
+                            doc.accessKey, doc.issueDate, docType, tenant.ruc, sriEnv,
+                            doc.establishment, doc.issuePoint, doc.sequenceNumber)) {
+                accessKey = doc.accessKey;
+                log.infof("SignConsumer: using client-provided accessKey=%s for document %s",
+                        accessKey, doc.id);
+            } else {
+                if (doc.accessKey != null && !doc.accessKey.isBlank()) {
+                    log.warnf("SignConsumer: client-provided accessKey=%s INVALID for document %s — regenerating",
+                            doc.accessKey, doc.id);
+                }
+                accessKey = AccessKeyGenerator.generate(
+                        doc.issueDate, docType, tenant.ruc, sriEnv,
+                        doc.establishment, doc.issuePoint, doc.sequenceNumber);
+            }
 
             var unsignedXml = buildXml(docType, doc, tenant, accessKey);
 

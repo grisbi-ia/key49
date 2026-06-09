@@ -14,6 +14,7 @@ public record CreateInvoiceRequest(
         String issuePoint,
         String sequenceNumber,
         LocalDate issueDate,
+        String accessKey,
         RecipientRequest recipient,
         List<ItemRequest> items,
         List<PaymentRequest> payments,
