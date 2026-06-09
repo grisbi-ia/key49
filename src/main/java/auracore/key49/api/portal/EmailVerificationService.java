@@ -67,6 +67,9 @@ public class EmailVerificationService {
 
     }
 
+    public record ResendResult(boolean success, String error) {
+    }
+
     public record VerifyResult(boolean success, String error) {
 
     }
@@ -117,6 +120,125 @@ public class EmailVerificationService {
         log.infof("Verification email sent | tenant=%s email=%s token=%s...",
                 tenantId, trimmedEmail, token.substring(0, 8));
         return new SendResult(true, null, token);
+    }
+
+    /**
+     * Reenvía el email de verificación buscando el tenant por email.
+     * Solo funciona si el tenant está en estado {@code pending}.
+     *
+     * <p>No revela si el email existe o no (mismo mensaje de éxito en ambos
+     * casos). Aplica rate limiting.</p>
+     *
+     * @param email email del tenant que no recibió la verificación
+     * @return resultado del reenvío
+     */
+    public ResendResult resendVerification(String email) {
+        if (email == null || email.isBlank()) {
+            return new ResendResult(false, "El email es obligatorio");
+        }
+
+        String trimmedEmail = email.strip().toLowerCase();
+
+        // Rate limiting
+        if (isRateLimited(trimmedEmail)) {
+            return new ResendResult(false,
+                    "Ha excedido el límite de solicitudes. Intente en una hora.");
+        }
+
+        // Buscar tenant por email
+        Tenant tenant = tenantRepository.findByEmail(trimmedEmail);
+        if (tenant == null || !"pending".equals(tenant.status)) {
+            // No revelar si el email existe o no
+            log.infof("Resend verification requested for non-pending tenant | email=%s status=%s",
+                    trimmedEmail, tenant != null ? tenant.status : "not_found");
+            return new ResendResult(true, null);
+        }
+
+        if (tenant.emailVerified) {
+            return new ResendResult(true, null); // Ya verificado
+        }
+
+        incrementRateCounter(trimmedEmail);
+
+        // Generar nuevo token
+        String token = UUID.randomUUID().toString();
+        String key = VERIFY_PREFIX + token;
+
+        HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+        hash.hset(key, Map.of(
+                "email", trimmedEmail,
+                "tenant_id", tenant.id.toString(),
+                "created_at", Instant.now().toString()));
+
+        KeyCommands<String> keys = redisDS.key(String.class);
+        keys.pexpire(key, VERIFY_TTL.toMillis());
+
+        try {
+            sendEmail(trimmedEmail, tenant.legalName, token);
+        } catch (Exception e) {
+            log.errorf(e, "Failed to resend verification email | email=%s tenant=%s",
+                    trimmedEmail, tenant.id);
+        }
+
+        log.infof("Verification email resent | tenant=%s email=%s token=%s...",
+                tenant.id, trimmedEmail, token.substring(0, 8));
+        return new ResendResult(true, null);
+    }
+
+    /**
+     * Reenvía el email de verificación para un tenant específico (admin).
+     * No tiene rate limiting.
+     *
+     * @param tenantId ID del tenant
+     * @return resultado del reenvío
+     */
+    public ResendResult resendVerificationByTenantId(UUID tenantId) {
+        if (tenantId == null) {
+            return new ResendResult(false, "tenantId es obligatorio");
+        }
+
+        Tenant tenant = tenantRepository.findById(tenantId);
+        if (tenant == null) {
+            return new ResendResult(false, "Tenant no encontrado");
+        }
+
+        if (!"pending".equals(tenant.status)) {
+            return new ResendResult(false,
+                    "El tenant no está en estado 'pending' (estado actual: " + tenant.status + ")");
+        }
+
+        if (tenant.email == null || tenant.email.isBlank()) {
+            return new ResendResult(false, "El tenant no tiene email configurado");
+        }
+
+        if (tenant.emailVerified) {
+            return new ResendResult(false, "El email ya fue verificado");
+        }
+
+        String trimmedEmail = tenant.email.strip().toLowerCase();
+        String token = UUID.randomUUID().toString();
+        String key = VERIFY_PREFIX + token;
+
+        HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+        hash.hset(key, Map.of(
+                "email", trimmedEmail,
+                "tenant_id", tenant.id.toString(),
+                "created_at", Instant.now().toString()));
+
+        KeyCommands<String> keys = redisDS.key(String.class);
+        keys.pexpire(key, VERIFY_TTL.toMillis());
+
+        try {
+            sendEmail(trimmedEmail, tenant.legalName, token);
+        } catch (Exception e) {
+            log.errorf(e, "Failed to admin-resend verification email | tenant=%s email=%s",
+                    tenantId, trimmedEmail);
+            return new ResendResult(false, "Error al enviar el email: " + e.getMessage());
+        }
+
+        log.infof("Admin resent verification email | tenant=%s email=%s token=%s...",
+                tenantId, trimmedEmail, token.substring(0, 8));
+        return new ResendResult(true, null);
     }
 
     /**

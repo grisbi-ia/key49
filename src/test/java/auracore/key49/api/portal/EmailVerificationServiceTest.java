@@ -321,7 +321,7 @@ class EmailVerificationServiceTest {
 
             // Verifica cambios en el tenant
             assertTrue(tenant.emailVerified);
-            assertEquals("active", tenant.status);
+            assertEquals("pending_approval", tenant.status);
             assertNotNull(tenant.updatedAt);
 
             // Token consumido

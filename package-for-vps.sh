@@ -39,8 +39,7 @@ PACKAGE="/tmp/key49-vps.tar.gz"
 
 tar -czf "$PACKAGE" \
     --exclude='.git' \
-    --exclude='target/quarkus-app' \
-    --exclude='target/*.jar' \
+    --exclude='node_modules' \
     --exclude='target/classes' \
     --exclude='target/generated*' \
     --exclude='target/maven-*' \

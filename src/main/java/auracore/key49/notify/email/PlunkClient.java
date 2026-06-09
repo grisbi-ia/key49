@@ -30,7 +30,7 @@ public final class PlunkClient {
 
     private static final Logger log = Logger.getLogger(PlunkClient.class);
 
-    static final String BASE_URL = "https://next-api.useplunk.com/v1";
+    static String BASE_URL = "https://next-api.useplunk.com/v1";
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 

@@ -19,6 +19,7 @@ import auracore.key49.core.service.AuditService;
 import auracore.key49.core.service.RenewalAdminService;
 import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.repository.TenantRepository;
+import auracore.key49.notify.email.PlatformEmailService;
 import auracore.key49.storage.ObjectStorageService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -74,6 +75,12 @@ public class PortalAdminResource {
 
     @Inject
     ObjectStorageService storageService;
+
+    @Inject
+    PlatformEmailService platformEmailService;
+
+    @Inject
+    EmailVerificationService emailVerificationService;
 
     @Inject
     AuditService auditService;
@@ -340,6 +347,95 @@ public class PortalAdminResource {
             return redirectToTenantList(token, "Tenant " + tenant.legalName + " rechazado", null);
         } catch (TenantAdminService.TenantException e) {
             return redirectToTenantList(token, null, e.getMessage());
+        }
+    }
+
+    /**
+     * POST /portal/admin/tenants/{id}/resend-verification — Reenviar email de
+     * verificación a un tenant específico.
+     */
+    @POST
+    @Path("/tenants/{id}/resend-verification")
+    @Produces(MediaType.TEXT_HTML)
+    public Response resendVerification(
+            @PathParam("id") UUID id,
+            @QueryParam("token") String token) {
+
+        var authError = validateToken(token);
+        if (authError != null) {
+            return authError;
+        }
+
+        var result = emailVerificationService.resendVerificationByTenantId(id);
+
+        if (!result.success()) {
+            return redirectToTenantList(token, null, result.error());
+        }
+
+        log.infof("Admin manually resent verification email | tenantId=%s", id);
+        return redirectToTenantList(token, "Email de verificación reenviado exitosamente", null);
+    }
+
+    // ── Email Test Endpoint ──
+
+    /**
+     * POST /portal/admin/test-email — Envía un email de prueba vía Plunk.
+     * Útil para validar configuración del proveedor de email.
+     *
+     * Parámetros: token, to, subject (opcional), provider (opcional: smtp|plunk).
+     */
+    @POST
+    @Path("/test-email")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_PLAIN)
+    public Response testEmail(
+            @FormParam("token") String token,
+            @FormParam("to") String to,
+            @FormParam("subject") String subject,
+            @FormParam("body") String body) {
+
+        var authError = validateToken(token);
+        if (authError != null) {
+            return authError;
+        }
+
+        if (to == null || to.isBlank()) {
+            return Response.status(400)
+                    .entity("ERROR: El parámetro 'to' (email destinatario) es obligatorio")
+                    .build();
+        }
+
+        var emailTo = to.strip().toLowerCase();
+        var emailSubject = subject != null && !subject.isBlank()
+                ? subject.strip()
+                : "Key49 — Email de prueba Plunk";
+        var emailBody = body != null && !body.isBlank()
+                ? body.strip()
+                : """
+                        <html><body style="font-family:sans-serif;padding:20px">
+                        <h2>🧪 Email de prueba — Key49 + Plunk</h2>
+                        <p>Si estás leyendo esto, la configuración de <strong>Plunk</strong> funciona correctamente.</p>
+                        <hr>
+                        <p style="color:#666;font-size:12px">
+                            Enviado: %s<br>
+                            Provider: %s<br>
+                            Destinatario: %s
+                        </p></body></html>
+                        """.formatted(
+                        java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Guayaquil"))
+                                .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss z")),
+                        "Plunk",
+                        emailTo);
+
+        try {
+            platformEmailService.sendHtml(emailTo, emailSubject, emailBody);
+            log.infof("Admin test email sent successfully | to=%s", emailTo);
+            return Response.ok("✅ Email enviado exitosamente a " + emailTo + " (asunto: " + emailSubject + ")").build();
+        } catch (Exception e) {
+            log.errorf(e, "Admin test email failed | to=%s", emailTo);
+            return Response.status(500)
+                    .entity("❌ Error al enviar email: " + e.getMessage())
+                    .build();
         }
     }
 

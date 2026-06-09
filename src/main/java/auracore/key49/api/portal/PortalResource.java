@@ -521,6 +521,47 @@ public class PortalResource {
                 .data("error", result.error());
     }
 
+    /**
+     * GET /portal/resend-verification — Página para solicitar reenvío de email
+     * de verificación.
+     */
+    @GET
+    @Path("/resend-verification")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance resendVerificationPage(@QueryParam("sent") String sent,
+            @QueryParam("error") String error) {
+        return forgotPassword  // reusamos template de forgot-password como base simple
+                .data("error", error)
+                .data("sent", "true".equals(sent))
+                .data("emailValue", "");
+    }
+
+    /**
+     * POST /portal/resend-verification — Reenvía el email de verificación.
+     * El usuario ingresa su email; si existe un tenant en estado 'pending'
+     * con ese email, se reenvía el correo.
+     */
+    @POST
+    @Path("/resend-verification")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance doResendVerification(@FormParam("email") String email) {
+        var result = emailVerificationService.resendVerification(email);
+
+        if (!result.success()) {
+            return forgotPassword
+                    .data("error", result.error())
+                    .data("sent", false)
+                    .data("emailValue", email != null ? email : "");
+        }
+
+        // Siempre retornamos éxito aunque el email no exista (seguridad)
+        return forgotPassword
+                .data("error", null)
+                .data("sent", true)
+                .data("emailValue", "");
+    }
+
     private String getRegistrationId() {
         var cookies = requestContext.getCookies();
         var regCookie = cookies.get("KEY49_REG");
