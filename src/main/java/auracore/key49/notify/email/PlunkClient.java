@@ -34,6 +34,11 @@ public final class PlunkClient {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(CONNECT_TIMEOUT)
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
+
     private PlunkClient() {
     }
 
@@ -186,11 +191,6 @@ public final class PlunkClient {
 
     private static HttpResponse<String> post(String apiKey, String path, String jsonBody)
             throws Exception {
-        var client = HttpClient.newBuilder()
-                .connectTimeout(CONNECT_TIMEOUT)
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
-
         var request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + path))
                 .timeout(REQUEST_TIMEOUT)
@@ -199,7 +199,7 @@ public final class PlunkClient {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        return client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        return HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
 
     // ── Parsers ───────────────────────────────────────────────────────────────
