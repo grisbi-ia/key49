@@ -80,6 +80,7 @@ class InvoiceServiceTest {
         return new CreateInvoiceRequest(
                 "001", "001", "000000042",
                 LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                 validRecipient(),
                 List.of(validItem()),
                 List.of(validPayment()),
@@ -101,6 +102,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "01", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -113,6 +115,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "1", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -124,6 +127,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "42",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -135,6 +139,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.of(2020, 1, 1),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -145,6 +150,7 @@ class InvoiceServiceTest {
         void nullIssueDate_fails() {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
+                    null,
                     null,
                     validRecipient(), List.of(validItem()), List.of(validPayment()), null);
 
@@ -157,6 +163,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     null, List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -169,6 +176,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     recipient, List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -181,6 +189,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     recipient, List.of(validItem()), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -192,6 +201,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     recipientWithCedula(), List.of(validItem()), List.of(validPayment()), null);
 
             assertDoesNotThrow(() -> service.validateCreateRequest(req));
@@ -202,6 +212,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -214,6 +225,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(item), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -226,6 +238,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(item), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -239,6 +252,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(item), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -252,6 +266,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(item), List.of(validPayment()), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -263,6 +278,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -275,6 +291,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     validRecipient(), List.of(validItem()), List.of(payment), null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -286,6 +303,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "01", "1", "42",
                     LocalDate.of(2020, 1, 1),
+                    null,
                     null, null, null, null);
 
             var ex = assertThrows(BusinessException.class, () -> service.validateCreateRequest(req));
@@ -299,6 +317,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     recipient, List.of(validItem()), List.of(validPayment()), null);
 
             assertDoesNotThrow(() -> service.validateCreateRequest(req));
@@ -310,6 +329,7 @@ class InvoiceServiceTest {
             var req = new CreateInvoiceRequest(
                     "001", "001", "000000042",
                     LocalDate.now(Key49Constants.EC_ZONE),
+                    null,
                     recipient, List.of(validItem()), List.of(validPayment()), null);
 
             assertDoesNotThrow(() -> service.validateCreateRequest(req));
