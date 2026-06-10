@@ -224,6 +224,7 @@ public class NotifyConsumer {
                 if (doc != null) {
                     doc.emailSentAt = Instant.now();
                     doc.emailStatus = "SENT";
+                    doc.emailError = null;
                     doc.updatedAt = Instant.now();
                 }
                 return null;
