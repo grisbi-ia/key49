@@ -24,6 +24,7 @@ import jakarta.persistence.PersistenceException;
 
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.Document;
+import auracore.key49.core.model.OutboxEvent;
 import auracore.key49.core.model.Tenant;
 import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.model.enums.DocumentType;
@@ -675,7 +676,8 @@ public class PortalResource {
     @Path("/documents/{id}")
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance documentDetail(@PathParam("id") UUID id,
-            @QueryParam("retry") String retryResult) {
+            @QueryParam("retry") String retryResult,
+            @QueryParam("email") String resendEmailResult) {
         var session = getSession();
 
         var doc = tcm.withTenantSession(session.schemaName(), em
@@ -687,12 +689,14 @@ public class PortalResource {
                     .data("doc", null)
                     .data("error", "Documento no encontrado")
                     .data("retryResult", null)
+                    .data("resendEmailResult", null)
                     .data("todayEc", null);
         }
         return detail.data("session", session)
                 .data("doc", doc)
                 .data("error", null)
                 .data("retryResult", retryResult)
+                .data("resendEmailResult", resendEmailResult)
                 .data("docTypeLabel", documentTypeLabel(doc.documentType))
                 .data("statusLabel", statusLabel(doc.status))
                 .data("statusClass", statusClass(doc.status))
@@ -747,6 +751,48 @@ public class PortalResource {
         log.infof("Manual retry initiated: documentId=%s, tenant=%s", id, session.schemaName());
 
         return Response.seeOther(URI.create(detailUri + "?retry=ok")).build();
+    }
+
+    // ── Resend email ──
+    @POST
+    @Path("/documents/{id}/resend-email")
+    public Response resendEmail(@PathParam("id") UUID id,
+            @Context HttpServerRequest httpRequest) {
+        var session = getSession();
+        var detailUri = URI.create("/portal/documents/" + id);
+
+        var doc = tcm.withTenantSession(session.schemaName(), em
+                -> em.find(Document.class, id)
+        );
+
+        if (doc == null) {
+            return Response.seeOther(detailUri).build();
+        }
+
+        if (doc.status != DocumentStatus.AUTHORIZED && doc.status != DocumentStatus.NOTIFIED) {
+            log.warnf("Resend-email rejected: document %s is in status %s, expected AUTHORIZED or NOTIFIED",
+                    id, doc.status);
+            return Response.seeOther(URI.create(detailUri + "?email=invalid_status")).build();
+        }
+
+        if (doc.recipientEmail == null || doc.recipientEmail.isBlank()) {
+            log.warnf("Resend-email rejected: document %s has no recipient email", id);
+            return Response.seeOther(URI.create(detailUri + "?email=no_email")).build();
+        }
+
+        tcm.withTenantTransaction(session.schemaName(), em -> {
+            var outbox = OutboxEvent.create(id, "doc.notify", "{}");
+            em.persist(outbox);
+            return null;
+        });
+
+        auditService.record(session.tenantId(), "portal", "portal.resend_email",
+                "document", id, AuditService.resolveIp(httpRequest), null);
+
+        log.infof("Manual resend-email requested: documentId=%s, tenant=%s, to=%s",
+                id, session.schemaName(), doc.recipientEmail);
+
+        return Response.seeOther(URI.create(detailUri + "?email=ok")).build();
     }
 
     // ── HTMX partial: status badge refresh ──
