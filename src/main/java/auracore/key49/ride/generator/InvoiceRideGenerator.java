@@ -162,16 +162,16 @@ public final class InvoiceRideGenerator {
         rightCell.addElement(createLabelValue("CLAVE DE ACCESO:", ""));
         rightCell.addElement(new Paragraph(data.accessKey(), FONT_SMALL));
 
-        // QR code
+        // Código de barras Code 128
         rightCell.addElement(new Paragraph(" ", FONT_SMALL));
         try {
-            byte[] qrBytes = QrCodeGenerator.generate(data.accessKey());
-            var qrImage = Image.getInstance(qrBytes);
-            qrImage.scaleToFit(100, 100);
-            qrImage.setAlignment(Element.ALIGN_CENTER);
-            rightCell.addElement(qrImage);
+            byte[] barCodeBytes = BarCodeGenerator.generate(data.accessKey());
+            var barCodeImage = Image.getInstance(barCodeBytes);
+            barCodeImage.scaleToFit(200, 40);
+            barCodeImage.setAlignment(Element.ALIGN_CENTER);
+            rightCell.addElement(barCodeImage);
         } catch (Exception e) {
-            rightCell.addElement(new Paragraph("[QR no disponible]", FONT_SMALL));
+            rightCell.addElement(new Paragraph("[Código de barras no disponible]", FONT_SMALL));
         }
 
         headerTable.addCell(rightCell);

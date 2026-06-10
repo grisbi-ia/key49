@@ -6,7 +6,7 @@
 
     <groupId>auracore.key49</groupId>
     <artifactId>key49</artifactId>
-    <version>0.31.2</version>
+    <version>0.31.3</version>
     <packaging>jar</packaging>
 
     <name>Key49 - Facturación Electrónica SRI Ecuador</name>
