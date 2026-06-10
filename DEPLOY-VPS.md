@@ -46,17 +46,78 @@ El script `setup-vps.sh` hace TODO automáticamente:
 5. Despliega los 7 servicios (Traefik, Key49, PostgreSQL, PgBouncer, Redis, RabbitMQ, MinIO)
 6. Verifica que todo esté funcionando
 
-### Si necesitas actualizar el código después
+### Si necesitas actualizar el código después (deploy de nueva versión)
+
+> **⚠️ CRÍTICO**: El paquete `key49-vps.tar.gz` contiene un `.env.prod` con **placeholders**
+> (`CAMBIA_ESTE_PASSWORD_...`). NUNCA sobreescribas el `.env.prod` del VPS — perderías
+> todas las contraseñas reales de producción.
+
+#### Paso 1 — En la máquina local (desarrollador)
 
 ```bash
-# En tu máquina local:
+# Compilar y empaquetar (perfil prod, sin tests)
+cd /home/pvalarezo/auracore-apps/key49
 ./package-for-vps.sh
-scp /tmp/key49-vps.tar.gz root@key49.apx5.com:/opt/
 
-# En el VPS:
-cd /opt && tar -xzf key49-vps.tar.gz
-cd key49
-docker compose -f docker-compose.prod.yml up -d --build key49  # reconstruye solo key49 (~10s)
+# Subir al VPS
+scp /tmp/key49-vps.tar.gz root@key49.apx5.com:/opt/
+```
+
+#### Paso 2 — En el VPS (extraer SIN pisar secretos)
+
+```bash
+# Extraer el tar protegiendo archivos críticos de producción
+cd /opt
+tar -xzf key49-vps.tar.gz \
+    --exclude='.env.prod' \
+    --exclude='.env' \
+    --exclude='docker/pgbouncer/userlist.prod.txt'
+```
+
+**¿Por qué estos `--exclude`?**
+
+| Archivo excluido              | Motivo                                                    |
+|-------------------------------|-----------------------------------------------------------|
+| `.env.prod`                   | Contiene contraseñas reales de BD, Redis, RabbitMQ, MinIO |
+| `.env`                        | Es un symlink a `.env.prod`                               |
+| `docker/pgbouncer/userlist.prod.txt` | Contiene hash MD5 de la contraseña real de PostgreSQL |
+
+#### Paso 3 — Reconstruir imagen y reiniciar
+
+```bash
+cd /opt/key49
+
+# Reconstruir imagen de la app (~10 segundos, no compila — copia el JAR pre-compilado)
+docker build -t key49:latest -f Dockerfile.jvm .
+
+# Reiniciar solo el contenedor de la app (la infraestructura sigue corriendo)
+docker compose -f docker-compose.prod.yml up -d key49
+```
+
+#### Paso 4 — Verificar que la nueva versión está activa
+
+```bash
+# Ver logs de arranque
+sleep 10
+docker compose -f docker-compose.prod.yml logs --tail=30 key49 | grep -i "started\|version\|error"
+
+# Verificar estado del contenedor
+docker compose -f docker-compose.prod.yml ps key49
+```
+
+Luego abrir **https://key49.apx5.com/** en el navegador. Al pie de la página
+de login aparece la versión desplegada (ej: `v0.31.1`).
+
+#### Rollback (si algo sale mal)
+
+```bash
+cd /opt/key49
+
+# Volver al commit/tag anterior y reempaquetar desde local, O reconstruir
+# desde el último artefacto bueno si se respaldó target/quarkus-app/
+docker build -t key49:last-known-good -f Dockerfile.jvm .
+docker tag key49:last-known-good key49:latest
+docker compose -f docker-compose.prod.yml up -d key49
 ```
 
 ---
@@ -71,6 +132,12 @@ docker compose -f docker-compose.prod.yml up -d --build key49  # reconstruye sol
 | Portal   | `https://key49.apx5.com/portal/login`        |
 | Health   | `https://key49.apx5.com/q/health`            |
 | Swagger  | `https://key49.apx5.com/q/swagger-ui`        |
+
+### Verificar la versión desplegada
+
+La página de login (`/portal/login`) muestra la versión al pie del formulario
+(ej: `v0.31.1`). Es la forma más rápida de confirmar que un deploy se aplicó
+correctamente sin necesidad de SSH.
 
 ### Verificar estado
 
