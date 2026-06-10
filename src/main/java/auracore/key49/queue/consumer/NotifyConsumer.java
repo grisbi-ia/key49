@@ -91,7 +91,7 @@ public class NotifyConsumer {
                         log.warnf("NotifyConsumer: document not found: %s", event.documentId());
                         return null;
                     }
-                    if (!d.status.canTransitionTo(DocumentStatus.NOTIFIED)) {
+                    if (!d.status.canTransitionTo(DocumentStatus.NOTIFIED) && d.status != DocumentStatus.NOTIFIED) {
                         log.warnf("NotifyConsumer: skip document %s in state %s", d.id, d.status);
                         return null;
                     }
@@ -141,7 +141,7 @@ public class NotifyConsumer {
                 final var fRidePath = ridePdfPath;
                 connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                     var d = em.find(Document.class, event.documentId());
-                    if (d == null || !d.status.canTransitionTo(DocumentStatus.NOTIFIED)) {
+                    if (d == null || (!d.status.canTransitionTo(DocumentStatus.NOTIFIED) && d.status != DocumentStatus.NOTIFIED)) {
                         log.warnf("NotifyConsumer: document %s no longer eligible for NOTIFIED", event.documentId());
                         return null;
                     }
@@ -156,7 +156,9 @@ public class NotifyConsumer {
                     dispatchWebhook(tenant.webhookUrl, tenant.webhookSecret, d, em,
                             event.tenantSchemaName());
 
-                    d.transitionTo(DocumentStatus.NOTIFIED);
+                    if (d.status != DocumentStatus.NOTIFIED) {
+                        d.transitionTo(DocumentStatus.NOTIFIED);
+                    }
                     d.updatedAt = Instant.now();
                     log.infof("NotifyConsumer: document %s marked as NOTIFIED", d.id);
                     return null;
