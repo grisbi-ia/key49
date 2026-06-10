@@ -38,6 +38,7 @@ log "[2/3] Empaquetando para envío al VPS..."
 PACKAGE="/tmp/key49-vps.tar.gz"
 
 tar -czf "$PACKAGE" \
+    --transform 's,^,key49/,' \
     --exclude='.git' \
     --exclude='node_modules' \
     --exclude='target/classes' \
