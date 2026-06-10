@@ -151,6 +151,9 @@ public class PortalResource {
     @ConfigProperty(name = "key49.portal.secure-cookie", defaultValue = "false")
     boolean secureCookie;
 
+    @ConfigProperty(name = "quarkus.application.version")
+    String appVersion;
+
     @Context
     ContainerRequestContext requestContext;
 
@@ -242,7 +245,8 @@ public class PortalResource {
     @Path("/login")
     @Produces(MediaType.TEXT_HTML)
     public TemplateInstance loginPage(@QueryParam("error") String error) {
-        return login.data("error", error);
+        return login.data("error", error)
+                .data("appVersion", appVersion);
     }
 
     @POST

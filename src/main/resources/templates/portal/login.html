@@ -56,6 +56,10 @@
         <p style="text-align: center; margin-top: 1rem; font-size: 0.9rem;">
             ¿No tiene cuenta? <a href="/portal/register">Registrarse</a>
         </p>
+
+        <footer style="text-align: center; margin-top: 1.5rem; font-size: 0.75rem; color: var(--pico-muted-color);">
+            {#if appVersion??}v{appVersion}{#else}—{/if}
+        </footer>
     </article>
 </body>
 
