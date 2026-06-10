@@ -220,25 +220,40 @@
 </article>
 {/if}
 
-{#if doc.emailSentAt}
+{#if doc.emailStatus}
 <article>
     <header>Email</header>
     <table>
+        {#if doc.emailSentAt}
         <tr>
             <td>Enviado</td>
             <td>{formatDateTime.format(doc.emailSentAt.atZone(ecZone))}</td>
         </tr>
+        {/if}
         <tr>
             <td>Estado</td>
-            <td>{doc.emailStatus ?: '—'}</td>
+            <td>
+                {#if doc.emailStatus == 'FAILED'}
+                <mark class="status-error">Fallido</mark>
+                {#else if doc.emailStatus == 'SKIPPED'}
+                <mark class="status-pending">Omitido</mark>
+                {#else}
+                <mark class="status-ok">{doc.emailStatus}</mark>
+                {/if}
+            </td>
         </tr>
         {#if doc.emailError}
         <tr>
             <td>Error</td>
-            <td>{doc.emailError}</td>
+            <td style="font-size:0.85em;color:var(--pico-del-color)">{doc.emailError}</td>
         </tr>
         {/if}
     </table>
+    {#if doc.emailStatus == 'FAILED' && doc.recipientEmail}
+    <form method="post" action="/portal/documents/{doc.id}/resend-email" style="margin-top:0.75rem">
+        <button type="submit" class="outline">Reintentar envío de email</button>
+    </form>
+    {/if}
 </article>
 {/if}
 
