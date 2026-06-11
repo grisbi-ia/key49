@@ -31,8 +31,10 @@ public final class SriValidator {
             // Entidad pública: coeficientes [3,2,7,6,5,4,3,2], módulo 11, dígito verificador en posición 8
             return validateModulo11(ruc, new int[]{3, 2, 7, 6, 5, 4, 3, 2}, 8);
         } else if (thirdDigit == 9) {
-            // Persona jurídica: coeficientes [4,3,2,7,6,5,4,3,2], módulo 11, dígito verificador en posición 9
-            return validateModulo11(ruc, new int[]{4, 3, 2, 7, 6, 5, 4, 3, 2}, 9);
+            // Persona jurídica: coeficientes [4,3,2,7,6,5,4,3,2], módulo 11
+            // Algunos RUC tienen dígito verificador en posición 9, otros en 10
+            return validateModulo11(ruc, new int[]{4, 3, 2, 7, 6, 5, 4, 3, 2}, 9)
+                    || validateModulo11(ruc, new int[]{4, 3, 2, 7, 6, 5, 4, 3, 2}, 10);
         }
         // Tercer dígito 7 u 8 no son válidos
         return false;
