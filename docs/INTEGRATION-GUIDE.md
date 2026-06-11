@@ -90,6 +90,7 @@ curl -s -X POST https://key49.apx5.com/v1/invoices \
 | `issue_point` | string `\d{3}` | ✓ | Punto de emisión (3 dígitos) |
 | `sequence_number` | string `\d{9}` | ✓ | Secuencial (9 dígitos, rellena con ceros a la izq) |
 | `issue_date` | `YYYY-MM-DD` | ✓ | Fecha de emisión (debe ser HOY en zona Ecuador) |
+| `access_key` | string `\d{49}` | | Clave de acceso de 49 dígitos pre-generada por el cliente (ej: POS que imprime ticket). Si se envía y es válida, Key49 la usa tal cual. Si es inválida o no coincide con los datos del request, Key49 la regenera automáticamente. |
 | `recipient.id_type` | string | ✓ | `04`=RUC, `05`=Cédula, `06`=Pasaporte, `07`=Consumidor Final |
 | `recipient.id` | string | ✓ | RUC (13 dígitos) o cédula (10 dígitos) |
 | `recipient.name` | string | ✓ | Razón social o nombre |
@@ -113,6 +114,43 @@ curl -s -X POST https://key49.apx5.com/v1/invoices \
 | `additional_info` | object | | Info extra (clave-valor) |
 
 ### Catálogos rápidos
+
+### Clave de acceso pre-generada (POS / impresión de ticket)
+
+Si tu sistema necesita **imprimir el ticket con la clave de acceso antes de que Key49
+termine el pipeline de firma**, puedes generarla localmente y enviarla en el request.
+
+**Ejemplo — enviando `access_key` en el JSON:**
+
+```bash
+curl -s -X POST https://key49.apx5.com/v1/invoices \
+  -H "Authorization: Bearer k49_xxxxxxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: pos-ticket-$(date +%s)" \
+  -d '{
+    "establishment": "001",
+    "issue_point": "001",
+    "sequence_number": "000000042",
+    "issue_date": "2026-06-10",
+    "access_key": "1006202601110387543900110010040000000224999510811",
+    "recipient": { ... },
+    "items": [ ... ],
+    "payments": [ ... ]
+  }'
+```
+
+**Comportamiento de validación:**
+
+| Escenario | Qué hace Key49 |
+|-----------|---------------|
+| `access_key` **no se envía** | La genera automáticamente en el `SignConsumer` |
+| `access_key` enviada y **válida** (módulo 11 ✓, componentes coinciden con request y RUC del tenant ✓) | La usa tal cual — se devuelve en la respuesta inmediatamente |
+| `access_key` enviada pero **inválida** (dígito incorrecto, fecha no coincide, RUC no coincide, etc.) | Log de warning y **regenera** automáticamente — el cliente recibe la clave correcta cuando el documento llega a `SIGNED` |
+
+> ⚠️ La clave debe tener **exactamente 49 dígitos** con módulo 11 correcto como dígito
+> verificador. Si tu sistema genera la clave, asegúrate de que coincida con los datos
+> del request (`establishment`, `issue_point`, `sequence_number`, `issue_date`,
+> ambiente SRI y RUC del tenant).
 
 **Tipos de identificación (`id_type`):**
 | Código | Tipo | Longitud |
