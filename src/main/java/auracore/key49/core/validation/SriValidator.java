@@ -119,8 +119,8 @@ public final class SriValidator {
         }
         int remainder = sum % 11;
         int checkDigit = (remainder == 0) ? 0 : 11 - remainder;
-        if (checkDigit == 10) {
-            return false; // RUC inválido
+        if (checkDigit == 10 || checkDigit == 11) {
+            checkDigit = 0;
         }
         return checkDigit == (number.charAt(checkDigitPos) - '0');
     }
