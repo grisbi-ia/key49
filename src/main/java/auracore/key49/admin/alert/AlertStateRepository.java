@@ -1,14 +1,15 @@
 package auracore.key49.admin.alert;
 
-import io.vertx.mutiny.redis.client.Command;
-import io.vertx.mutiny.redis.client.Redis;
-import io.vertx.mutiny.redis.client.Request;
+import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.hash.HashCommands;
+import io.quarkus.redis.datasource.keys.KeyCommands;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Repositorio de estado de alertas en Redis.
@@ -24,7 +25,7 @@ public class AlertStateRepository {
     private static final long TTL_SECONDS = Duration.ofDays(7).toSeconds();
 
     @Inject
-    Redis redis;
+    RedisDataSource redisDS;
 
     /**
      * Obtiene el estado actual de una alerta.
@@ -35,26 +36,16 @@ public class AlertStateRepository {
     public AlertState get(String alertName) {
         try {
             var key = KEY_PREFIX + alertName;
-            var response = redis.send(Request.cmd(Command.HGETALL).arg(key))
-                    .await().atMost(Duration.ofSeconds(3));
+            HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+            Map<String, String> data = hash.hgetall(key);
 
-            if (response == null || response.size() == 0) {
+            if (data == null || data.isEmpty() || !data.containsKey("status")) {
                 return null;
             }
 
-            String status = null;
-            String since = null;
-            String lastNotified = null;
-
-            for (int i = 0; i < response.size(); i += 2) {
-                var field = response.get(i).toString();
-                var value = response.get(i + 1).toString();
-                switch (field) {
-                    case "status" -> status = value;
-                    case "since" -> since = value;
-                    case "last_notified" -> lastNotified = value;
-                }
-            }
+            var status = data.get("status");
+            var since = data.get("since");
+            var lastNotified = data.get("last_notified");
 
             if (status == null || since == null) {
                 return null;
@@ -82,15 +73,15 @@ public class AlertStateRepository {
             var key = KEY_PREFIX + alertName;
             var lastNotified = state.lastNotified() != null ? state.lastNotified().toString() : "";
 
-            redis.send(Request.cmd(Command.HSET)
-                            .arg(key)
-                            .arg("status").arg(state.status())
-                            .arg("since").arg(state.since().toString())
-                            .arg("last_notified").arg(lastNotified))
-                    .await().atMost(Duration.ofSeconds(3));
+            HashCommands<String, String, String> hash = redisDS.hash(String.class, String.class, String.class);
+            hash.hset(key, Map.of(
+                    "status", state.status(),
+                    "since", state.since().toString(),
+                    "last_notified", lastNotified
+            ));
 
-            redis.send(Request.cmd(Command.EXPIRE).arg(key).arg(TTL_SECONDS))
-                    .await().atMost(Duration.ofSeconds(3));
+            KeyCommands<String> keys = redisDS.key(String.class);
+            keys.pexpire(key, Duration.ofDays(7).toMillis());
         } catch (Exception e) {
             log.warnf("Failed to save alert state to Redis: alert=%s error=%s", alertName, e.getMessage());
         }

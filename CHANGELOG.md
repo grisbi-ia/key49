@@ -5,6 +5,14 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.31.12] - 2026-06-12
+
+### Corregido
+
+- **`AlertStateRepository`**: migrado de API Redis de bajo nivel (`io.vertx.mutiny.redis.client.Redis`) a API de alto nivel (`io.quarkus.redis.datasource.RedisDataSource`) para compatibilidad con RESP3. Corrige error `Multi is a Map` que impedía persistir estado de alertas y causaba spam de emails cada 60s.
+- **`AuthorizeConsumer`**: agregado mensaje de error del SRI al log de scheduling de reintentos (`error=%s`). Agregado WARN cuando el SRI responde sin autorizar pero sin errores de negocio. Agregado método `summarizeMessages()` que captura todos los mensajes del SRI (ERROR, ADVERTENCIA, INFORMATIVO) para diagnóstico inmediato.
+- **`SriMessage.isBusinessError()`**: agregado código 96 (*"El contribuyente no es Agente de Retención"*) como error de negocio no reintentable. Evita 6 reintentos innecesarios para tenants que emiten comprobantes de retención sin ser agentes de retención.
+
 ## [0.31.0] - 2026-06-09
 
 ### Agregado

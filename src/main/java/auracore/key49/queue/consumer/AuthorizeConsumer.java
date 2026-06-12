@@ -174,8 +174,11 @@ public class AuthorizeConsumer {
                         doc.id, targetStatus, doc.lastErrorMessage);
 
             } else {
+                var sriSummary = summarizeMessages(response.messages());
+                log.warnf("AuthorizeConsumer: document %s not authorized (no business errors), SRI messages=%s",
+                        doc.id, sriSummary);
                 handleRetryTransition(doc, em, event.tenantSchemaName(),
-                        SendConsumer.extractErrorSummary(response.messages()),
+                        sriSummary,
                         "AuthorizeConsumer");
             }
             return null;
@@ -222,8 +225,8 @@ public class AuthorizeConsumer {
                 }
             }
             doc.nextRetryAt = RetryDelayCalculator.calculateNextRetryAt(doc.retryCount);
-            log.infof("%s: scheduling retry %d/%d for document %s, nextRetryAt=%s",
-                    consumer, doc.retryCount, doc.maxRetries, doc.id, doc.nextRetryAt);
+            log.infof("%s: scheduling retry %d/%d for document %s, nextRetryAt=%s, error=%s",
+                    consumer, doc.retryCount, doc.maxRetries, doc.id, doc.nextRetryAt, errorMessage);
         }
     }
 
@@ -233,6 +236,24 @@ public class AuthorizeConsumer {
         } catch (JsonProcessingException e) {
             return messages.toString();
         }
+    }
+
+    /**
+     * Resume todos los mensajes del SRI (ERROR, ADVERTENCIA, INFORMATIVO) para diagnóstico.
+     * Útil en reintentos donde el SRI no autoriza pero tampoco devuelve errores de negocio
+     * (ej: comprobante aún en procesamiento).
+     */
+    static String summarizeMessages(List<SriMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return "No SRI messages returned";
+        }
+        return messages.stream()
+                .map(m -> "[%s|%s] %s".formatted(
+                        m.type() != null ? m.type() : "?",
+                        m.identifier() != null ? m.identifier() : "?",
+                        m.message() != null ? m.message() : ""))
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("No SRI messages");
     }
 
     record AuthInput(UUID id, String accessKey, DocumentStatus status) {
