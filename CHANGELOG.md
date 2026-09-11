@@ -7,6 +7,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.21] - 2026-09-11
+
+### Corregido
+
+- **Autorización**: al autorizar un documento se limpian `last_error_code`, `last_error_message` y `next_retry_at` previos, para que un documento `NOTIFIED`/`AUTHORIZED` no muestre un error antiguo (p. ej. `NO_REG`).
+
 ## [0.31.20] - 2026-09-11
 
 ### Corregido

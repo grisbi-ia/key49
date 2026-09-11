@@ -178,6 +178,10 @@ public class AuthorizeConsumer {
                 if (response.authorizedXml() != null && !response.authorizedXml().isBlank()) {
                     doc.originalXml = response.authorizedXml();
                 }
+                // Limpiar errores previos: el documento ahora está autorizado.
+                doc.lastErrorCode = null;
+                doc.lastErrorMessage = null;
+                doc.nextRetryAt = null;
                 documentMetrics.recordAuthorized(event.tenantSchemaName());
                 log.infof("AuthorizeConsumer: document %s authorized, authNum=%s",
                         doc.id, doc.authorizationNumber);
