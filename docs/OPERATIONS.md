@@ -489,7 +489,8 @@ El SRI **rechaza o redirige consultas paralelas**. Por eso:
 | Señal del SRI | Significado | Acción |
 | ------------- | ----------- | ------ |
 | `estado=AUTORIZADO` + `<comprobante>` | Autorizado | `AUTHORIZED` → `NOTIFIED` |
-| `numeroComprobantes=0` | Clave **no registrada** en autorización | `REJECTED` (código `NO_REG`), terminal, sin reintento |
+| `numeroComprobantes=0` (envío con más de `KEY49_SRI_NOT_REG_MIN_AGE`, 10 min) | Clave **no registrada** en autorización | `REJECTED` (código `NO_REG`), terminal |
+| `numeroComprobantes=0` (envío reciente) | Autorización del SRI aún **no disponible** (es asíncrona) | Permanece `RECEIVED` y se **reconcilia** |
 | `estado=NO AUTORIZADO` (sin mensaje 70) | Sin autorización | `REJECTED`, terminal |
 | mensaje `70` ("en procesamiento") | El SRI aún procesa | Permanece `RECEIVED` y se **reconcilia** |
 | Código `43` ("CLAVE ACCESO REGISTRADA", recepción) | El comprobante ya está en el SRI | `RECEIVED` + reconciliar autorización (**no reenviar**) |
