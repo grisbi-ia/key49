@@ -55,30 +55,38 @@ public class DlqConsumer {
                     event.documentId(), event.tenantSchemaName(), event.retryCount());
 
             try {
-                connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+                var failedDocId = connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
                     var doc = em.find(Document.class, event.documentId());
                     if (doc == null) {
                         log.warnf("DLQ: document not found: %s", event.documentId());
                         return null;
                     }
 
-                    if (!doc.status.isTerminal()) {
-                        try {
-                            doc.transitionTo(DocumentStatus.FAILED);
-                            quotaService.releaseQuota(em, event.tenantSchemaName());
-                        } catch (InvalidStateTransitionException e) {
-                            log.warnf("DLQ: cannot transition to FAILED from %s for document %s",
-                                    doc.status, doc.id);
-                        }
-                        doc.lastErrorMessage = "Exhausted all retries — moved to DLQ";
-                        doc.updatedAt = Instant.now();
-                        documentMetrics.recordFailed(event.tenantSchemaName());
+                    if (doc.status.isTerminal()) {
+                        return null;
                     }
 
-                    // TODO: T-014 — Log to audit_log table
-                    // TODO: T-017 — Dispatch error webhook to tenant
-                    return null;
+                    boolean transitioned = false;
+                    try {
+                        doc.transitionTo(DocumentStatus.FAILED);
+                        quotaService.releaseQuota(em, event.tenantSchemaName());
+                        transitioned = true;
+                    } catch (InvalidStateTransitionException e) {
+                        log.warnf("DLQ: cannot transition to FAILED from %s for document %s",
+                                doc.status, doc.id);
+                    }
+                    doc.lastErrorMessage = "Exhausted all retries — moved to DLQ";
+                    doc.updatedAt = Instant.now();
+                    documentMetrics.recordFailed(event.tenantSchemaName());
+
+                    return transitioned ? doc.id : null;
                 });
+
+                // Notificar el fallo definitivo fuera de la transacción (webhook + auditoría)
+                if (failedDocId != null) {
+                    errorHandler.notifyFailure(event.tenantSchemaName(), failedDocId,
+                            "Exhausted all retries — moved to DLQ");
+                }
             } catch (Exception ex) {
                 errorHandler.persistError(event.documentId(), event.tenantSchemaName(),
                         "DlqConsumer", ex);

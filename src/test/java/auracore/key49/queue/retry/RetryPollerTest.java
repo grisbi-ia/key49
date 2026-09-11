@@ -1,17 +1,38 @@
 package auracore.key49.queue.retry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.util.UUID;
 
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.QuotaService;
+import jakarta.persistence.EntityManager;
 
+@ExtendWith(MockitoExtension.class)
 class RetryPollerTest {
+
+    @Mock
+    Logger log;
+
+    @Mock
+    QuotaService quotaService;
+
+    @InjectMocks
+    RetryPoller retryPoller;
 
     @Test
     void shouldResolveSendRetryWhenNotYetSubmitted() {
@@ -107,6 +128,32 @@ class RetryPollerTest {
     @Test
     void shouldValidateRetryToFailedTransition() {
         assertEquals(true, DocumentStatus.RETRY.canTransitionTo(DocumentStatus.FAILED));
+    }
+
+    @Test
+    void shouldMarkFailedAndSignalNotificationWhenExhausted() {
+        var doc = createDocument(DocumentStatus.RETRY);
+        doc.retryCount = 6;
+        doc.maxRetries = 6;
+        var em = mock(EntityManager.class);
+
+        var exhausted = retryPoller.markExhaustedIfNeeded(doc, em, "tenant_x");
+
+        assertTrue(exhausted, "Debe señalizar notificación de fallo");
+        assertEquals(DocumentStatus.FAILED, doc.status);
+        verify(quotaService).releaseQuota(em, "tenant_x");
+    }
+
+    @Test
+    void shouldNotMarkWhenRetriesRemain() {
+        var doc = createDocument(DocumentStatus.RETRY);
+        doc.retryCount = 1;
+        doc.maxRetries = 6;
+
+        var exhausted = retryPoller.markExhaustedIfNeeded(doc, mock(EntityManager.class), "tenant_x");
+
+        assertFalse(exhausted);
+        assertEquals(DocumentStatus.RETRY, doc.status);
     }
 
     private Document createDocument(DocumentStatus status) {

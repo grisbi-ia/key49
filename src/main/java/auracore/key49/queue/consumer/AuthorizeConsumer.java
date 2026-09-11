@@ -154,8 +154,12 @@ public class AuthorizeConsumer {
                 if (response.authorizationDate() != null) {
                     doc.authorizationDate = Instant.now();
                 }
+                // Persistir el XML autorizado devuelto por el SRI. NotifyConsumer lo
+                // almacena en MinIO (AUTHORIZED_XML) y lo adjunta al email.
+                if (response.authorizedXml() != null && !response.authorizedXml().isBlank()) {
+                    doc.originalXml = response.authorizedXml();
+                }
                 documentMetrics.recordAuthorized(event.tenantSchemaName());
-                // TODO: T-016 — Store authorized XML in MinIO
                 log.infof("AuthorizeConsumer: document %s authorized, authNum=%s",
                         doc.id, doc.authorizationNumber);
                 var outbox = OutboxEvent.create(doc.id, "doc.notify", "{}");

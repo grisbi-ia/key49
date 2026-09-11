@@ -1,6 +1,8 @@
 package auracore.key49.queue.retry;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.UUID;
 
 import org.jboss.logging.Logger;
 
@@ -11,6 +13,7 @@ import auracore.key49.core.repository.DocumentRepository;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.tenant.TenantConnectionManager;
+import auracore.key49.queue.consumer.ConsumerErrorHandler;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -43,6 +46,9 @@ public class RetryPoller {
     @Inject
     QuotaService quotaService;
 
+    @Inject
+    ConsumerErrorHandler errorHandler;
+
     @Scheduled(every = "${key49.retry.poll-interval:5s}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void pollRetries() {
         try {
@@ -57,6 +63,7 @@ public class RetryPoller {
 
     private void pollTenant(String schemaName) {
         try {
+            var exhausted = new ArrayList<UUID>();
             connectionManager.withTenantTransaction(schemaName, em -> {
                 var docs = documentRepository.findRetryReady();
                 if (docs.isEmpty()) {
@@ -65,26 +72,42 @@ public class RetryPoller {
                 log.infof("RetryPoller: %d retry-ready documents for tenant=%s",
                         docs.size(), schemaName);
                 for (var doc : docs) {
-                    requeueDocument(doc, em, schemaName);
+                    if (markExhaustedIfNeeded(doc, em, schemaName)) {
+                        exhausted.add(doc.id);
+                    } else {
+                        requeueDocument(doc, em);
+                    }
                 }
                 return null;
             });
+            // Notificar el fallo definitivo FUERA de la transacción (I/O de red)
+            for (var id : exhausted) {
+                errorHandler.notifyFailure(schemaName, id, "Max retries exhausted");
+            }
         } catch (Exception ex) {
             log.errorf(ex, "RetryPoller: error polling tenant=%s", schemaName);
         }
     }
 
-    private void requeueDocument(Document doc, EntityManager em, String schemaName) {
-        if (RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
-            log.warnf("RetryPoller: retries exhausted for document %s (retryCount=%d, maxRetries=%d)",
-                    doc.id, doc.retryCount, doc.maxRetries);
-            doc.transitionTo(DocumentStatus.FAILED);
-            quotaService.releaseQuota(em, schemaName);
-            doc.lastErrorMessage = "Max retries exhausted (%d/%d)".formatted(doc.retryCount, doc.maxRetries);
-            doc.updatedAt = Instant.now();
-            return;
+    /**
+     * Si los reintentos están agotados, marca el documento como FAILED, libera la
+     * cuota y devuelve {@code true} para que el llamador dispare la notificación
+     * de fallo (webhook + auditoría) tras confirmar la transacción.
+     */
+    boolean markExhaustedIfNeeded(Document doc, EntityManager em, String schemaName) {
+        if (!RetryDelayCalculator.isExhausted(doc.retryCount, doc.maxRetries)) {
+            return false;
         }
+        log.warnf("RetryPoller: retries exhausted for document %s (retryCount=%d, maxRetries=%d)",
+                doc.id, doc.retryCount, doc.maxRetries);
+        doc.transitionTo(DocumentStatus.FAILED);
+        quotaService.releaseQuota(em, schemaName);
+        doc.lastErrorMessage = "Max retries exhausted (%d/%d)".formatted(doc.retryCount, doc.maxRetries);
+        doc.updatedAt = Instant.now();
+        return true;
+    }
 
+    private void requeueDocument(Document doc, EntityManager em) {
         var eventType = resolveRetryEventType(doc);
         var outbox = OutboxEvent.create(doc.id, eventType, "{}");
         log.infof("RetryPoller: requeuing document %s as %s (retry %d/%d)",

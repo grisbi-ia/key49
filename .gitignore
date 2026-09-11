@@ -29,3 +29,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Agentes de IA / tooling local
+.opencode/

@@ -10,6 +10,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ### Corregido
 
 - **Tests**: `AdminAuthFilterTest` y `AuditLogAdminResourceTest` leen el token de admin desde la configuración (`key49.admin.token`) en vez de hardcodearlo, evitando la contaminación del archivo `.env` local. `NotifyConsumerTest` alineado con el reprocesamiento de documentos `NOTIFIED` (reenvío de email).
+- **Pipeline de fin de vida del comprobante**: al agotar reintentos (`RetryPoller`) o al procesar la DLQ se despacha el webhook `document.failed` al tenant y se registra el fallo en `audit_log` (antes no se notificaba el fallo definitivo). El XML autorizado devuelto por el SRI se persiste como XML autorizado (antes se descartaba y se almacenaba/adjuntaba el XML firmado localmente).
 
 ### Cambiado
 

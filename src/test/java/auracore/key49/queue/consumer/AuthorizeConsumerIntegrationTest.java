@@ -137,6 +137,8 @@ class AuthorizeConsumerIntegrationTest {
 
         assertDocumentStatus(docIdAuthorized, "AUTHORIZED");
         assertOutboxEventCreated(docIdAuthorized, "doc.notify");
+        // El XML autorizado devuelto por el SRI reemplaza al firmado localmente
+        assertOriginalXml(docIdAuthorized, "<factura>authorized</factura>");
     }
 
     @Test
@@ -283,6 +285,19 @@ class AuthorizeConsumerIntegrationTest {
             try (var rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "Debe existir evento outbox");
                 assertEquals(expectedEventType, rs.getString("event_type"));
+            }
+        }
+    }
+
+    private void assertOriginalXml(UUID docId, String expectedXml) throws SQLException {
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(
+                     "SELECT original_xml FROM %s.documents WHERE document_id = ?::uuid"
+                             .formatted(TENANT_SCHEMA))) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "Documento debe existir");
+                assertEquals(expectedXml, rs.getString("original_xml"));
             }
         }
     }

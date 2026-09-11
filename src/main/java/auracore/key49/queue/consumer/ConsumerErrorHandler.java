@@ -8,10 +8,12 @@ import org.jboss.logging.Logger;
 import auracore.key49.core.model.Document;
 import auracore.key49.core.model.InvalidStateTransitionException;
 import auracore.key49.core.model.enums.DocumentStatus;
+import auracore.key49.core.service.AuditService;
 import auracore.key49.core.service.QuotaService;
 import auracore.key49.core.service.TenantCacheService;
 import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.notify.webhook.WebhookDispatcher;
+import io.vertx.core.json.JsonObject;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -39,6 +41,9 @@ public class ConsumerErrorHandler {
 
     @Inject
     WebhookDispatcher webhookDispatcher;
+
+    @Inject
+    AuditService auditService;
 
     /**
      * Registra el error en el documento. Si el documento no está en estado
@@ -83,6 +88,43 @@ public class ConsumerErrorHandler {
         } catch (Exception persistEx) {
             log.errorf(persistEx, "%s: CRITICAL — failed to persist error for documentId=%s",
                     stage, documentId);
+        }
+    }
+
+    /**
+     * Notifica de forma explícita el fallo definitivo de un documento: despacha el
+     * webhook {@code document.failed} al tenant y registra el evento en
+     * {@code audit_log}. Abre su propia transacción, por lo que puede invocarse
+     * fuera de otra (p. ej. tras agotar reintentos o al procesar la DLQ).
+     */
+    public void notifyFailure(String tenantSchemaName, UUID documentId, String reason) {
+        try {
+            connectionManager.withTenantTransaction(tenantSchemaName, em -> {
+                var doc = em.find(Document.class, documentId);
+                if (doc == null) {
+                    log.warnf("ConsumerErrorHandler: document not found for failure notification: %s",
+                            documentId);
+                    return null;
+                }
+                dispatchFailureWebhook(tenantSchemaName, doc, em);
+                recordFailureAudit(tenantSchemaName, doc, reason);
+                return null;
+            });
+        } catch (Exception ex) {
+            log.warnf(ex, "ConsumerErrorHandler: failure notification error for document %s", documentId);
+        }
+    }
+
+    private void recordFailureAudit(String tenantSchemaName, Document doc, String reason) {
+        try {
+            var tenant = tenantCacheService.findBySchemaName(tenantSchemaName);
+            if (tenant == null) {
+                return;
+            }
+            auditService.record(tenant.id, "system", "document.failed", "document", doc.id, null,
+                    new JsonObject().put("reason", truncate(reason, 500)).encode());
+        } catch (Exception auditEx) {
+            log.warnf(auditEx, "ConsumerErrorHandler: audit record failed for document %s", doc.id);
         }
     }
 

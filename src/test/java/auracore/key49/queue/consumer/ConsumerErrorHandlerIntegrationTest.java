@@ -203,6 +203,36 @@ class ConsumerErrorHandlerIntegrationTest {
                 any(Document.class), anyString());
     }
 
+    @Test
+    @Order(8)
+    @DisplayName("notifyFailure despacha webhook y registra audit_log en documento terminal")
+    void shouldNotifyFailureAndAudit() throws Exception {
+        var docId = UUID.randomUUID();
+        try (var conn = dataSource.getConnection()) {
+            insertDocument(conn, docId, "000000006", "FAILED");
+        }
+
+        var delivery = WebhookDelivery.create(docId, "document.failed",
+                "https://example.com/webhook", "{}");
+        delivery.markDelivered(200, "OK", 20);
+        when(webhookDispatcher.dispatch(anyString(), anyString(), any(Document.class), eq("document.failed")))
+                .thenReturn(delivery);
+
+        errorHandler.notifyFailure(TENANT_SCHEMA, docId, "Max retries exhausted");
+
+        verify(webhookDispatcher).dispatch(
+                eq("https://example.com/webhook"), eq("secret123"),
+                any(Document.class), eq("document.failed"));
+        assertAuditEntry(docId);
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("notifyFailure con documento inexistente no genera excepción")
+    void shouldNotifyFailureHandleNonExistentDocument() {
+        errorHandler.notifyFailure(TENANT_SCHEMA, UUID.randomUUID(), "reason");
+    }
+
     // ── Helpers ──
     private void insertDocument(java.sql.Connection conn, UUID docId,
             String seqNum, String status) throws SQLException {
@@ -245,6 +275,17 @@ class ConsumerErrorHandlerIntegrationTest {
                 assertTrue(rs.next());
                 assertNotNull(rs.getString("last_error_message"));
                 assertEquals(expectedMessage, rs.getString("last_error_message"));
+            }
+        }
+    }
+
+    private void assertAuditEntry(UUID docId) throws SQLException {
+        try (var conn = dataSource.getConnection(); var ps = conn.prepareStatement(
+                "SELECT action FROM public.audit_log WHERE resource_id = ?::uuid")) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "Debe existir entrada de auditoría");
+                assertEquals("document.failed", rs.getString("action"));
             }
         }
     }
