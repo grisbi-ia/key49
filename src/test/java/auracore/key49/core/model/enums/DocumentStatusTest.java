@@ -30,6 +30,7 @@ class DocumentStatusTest {
         "RETRY, FAILED",
         "RETRY, RECEIVED",
         "REJECTED, CREATED",
+        "REJECTED, RECEIVED",
         "FAILED, CREATED",
         "FAILED, RECEIVED"
     })
@@ -71,18 +72,14 @@ class DocumentStatusTest {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = DocumentStatus.class, names = {"REJECTED"})
-    void rejectedShouldOnlyTransitionToCreated(DocumentStatus status) {
-        assertTrue(status.isTerminal());
-        assertTrue(status.isRetryableTerminal());
-        assertTrue(status.canTransitionTo(DocumentStatus.CREATED));
-        for (DocumentStatus target : DocumentStatus.values()) {
-            if (target != DocumentStatus.CREATED) {
-                assertFalse(status.canTransitionTo(target),
-                        "Expected %s -> %s to be invalid".formatted(status, target));
-            }
-        }
+    @Test
+    void rejectedIsTerminalAndCanReconcile() {
+        assertTrue(DocumentStatus.REJECTED.isTerminal());
+        assertTrue(DocumentStatus.REJECTED.isRetryableTerminal());
+        // Reciclaje (nuevo comprobante) o reconciliación (NO_REG de Key49)
+        assertTrue(DocumentStatus.REJECTED.canTransitionTo(DocumentStatus.CREATED));
+        assertTrue(DocumentStatus.REJECTED.canTransitionTo(DocumentStatus.RECEIVED));
+        assertFalse(DocumentStatus.REJECTED.canTransitionTo(DocumentStatus.AUTHORIZED));
     }
 
     @Test

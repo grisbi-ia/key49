@@ -67,6 +67,8 @@ class AuthorizeConsumerIntegrationTest {
     private UUID docIdRetriesExhausted;
     private UUID docIdPending;
     private UUID docIdInProcessing;
+    private UUID docIdNotRegisteredRecent;
+    private UUID docIdNotRegisteredOld;
 
     @BeforeAll
     void setup() throws Exception {
@@ -127,6 +129,28 @@ class AuthorizeConsumerIntegrationTest {
             docIdInProcessing = UUID.randomUUID();
             insertReceivedDocument(conn, docIdInProcessing, "000000008",
                     ACCESS_KEY.substring(0, 48) + "8");
+
+            // NO_REG reciente (enviado hace instantes) → debe quedar pendiente
+            docIdNotRegisteredRecent = UUID.randomUUID();
+            insertReceivedDocument(conn, docIdNotRegisteredRecent, "000000009",
+                    ACCESS_KEY.substring(0, 48) + "9");
+            try (var ps = conn.prepareStatement(
+                    "UPDATE %s.documents SET sri_submission_date = now() WHERE document_id = ?::uuid"
+                            .formatted(TENANT_SCHEMA))) {
+                ps.setString(1, docIdNotRegisteredRecent.toString());
+                ps.executeUpdate();
+            }
+
+            // NO_REG antiguo (enviado hace 1 hora) → REJECTED
+            docIdNotRegisteredOld = UUID.randomUUID();
+            insertReceivedDocument(conn, docIdNotRegisteredOld, "000000010",
+                    ACCESS_KEY.substring(0, 49 - 1) + "0");
+            try (var ps = conn.prepareStatement(
+                    "UPDATE %s.documents SET sri_submission_date = now() - interval '1 hour' WHERE document_id = ?::uuid"
+                            .formatted(TENANT_SCHEMA))) {
+                ps.setString(1, docIdNotRegisteredOld.toString());
+                ps.executeUpdate();
+            }
         }
     }
 
@@ -226,6 +250,31 @@ class AuthorizeConsumerIntegrationTest {
 
         assertDocumentStatus(docIdInProcessing, "RECEIVED");
         assertNextRetryAtSet(docIdInProcessing);
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("NO_REG con envío reciente → permanece RECEIVED (autorización asíncrona)")
+    void shouldKeepReceived_whenNotRegisteredButRecentlySubmitted() throws Exception {
+        when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
+                .thenThrow(new auracore.key49.sri.SriNotRegisteredException("numeroComprobantes=0"));
+
+        authorizeConsumer.process(toJson(docIdNotRegisteredRecent));
+
+        assertDocumentStatus(docIdNotRegisteredRecent, "RECEIVED");
+        assertNextRetryAtSet(docIdNotRegisteredRecent);
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("NO_REG con envío antiguo → REJECTED (NO_REG)")
+    void shouldReject_whenNotRegisteredAndOldSubmission() throws Exception {
+        when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
+                .thenThrow(new auracore.key49.sri.SriNotRegisteredException("numeroComprobantes=0"));
+
+        authorizeConsumer.process(toJson(docIdNotRegisteredOld));
+
+        assertDocumentStatus(docIdNotRegisteredOld, "REJECTED");
     }
 
     @Test

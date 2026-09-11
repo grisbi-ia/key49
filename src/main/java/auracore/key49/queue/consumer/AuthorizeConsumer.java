@@ -76,6 +76,14 @@ public class AuthorizeConsumer {
     @ConfigProperty(name = "key49.reconcile.interval", defaultValue = "10m")
     Duration reconcileInterval;
 
+    /**
+     * Antiguedad minima desde el envio al SRI para considerar una clave como
+     * NO registrada. Antes de ese tiempo, una respuesta sin autorizacion se
+     * trata como pendiente (la autorizacion del SRI es asincrona).
+     */
+    @ConfigProperty(name = "key49.sri.not-registered-min-age", defaultValue = "10m")
+    Duration notRegisteredMinAge;
+
     @Incoming("doc-authorize-in")
     @Blocking
     @ActivateRequestContext
@@ -224,11 +232,24 @@ public class AuthorizeConsumer {
      * estado permanente, se marca rechazado para que el contribuyente investigue.
      */
     private void handleNotRegistered(DocumentEvent event, String reason) {
-        log.warnf("AuthorizeConsumer: document %s NOT registered at SRI — marking rejected (NO_REG)",
-                event.documentId());
         connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
             var doc = em.find(Document.class, event.documentId());
             if (doc == null) {
+                return null;
+            }
+            boolean recentlySubmitted = doc.sriSubmissionDate != null
+                    && doc.sriSubmissionDate.isAfter(Instant.now().minus(notRegisteredMinAge));
+            if (recentlySubmitted) {
+                // El SRI genera la autorizacion de forma asincrona: un
+                // numeroComprobantes=0 inmediato al envio NO significa NO registrada.
+                if (doc.status != DocumentStatus.RECEIVED) {
+                    doc.transitionTo(DocumentStatus.RECEIVED);
+                }
+                doc.lastErrorMessage = reason;
+                doc.nextRetryAt = Instant.now().plus(Duration.ofMinutes(1));
+                doc.updatedAt = Instant.now();
+                log.infof("AuthorizeConsumer: document %s submitted recently (%s) — not registered yet, reconcile soon",
+                        doc.id, doc.sriSubmissionDate);
                 return null;
             }
             markRejected(doc, em, event.tenantSchemaName(), "NO_REG", reason);

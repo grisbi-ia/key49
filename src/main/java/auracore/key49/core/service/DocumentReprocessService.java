@@ -34,7 +34,9 @@ import jakarta.persistence.EntityManager;
  *   <li>{@code RETRY} o {@code SIGNED} sin envío previo: se encola {@code doc.send}.</li>
  *   <li>{@code CREATED} o {@code FAILED} sin envío previo: se marca {@code CREATED}
  *       y se encola {@code doc.sign} (re-firma y reenvía).</li>
- *   <li>{@code REJECTED}: no reprocesable (requiere un comprobante nuevo).</li>
+ *   <li>{@code REJECTED} con código {@code NO_REG} (no registrado en el SRI, código
+ *       propio de Key49): se reconcilia. Otros rechazos (de negocio del SRI) NO se
+ *       reprocesan (requieren un comprobante nuevo).</li>
  * </ul>
  */
 @ApplicationScoped
@@ -107,6 +109,22 @@ public class DocumentReprocessService {
 
     private String enqueue(Document doc, EntityManager em) {
         var original = doc.status;
+
+        // REJECTED: solo se reconcilian los NO_REG (clave no registrada en el SRI,
+        // código propio de Key49). Los rechazos de negocio del SRI no se reprocesan.
+        if (original == DocumentStatus.REJECTED) {
+            if (!"NO_REG".equals(doc.lastErrorCode)) {
+                return null;
+            }
+            doc.retryCount = 0;
+            doc.nextRetryAt = null;
+            doc.lastErrorMessage = null;
+            doc.updatedAt = Instant.now();
+            doc.transitionTo(DocumentStatus.RECEIVED);
+            em.persist(OutboxEvent.create(doc.id, "doc.authorize", "{}"));
+            return "doc.authorize";
+        }
+
         if (!isReprocessable(original)) {
             return null;
         }
@@ -162,8 +180,9 @@ public class DocumentReprocessService {
                 throw new BusinessException("VALIDATION_ERROR", "Invalid status: " + raw, 400);
             }
             if (status == DocumentStatus.REJECTED) {
-                throw new BusinessException("VALIDATION_ERROR",
-                        "REJECTED documents cannot be reprocessed — they require a new document", 400);
+                // Permitido: enqueue reconcilia solo los NO_REG; el resto se omite.
+                resolved.add(status);
+                continue;
             }
             resolved.add(status);
         }

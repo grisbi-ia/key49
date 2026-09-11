@@ -7,6 +7,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.20] - 2026-09-11
+
+### Corregido
+
+- **`NO_REG` prematuro (falso rechazo)**: la autorización del SRI es **asíncrona**; una consulta inmediata tras el envío puede devolver `numeroComprobantes=0` aunque el comprobante ya esté (o esté por quedar) autorizado. Ahora `numeroComprobantes=0` se considera **`NO_REG` solo si el envío tiene más de `KEY49_SRI_NOT_REG_MIN_AGE` (10 min)**; si es reciente, el documento permanece en `RECEIVED` y se reconcilia. Esto evitaba marcar como rechazados documentos que sí estaban autorizados.
+- **Reproceso de `REJECTED`/`NO_REG`**: el reproceso en lote ahora reconcilia los documentos `REJECTED` con código `NO_REG` (re-consulta su autorización). Los rechazos de negocio del SRI siguen sin reprocesarse. Se habilita la transición `REJECTED → RECEIVED` para reconciliación.
+
 ## [0.31.19] - 2026-09-11
 
 ### Agregado

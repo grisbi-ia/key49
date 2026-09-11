@@ -115,11 +115,14 @@ class DocumentReprocessServiceTest {
 
     @Test
     @Order(3)
-    @DisplayName("REJECTED no es reprocesable → error de validación")
-    void shouldRejectRejectedStatus() {
-        var ex = assertThrows(BusinessException.class, () -> service.reprocess(SCHEMA_A,
-                new ReprocessRequest(List.of("REJECTED"), null, null, null, null)));
-        assertEquals(400, ex.httpStatus());
+    @DisplayName("REJECTED de negocio no se reprocesa (solo los NO_REG)")
+    void shouldSkipBusinessRejected() throws Exception {
+        var result = service.reprocess(SCHEMA_A,
+                new ReprocessRequest(List.of("REJECTED"), null, null, null, null));
+        assertEquals(1, result.matched());
+        assertEquals(0, result.queued());
+        assertEquals(1, result.skipped());
+        assertNoOutbox(SCHEMA_A, docRejected);
     }
 
     @Test
