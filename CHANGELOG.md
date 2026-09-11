@@ -7,6 +7,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.14] - 2026-09-11
+
 ### Agregado
 
 - **Reproceso en lote de documentos**: `POST /v1/documents/reprocess` (tenant) y `POST /v1/admin/documents/reprocess?tenant_id=<uuid>` (admin) reencolan documentos `FAILED`/`RECEIVED`/`RETRY` con filtros por estado, tipo de documento y rango de fechas. Los documentos ya enviados al SRI se **reconcilian** (se consulta su autorización) sin reenviarse; los nunca enviados se re-firman y reenvían. Página de portal en `/portal/settings/reprocess`.
