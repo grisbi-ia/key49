@@ -69,7 +69,6 @@ tar -czf "$PACKAGE" \
     .gitignore \
     pom.xml \
     setup-vps.sh \
-    DEPLOY-VPS.md \
     README.md
 
 SIZE=$(ls -lh "$PACKAGE" | awk '{print $5}')

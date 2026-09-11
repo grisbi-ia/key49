@@ -19,6 +19,7 @@
 9. [Operación y diagnóstico](#9-operación-y-diagnóstico)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Mantenimiento y limpieza](#11-mantenimiento-y-limpieza)
+12. [Anexo A — Lecciones del bootstrap inicial](#anexo-a--lecciones-del-bootstrap-inicial-histórico)
 
 ---
 
@@ -540,3 +541,29 @@ ssh -i ~/.ssh/key49_vps root@key49.apx5.com '
 
 > Conservar **al menos** la última imagen `key49:rollback-<TS>` hasta confirmar
 > estabilidad de la versión desplegada.
+
+---
+
+## Anexo A — Lecciones del bootstrap inicial (histórico)
+
+Resumen de los problemas encontrados durante el **primer despliegue** (jun-2026) y
+sus soluciones. Ya están aplicadas en la configuración actual; se conservan como
+referencia en caso de **reprovisionar el servidor desde cero**.
+
+| # | Problema | Causa | Solución aplicada |
+| - | -------- | ----- | ----------------- |
+| 1 | App no arranca: `OpenTelemetry exporter set to 'otlp' but upstream dependencies not found` | `application.properties` pedía exporter `otlp` sin la dependencia | Exporter por defecto `cdi` en `%prod` |
+| 2 | `docker compose` no resuelve `${VAR}` de `.env.prod` | Compose lee `.env` por defecto | Symlink `.env -> .env.prod` (lo crea `setup-vps.sh`) |
+| 3 | RabbitMQ 3.13 en loop de reinicio | Variables deprecadas `RABBITMQ_VM_MEMORY_HIGH_WATERMARK` / `RABBITMQ_DISK_FREE_LIMIT` tratadas como error fatal | Eliminadas del compose (3.13 usa defaults) |
+| 4 | Validación SMTP falla con host vacío | `KEY49_SMTP_HOST=` (string vacío) no usa el default | Usar `localhost` o `QUARKUS_MAILER_MOCK=true` en el bootstrap |
+| 5 | PgBouncer: `cannot do SCRAM authentication: wrong password type` | PostgreSQL 16 usa SCRAM; PgBouncer configurado con MD5 | Forzar `password_encryption=md5` en Postgres, ajustar `pg_hba.conf` y regenerar `userlist.prod.txt` con hash MD5 |
+| 6 | Health `MinIO bucket: DOWN` | El servicio `minio-init` (crea el bucket) no se ejecutó | `docker compose up -d minio-init` |
+| 7 | Traefik no descubre contenedores | Traefik v3.3 usa Docker API 1.24; Docker 29 exige ≥ 1.40 | Actualizar imagen (fijada a `traefik:v3.7`) |
+| 8 | Let's Encrypt: `unable to parse email address` | Traefik no expande `${KEY49_ACME_EMAIL}` en su config estática | Email ACME literal en `docker/traefik/traefik.yml` |
+| 9 | `GET /` devolvía 404 JSON | No existía endpoint `/` y `ApiKeyAuthFilter` no lo tenía como ruta pública | `RootRedirectResource` (303 → `/portal/login`) + `/` en `isPublicPath()` |
+
+> **Nota sobre caché de capas Docker:** durante el bootstrap, un cambio en
+> `src/main/java` no aparecía en la imagen porque `docker build` reutilizaba
+> capas cacheadas de `COPY src/`. Por eso el flujo de producción actual **no
+> compila en el VPS**: usa `Dockerfile.jvm`, que copia el artefacto
+> `target/quarkus-app/` ya compilado en local (sin caché de fuentes).

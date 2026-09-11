@@ -2,7 +2,7 @@
 
 Guía paso a paso para desplegar Key49 desde cero en un ambiente de pruebas.
 
-> 🚀 **¿Despliegue en PRODUCCIÓN (VPS)?** Ver [`DEPLOY-VPS.md`](../DEPLOY-VPS.md):
+> 🚀 **¿Despliegue en PRODUCCIÓN (VPS)?** Ver [`DEPLOY-VPS.md`](DEPLOY-VPS.md):
 > métodos manual y asistido por agente (Pi), verificación, rollback y acceso a
 > la base de datos por túnel SSH. Esta guía cubre la puesta en marcha de
 > infraestructura y ambientes de prueba.
@@ -850,14 +850,39 @@ Las métricas se actualizan cada 30 segundos vía la API de management de Rabbit
 
 ### Construir la imagen
 
-El Dockerfile usa **multi-stage build**: Maven compila en un stage temporal y la imagen final contiene solo el JRE Alpine mínimo.
+Key49 tiene **dos formas** de construir la imagen según el escenario:
+
+| Escenario | Dockerfile | Cómo se construye | Cuándo usarlo |
+| --------- | ---------- | ----------------- | ------------- |
+| **VPS de producción** | `Dockerfile.jvm` | Copia `target/quarkus-app/` ya compilado en local (`./package-for-vps.sh`) | Deploy real → [`DEPLOY-VPS.md`](DEPLOY-VPS.md) |
+| **Local / genérico** | `Dockerfile` (multi-stage) | Maven compila dentro de la imagen | Pruebas locales o entornos sin artefacto previo |
+
+#### VPS de producción (recomendado)
+
+El VPS **no compila**: `Dockerfile.jvm` solo copia el artefacto precompilado.
+El procedimiento completo (empaquetado, subida, extracción protegida, rollback)
+está en [`DEPLOY-VPS.md`](DEPLOY-VPS.md).
+
+```bash
+# En local: compilar y empaquetar
+./package-for-vps.sh
+
+# En el VPS: construir y desplegar (instantáneo)
+docker build -t key49:latest -f Dockerfile.jvm .
+docker compose -f docker-compose.prod.yml up -d key49
+```
+
+#### Alternativa genérica (multi-stage)
+
+Compila dentro de Docker (requiere Maven y red). Útil para pruebas o entornos
+donde no se dispone del artefacto precompilado.
 
 ```bash
 # Build
 docker build -t key49:latest .
 
 # Con tag de versión
-docker build -t key49:0.25.7 -t key49:latest .
+docker build -t key49:0.31.12 -t key49:latest .
 ```
 
 Características de la imagen:
@@ -866,7 +891,6 @@ Características de la imagen:
 - **Usuario no-root**: `key49` (seguridad)
 - **Zona horaria**: `America/Guayaquil` preconfigurada
 - **Healthcheck**: `curl http://localhost:8080/q/health/ready` cada 30s
-- **Cache de dependencias**: el POM se copia primero para aprovechar capas Docker
 
 ### JVM flags de producción
 
