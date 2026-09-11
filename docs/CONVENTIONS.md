@@ -555,10 +555,23 @@ Formato: `vMAJOR.MINOR.PATCH`
 ### Reglas de testing
 
 1. **Cobertura mínima**: 80%
-2. **DevServices**: usar PostgreSQL, RabbitMQ y Redis en containers (no mocks)
-3. **Datos de test**: cada test crea y limpia sus propios datos
-4. **Nombres descriptivos**: `shouldRejectInvoiceWithExpiredCertificate()`
-5. **Al finalizar cada tarea del TASKS.md**: ejecutar `mvn verify` y confirmar que todo pasa
+2. **DevServices**: PostgreSQL y RabbitMQ se levantan automáticamente en containers (no mocks)
+3. **Redis**: **no** usa DevServices — `quarkus.redis.hosts` apunta a `redis://localhost:6379`. Antes de correr la suite hay que tener Redis levantado, o ~30 tests de caché, rate-limiting y portal fallarán con `Connection refused`.
+4. **Datos de test**: cada test crea y limpia sus propios datos
+5. **Nombres descriptivos**: `shouldRejectInvoiceWithExpiredCertificate()`
+6. **Al finalizar cada tarea del TASKS.md**: ejecutar `mvn verify` y confirmar que todo pasa
+
+### Preparar el entorno de tests
+
+```bash
+# Redis real: obligatorio (no hay DevService para Redis)
+docker compose up -d redis
+
+# PostgreSQL y RabbitMQ los levanta Quarkus (DevServices) automáticamente
+mvn verify
+```
+
+> No ejecutar `docker compose up -d` completo: MinIO y PostgreSQL pueden chocar de puerto con otros proyectos locales. Levantar solo `redis`.
 
 ---
 

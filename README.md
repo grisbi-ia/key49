@@ -36,7 +36,7 @@ auracore.key49
 
 - Java 25+
 - Maven 3.9+
-- Docker (para DevServices en desarrollo: PostgreSQL, RabbitMQ, Redis)
+- Docker (DevServices levanta PostgreSQL y RabbitMQ; **Redis debe correr en `localhost:6379`**: `docker compose up -d redis`)
 
 ## Desarrollo
 
@@ -44,7 +44,7 @@ auracore.key49
 # Compilar
 mvn clean compile
 
-# Ejecutar tests
+# Ejecutar tests (requiere Redis en localhost:6379: docker compose up -d redis)
 mvn verify
 
 # Modo desarrollo (hot reload)

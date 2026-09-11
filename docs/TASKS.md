@@ -36,7 +36,7 @@ El objetivo es un flujo completo de factura electrónica para un solo tenant (AU
   - Test: publicar y consumir mensaje simple
 
 - [x] **T-005** Implementar autenticación por API Key ✓
-  - Generación de API keys con prefijo (fec*test*, fec*live*)
+  - Generación de API keys con prefijo unificado `k49_` (originalmente `fec_test_`/`fec_live_`, unificado en T-109)
   - Hash SHA-256 para almacenamiento
   - Filter JAX-RS que extrae API key, valida, y setea tenant context
   - Propagación del tenant al search_path de PostgreSQL (SET search_path)
@@ -1044,3 +1044,13 @@ Key49 será utilizado simultáneamente por múltiples empresas (Yalobox, Neogas,
   - Fix: webhook NPE sin secreto, caché SMTP en Redis, OutboxPoller shutdown, handler 404 JSON
   - Estandarización `--pico-font-size: 15px` en todas las páginas standalone del portal
   - Test: 2285 tests, 0 failures, 0 errors
+
+- [x] **T-110** Plunk como proveedor de email, sin SMTP compartido y `notifyFinalConsumer` ✅
+  - `PlunkClient` + `PlunkEmailSender`: integración con la API REST de Plunk (verify/send/track)
+  - `PlatformEmailService`: emails de plataforma unificados (SMTP o Plunk vía `KEY49_PLATFORM_EMAIL_PROVIDER`)
+  - Enum `EmailProvider` (SMTP | PLUNK) configurable por tenant
+  - `EmailService`: eliminado el fallback al SMTP compartido de Key49 — cada tenant usa su canal propio
+  - `smtp_enabled` eliminado de BD (redundante con `smtp_host`); migración V012
+  - `notifyFinalConsumer`: omite el email a Consumidor Final si el flag está en false; migración V013
+  - Portal settings: selector de proveedor, campo API key de Plunk y checkbox de `notifyFinalConsumer`
+  - Tests: `PlunkClientTest`, `PlunkEmailSenderTest`, `EmailServiceTest` (reescrito), `NotifyConsumerTest`, `TenantAdminServiceTest`
