@@ -400,6 +400,8 @@ Fallo definitivo → DLQ + webhook de error al tenant
 
 Los reintentos aplican SOLO para errores de infraestructura (timeout, conexión rechazada, HTTP 500 del SRI). Los errores de negocio (XML inválido, firma incorrecta, RUC suspendido) van directo a estado FAILED sin reintento.
 
+> **SRI `302` y códigos especiales**: el cliente reintenta el `302` intermitente del SRI; el código `43` ("clave acceso registrada") y el `70` ("en procesamiento") se **reconcilian** sin reenviar; `numeroComprobantes=0` (`NO_REGISTRADA`) es permanente y no se reintenta. Las consultas de autorización son **secuenciales** (el SRI rechaza paralelas). Ver [`OPERATIONS.md`](OPERATIONS.md#servicio-sri--comportamiento-del-cliente).
+
 ## Máquina de Estados de Documentos
 
 Cada transición de estado está validada en código. No se permite transición arbitraria.

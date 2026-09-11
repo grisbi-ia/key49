@@ -257,7 +257,7 @@ Solo los **errores de infraestructura** se reintentan. Los **errores de negocio*
 | `CircuitBreakerOpenException` | Send, Authorize   | Circuito abierto por fallos previos  |
 | Conexión rechazada            | Send, Authorize   | SRI caído o red inaccesible          |
 | HTTP 500 del SRI              | Send, Authorize   | Error interno del servidor SRI       |
-| Código SRI 43                 | Send              | Clave duplicada (se puede regenerar) |
+| HTTP 302 intermitente         | Send, Authorize   | Redirect transitorio (se reintenta el endpoint) |
 
 ### Errores que NO se reintentan (van a REJECTED o FAILED)
 
@@ -268,6 +268,8 @@ Solo los **errores de infraestructura** se reintentan. Los **errores de negocio*
 | 52                            | Estructura XML inválida        | REJECTED     |
 | 65                            | Fecha futura                   | REJECTED     |
 | Otros errores de negocio      | Validación de datos SRI        | REJECTED     |
+| `numeroComprobantes=0`        | Clave no registrada en autorización | REJECTED (`NO_REG`) |
+| `NO AUTORIZADO` (sin código 70) | Sin autorización            | REJECTED     |
 | Certificado inválido/expirado | Error en firma                 | FAILED       |
 | XML no generado               | Error en builder               | FAILED       |
 
@@ -452,6 +454,66 @@ Con el circuito abierto:
 - Los documentos firmados (SIGNED) que intentan enviarse van a RETRY automáticamente.
 - Cuando el SRI se recupera y el circuito se cierra, el RetryPoller re-encola los documentos y se procesan normalmente.
 - Si los reintentos se agotan (6 intentos, ~10 min), el documento pasa a FAILED.
+
+---
+
+## Servicio SRI — comportamiento del cliente
+
+El SRI impone restricciones al consumo de sus web services. Key49 las respeta
+para evitar fallos aleatorios (comportamiento validado en producción; ver la
+referencia [`SRI-INTEGRACION-ERPS.md`](SRI-INTEGRACION-ERPS.md)).
+
+### 1. Redirección `302` intermitente
+
+El endpoint SOAP del SRI responde **`302` de forma intermitente**, redirigiendo a
+una IP cuyo certificado TLS no coincide con su host (no es posible seguir el
+redirect con verificación de certificado). El cliente Key49 lo maneja en
+`SriSoapHttp`: **reintenta el endpoint original** (hasta 3 intentos, preservando
+el POST y el cuerpo SOAP). Sin esto, los `302` se contabilizaban como fallos y
+**abrían el circuit breaker**, marcando documentos válidos como `FAILED`.
+
+### 2. Consultas secuenciales
+
+El SRI **rechaza o redirige consultas paralelas**. Por eso:
+
+- Prefetch de la cola de autorización en **1** (`KEY49_RABBITMQ_PREFETCH_AUTHORIZE`).
+- Espaciado entre consultas: `KEY49_SRI_AUTH_THROTTLE_MS` (300 ms por defecto).
+
+### 3. Timeouts
+
+- Conexión: **5 s**.
+- Lectura / `@Timeout`: **25 s** (el servicio del SRI puede tardar).
+
+### 4. Códigos y resultados con manejo especial
+
+| Señal del SRI | Significado | Acción |
+| ------------- | ----------- | ------ |
+| `estado=AUTORIZADO` + `<comprobante>` | Autorizado | `AUTHORIZED` → `NOTIFIED` |
+| `numeroComprobantes=0` | Clave **no registrada** en autorización | `REJECTED` (código `NO_REG`), terminal, sin reintento |
+| `estado=NO AUTORIZADO` (sin mensaje 70) | Sin autorización | `REJECTED`, terminal |
+| mensaje `70` ("en procesamiento") | El SRI aún procesa | Permanece `RECEIVED` y se **reconcilia** |
+| Código `43` ("CLAVE ACCESO REGISTRADA", recepción) | El comprobante ya está en el SRI | `RECEIVED` + reconciliar autorización (**no reenviar**) |
+
+> **43 ≠ emitido.** Recepción registrada no implica autorización. La validez
+> fiscal la otorga la **autorización**. Marcar un 43 como `FAILED` contaminaba
+> las métricas; ahora se reconcilia.
+
+### 5. Circuit breaker y resultados permanentes
+
+`NO_REGISTRADA` se lanza como `SriNotRegisteredException` y el circuit breaker
+del cliente de autorización la **excluye** (`@CircuitBreaker(skipOn = ...)`).
+De lo contrario, una tanda de comprobantes no registrados abriría el CB y
+bloquearía la reconciliación de los que **sí** están autorizados.
+
+### 6. Reconciliación y reproceso en lote
+
+- `ReconciliationPoller` (cada `KEY49_RECONCILE_POLL_INTERVAL`, 2 min): reencola
+  `doc.authorize` para documentos `RECEIVED` con reconciliación vencida, **sin
+  reenviarlos**.
+- Reproceso en lote: `POST /v1/documents/reprocess` (tenant) y
+  `POST /v1/admin/documents/reprocess?tenant_id=` (admin); página
+  `/portal/settings/reprocess`. Los documentos ya enviados se reconcilian; los
+  nunca enviados se re-firman. Los `REJECTED` no se reprocesan.
 
 ---
 

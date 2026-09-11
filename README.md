@@ -83,6 +83,7 @@ La documentación técnica completa se encuentra en [`docs/`](docs/):
 | [DEPLOY-VPS.md](docs/DEPLOY-VPS.md)     | **Despliegue en producción (VPS)**: manual o asistido por agente, rollback y acceso a BD por SSH |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md)     | Despliegue de infraestructura y ambiente de pruebas |
 | [OPERATIONS.md](docs/OPERATIONS.md)     | Operación, colas, estados y resiliencia    |
+| [SRI-INTEGRACION-ERPS.md](docs/SRI-INTEGRACION-ERPS.md) | Referencia cruzada ERP ↔ SRI (comprobantes recibidos) y comportamiento del web service |
 | [DB-ADMIN.md](docs/DB-ADMIN.md)         | Administración de PostgreSQL y tenants     |
 
 ## Autor
