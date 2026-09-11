@@ -7,6 +7,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.13] - 2026-09-11
+
 ### Corregido
 
 - **Tests**: `AdminAuthFilterTest` y `AuditLogAdminResourceTest` leen el token de admin desde la configuración (`key49.admin.token`) en vez de hardcodearlo, evitando la contaminación del archivo `.env` local. `NotifyConsumerTest` alineado con el reprocesamiento de documentos `NOTIFIED` (reenvío de email).
