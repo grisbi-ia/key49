@@ -7,6 +7,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.15] - 2026-09-11
+
+### Corregido
+
+- **Autorización SRI**: los errores de infraestructura (circuit breaker abierto, timeout, HTTP 302) ya no marcan el documento como `FAILED`; se mantiene en `RECEIVED` y se reconcilia. Un comprobante ya emitido no debe quedar en fallo porque el SRI esté momentáneamente inaccesible. Los documentos en `RETRY`/`FAILED` que el SRI reporta como pendientes vuelven a `RECEIVED`.
+
 ## [0.31.14] - 2026-09-11
 
 ### Agregado

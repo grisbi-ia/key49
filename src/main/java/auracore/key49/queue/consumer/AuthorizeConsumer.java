@@ -199,11 +199,15 @@ public class AuthorizeConsumer {
      * Reintenta la autorización más tarde sin consumir el presupuesto de reintentos
      * de error: mantiene el documento en {@code RECEIVED} y programa una
      * reconciliación. El {@code ReconciliationPoller} volverá a consultar el SRI.
-     * Para estados que no admiten volver a RECEIVED se aplica el reintento normal.
      */
     private void handlePendingTransition(Document doc, EntityManager em,
             String schemaName, String reason) {
-        if (doc.status == DocumentStatus.RECEIVED) {
+        if (doc.status == DocumentStatus.RECEIVED
+                || doc.status == DocumentStatus.RETRY
+                || doc.status == DocumentStatus.FAILED) {
+            if (doc.status != DocumentStatus.RECEIVED) {
+                doc.transitionTo(DocumentStatus.RECEIVED);
+            }
             doc.lastErrorMessage = reason;
             doc.nextRetryAt = Instant.now().plus(reconcileInterval);
             doc.updatedAt = Instant.now();
@@ -228,17 +232,13 @@ public class AuthorizeConsumer {
     }
 
     private void handleInfraError(DocumentEvent event, Throwable ex) {
-        log.warnf(ex, "AuthorizeConsumer: SRI infrastructure error for document %s", event.documentId());
-
-        connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
-            var doc = em.find(Document.class, event.documentId());
-            if (doc == null) {
-                return null;
-            }
-            handleRetryTransition(doc, em, event.tenantSchemaName(),
-                    ex.getMessage(), "AuthorizeConsumer");
-            return null;
-        });
+        // En la etapa de autorización, un error de infraestructura (SRI caído,
+        // circuit breaker abierto, timeout) NO debe marcar el documento como
+        // fallido: el comprobante puede estar autorizado en el SRI. Se mantiene
+        // en RECEIVED y se reconcilia hasta confirmar su estado.
+        log.warnf(ex, "AuthorizeConsumer: SRI infrastructure error for document %s — scheduling reconciliation",
+                event.documentId());
+        handlePending(event, ex.getMessage());
     }
 
     private void handleRetryTransition(Document doc, EntityManager em,

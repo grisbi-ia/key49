@@ -173,36 +173,28 @@ class AuthorizeConsumerIntegrationTest {
     @Test
     @Order(3)
     @DisplayName("error de infraestructura SRI → RETRY")
-    void shouldTransitionToRetry_whenInfraError() throws Exception {
+    void shouldReconcile_whenInfraError() throws Exception {
         when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
                 .thenThrow(new SriException("Connection timeout"));
 
         authorizeConsumer.process(toJson(docIdInfraError));
 
-        assertDocumentStatus(docIdInfraError, "RETRY");
-        try (var conn = dataSource.getConnection();
-             var ps = conn.prepareStatement(
-                     "SELECT next_retry_at, retry_count FROM %s.documents WHERE document_id = ?::uuid"
-                             .formatted(TENANT_SCHEMA))) {
-            ps.setString(1, docIdInfraError.toString());
-            try (var rs = ps.executeQuery()) {
-                assertTrue(rs.next());
-                assertNotNull(rs.getTimestamp("next_retry_at"));
-                assertTrue(rs.getInt("retry_count") > 0);
-            }
-        }
+        // Los errores de infraestructura en autorización se reconcilian, no fallan
+        assertDocumentStatus(docIdInfraError, "RECEIVED");
+        assertNextRetryAtSet(docIdInfraError);
     }
 
     @Test
     @Order(4)
-    @DisplayName("reintentos agotados → FAILED")
-    void shouldTransitionToFailed_whenRetriesExhausted() throws Exception {
+    @DisplayName("RETRY con reintentos agotados + infra error → RECEIVED (reconciliación), no FAILED")
+    void shouldReconcile_whenRetriesExhausted() throws Exception {
         when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
                 .thenThrow(new SriException("SRI unavailable"));
 
         authorizeConsumer.process(toJson(docIdRetriesExhausted));
 
-        assertDocumentStatus(docIdRetriesExhausted, "FAILED");
+        assertDocumentStatus(docIdRetriesExhausted, "RECEIVED");
+        assertNextRetryAtSet(docIdRetriesExhausted);
     }
 
     @Test
