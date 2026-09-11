@@ -51,6 +51,23 @@ mvn verify
 mvn quarkus:dev
 ```
 
+## Scripts
+
+Los ejecutables operativos están en [`scripts/`](scripts/):
+
+| Script | Propósito | Uso |
+| ------ | --------- | --- |
+| [`scripts/setup-vps.sh`](scripts/setup-vps.sh) | Bootstrap completo de un VPS Ubuntu nuevo (Docker, firewall, secretos, despliegue) | `sudo bash scripts/setup-vps.sh` (desde `/opt/key49`) |
+| [`scripts/package-for-vps.sh`](scripts/package-for-vps.sh) | Compila y empaqueta el artefacto para desplegar en el VPS | `./scripts/package-for-vps.sh` |
+| [`scripts/generate-secrets.sh`](scripts/generate-secrets.sh) | Genera contraseñas seguras para `.env.prod` | `./scripts/generate-secrets.sh` |
+| [`scripts/test-curls.sh`](scripts/test-curls.sh) | Pruebas manuales de emisión en desarrollo (`localhost:8080`) | `KEY49_API_KEY=... ./scripts/test-curls.sh factura` |
+| [`scripts/test-curls-prod.sh`](scripts/test-curls-prod.sh) | Pruebas manuales de emisión contra producción | `KEY49_API_KEY=... ./scripts/test-curls-prod.sh factura` |
+
+> El procedimiento completo de despliegue (manual y asistido por agente) y el
+> acceso a la base de datos por SSH están en [`docs/DEPLOY-VPS.md`](docs/DEPLOY-VPS.md).
+> Los scripts de mantenimiento de base de datos viven en [`db/maintenance/`](db/maintenance/)
+> y se documentan en [`docs/DB-ADMIN.md`](docs/DB-ADMIN.md).
+
 ## Documentación
 
 La documentación técnica completa se encuentra en [`docs/`](docs/):

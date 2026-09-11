@@ -54,7 +54,7 @@ local). El VPS **no ejecuta Maven**: el `Dockerfile.jvm` solo copia el artefacto
 
 ```
 [ Máquina local ]                         [ VPS producción ]
-  ./package-for-vps.sh                       /opt/key49/
+  ./scripts/package-for-vps.sh                       /opt/key49/
         │  compila vX.Y.Z                        ├── target/quarkus-app/  (jar precompilado)
         ▼                                        ├── Dockerfile.jvm
   /tmp/key49-vps.tar.gz ──scp──► /opt/          ├── docker-compose.prod.yml
@@ -131,8 +131,24 @@ ssh -i ~/.ssh/key49_vps -o IdentitiesOnly=yes root@key49.apx5.com 'echo SSH_OK; 
 | Máquina | Herramienta |
 | ------- | ----------- |
 | Local (build) | JDK 25, Maven, bash, `scp` |
-| VPS | Docker + `docker compose` (ya instalados por `setup-vps.sh`) |
+| VPS | Docker + `docker compose` (ya instalados por `scripts/setup-vps.sh`) |
 | Local (admin BD) | `psql` y/o cliente gráfico (DBeaver, pgAdmin) |
+
+### 2.4 Scripts operativos
+
+Todos viven en [`scripts/`](../scripts/):
+
+| Script | Para qué | Dónde se ejecuta |
+| ------ | -------- | ---------------- |
+| `scripts/package-for-vps.sh` | Compila y empaqueta `target/quarkus-app/` en `/tmp/key49-vps.tar.gz` | Local |
+| `scripts/setup-vps.sh` | Bootstrap completo (Docker, firewall, secretos, despliegue) | VPS (solo primera vez) |
+| `scripts/generate-secrets.sh` | Genera contraseñas seguras para `.env.prod` | Local |
+| `scripts/test-curls.sh` | Pruebas manuales de emisión en desarrollo | Local |
+| `scripts/test-curls-prod.sh` | Pruebas manuales de emisión contra producción | Local |
+
+> Los scripts de prueba leen la API key de `KEY49_API_KEY` (obligatoria) y la
+> URL base de `KEY49_BASE_URL` (opcional, con default). Tabla completa en el
+> [`README`](../README.md#scripts).
 
 ---
 
@@ -148,7 +164,7 @@ Flujo para un operador humano. Tiempo total típico: **3–5 minutos**.
 cd /home/pvalarezo/auracore-apps/key49
 git log --oneline -1          # confirmar el commit
 grep -m1 "<version>" pom.xml  # confirmar la versión
-./package-for-vps.sh
+./scripts/package-for-vps.sh
 ```
 
 Genera `/tmp/key49-vps.tar.gz` (~88 MB) e imprime el MD5. Guardarlo:
@@ -249,7 +265,7 @@ seguridad adecuadas.
 ### 4.1 Preparación (una sola vez)
 
 1. Autorizar la llave SSH del agente (§2.1).
-2. Darle acceso al repositorio y a `package-for-vps.sh`.
+2. Darle acceso al repositorio y a `scripts/package-for-vps.sh`.
 3. Confirmar que el agente conoce las **REGLAS DE ORO** (§2.2).
 
 ### 4.2 Instrucciones sugeridas para el agente
@@ -290,7 +306,7 @@ Antes de declarar el despliegue exitoso, el agente **debe** verificar y reportar
 
 ### 4.4 Guardrails (lo que el agente NO debe hacer)
 
-- ❌ No ejecutar `setup-vps.sh` en un servidor que ya está en producción
+- ❌ No ejecutar `scripts/setup-vps.sh` en un servidor que ya está en producción
   (regenera secretos y rompería la BD). Solo para bootstrap (§5).
 - ❌ No usar `docker compose down` ni reiniciar la infraestructura.
 - ❌ No tocar volúmenes, ni borrar `.env.prod` / `userlist.prod.txt`.
@@ -303,7 +319,7 @@ Antes de declarar el despliegue exitoso, el agente **debe** verificar y reportar
 
 > Solo para un VPS **nuevo/vacío**. Si ya está en producción, ir al Método A.
 
-`setup-vps.sh` hace todo el bootstrap:
+`scripts/setup-vps.sh` hace todo el bootstrap:
 
 1. Actualiza el sistema e instala dependencias.
 2. Instala Docker + Docker Compose.
@@ -315,7 +331,7 @@ Antes de declarar el despliegue exitoso, el agente **debe** verificar y reportar
 ```bash
 cd /opt && tar -xzf key49-vps.tar.gz
 cd /opt/key49
-sudo bash setup-vps.sh
+sudo bash scripts/setup-vps.sh
 ```
 
 > ⚠️ Tras el bootstrap, **respaldar `/root/key49-secrets.txt` fuera del servidor**.
@@ -379,7 +395,7 @@ ssh -i ~/.ssh/key49_vps root@key49.apx5.com '
 # En local
 cd /home/pvalarezo/auracore-apps/key49
 git checkout v0.31.11          # o el tag/commit estable
-./package-for-vps.sh
+./scripts/package-for-vps.sh
 # repetir Método A, pasos 3–6
 git checkout main
 ```
@@ -553,7 +569,7 @@ referencia en caso de **reprovisionar el servidor desde cero**.
 | # | Problema | Causa | Solución aplicada |
 | - | -------- | ----- | ----------------- |
 | 1 | App no arranca: `OpenTelemetry exporter set to 'otlp' but upstream dependencies not found` | `application.properties` pedía exporter `otlp` sin la dependencia | Exporter por defecto `cdi` en `%prod` |
-| 2 | `docker compose` no resuelve `${VAR}` de `.env.prod` | Compose lee `.env` por defecto | Symlink `.env -> .env.prod` (lo crea `setup-vps.sh`) |
+| 2 | `docker compose` no resuelve `${VAR}` de `.env.prod` | Compose lee `.env` por defecto | Symlink `.env -> .env.prod` (lo crea `scripts/setup-vps.sh`) |
 | 3 | RabbitMQ 3.13 en loop de reinicio | Variables deprecadas `RABBITMQ_VM_MEMORY_HIGH_WATERMARK` / `RABBITMQ_DISK_FREE_LIMIT` tratadas como error fatal | Eliminadas del compose (3.13 usa defaults) |
 | 4 | Validación SMTP falla con host vacío | `KEY49_SMTP_HOST=` (string vacío) no usa el default | Usar `localhost` o `QUARKUS_MAILER_MOCK=true` en el bootstrap |
 | 5 | PgBouncer: `cannot do SCRAM authentication: wrong password type` | PostgreSQL 16 usa SCRAM; PgBouncer configurado con MD5 | Forzar `password_encryption=md5` en Postgres, ajustar `pg_hba.conf` y regenerar `userlist.prod.txt` con hash MD5 |

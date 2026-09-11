@@ -2,7 +2,7 @@
 # ╔══════════════════════════════════════════════════════════════╗
 # ║  Key49 — Build local + empaquetar para VPS                 ║
 # ║  Compila en tu máquina, empaqueta solo lo necesario        ║
-# ║  Uso: ./package-for-vps.sh                                 ║
+# ║  Uso: ./scripts/package-for-vps.sh                        ║
 # ╚══════════════════════════════════════════════════════════════╝
 set -euo pipefail
 
@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 log() { echo -e "${GREEN}[PACKAGE]${NC} $1"; }
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
 
 echo ""
@@ -51,7 +51,6 @@ tar -czf "$PACKAGE" \
     --exclude='.github' \
     --exclude='.claude' \
     --exclude='api-tests.http' \
-    --exclude='test-curls.sh' \
     --exclude='CHANGELOG.md' \
     --exclude='key49.log' \
     src/main \
@@ -68,7 +67,8 @@ tar -czf "$PACKAGE" \
     .dockerignore \
     .gitignore \
     pom.xml \
-    setup-vps.sh \
+    scripts/setup-vps.sh \
+    scripts/generate-secrets.sh \
     README.md
 
 SIZE=$(ls -lh "$PACKAGE" | awk '{print $5}')
@@ -84,7 +84,7 @@ echo "║  scp $PACKAGE root@key49.apx5.com:/opt/              ║"
 echo "║                                                      ║"
 echo "║  Luego en el VPS:                                    ║"
 echo "║  cd /opt && tar -xzf key49-vps.tar.gz                ║"
-echo "║  cd key49 && sudo bash setup-vps.sh                  ║"
+echo "║  cd key49 && sudo bash scripts/setup-vps.sh          ║"
 echo "║                                                      ║"
 echo "║  ⚡ El build en VPS es INSTANTÁNEO porque            ║"
 echo "║     la app ya viene compilada (Dockerfile.jvm)       ║"

@@ -3,18 +3,20 @@
 # Key49 — Scripts de prueba CURL para todos los tipos de documento electrónico
 # ============================================================================
 # Uso:
-#   chmod +x test-curls.sh
-#   ./test-curls.sh factura
-#   ./test-curls.sh nota_credito
-#   ./test-curls.sh nota_debito
-#   ./test-curls.sh liquidacion
-#   ./test-curls.sh guia_remision
-#   ./test-curls.sh retencion
-#   ./test-curls.sh todos
+#   chmod +x scripts/test-curls-prod.sh
+#   ./scripts/test-curls-prod.sh factura
+#   ./scripts/test-curls-prod.sh nota_credito
+#   ./scripts/test-curls-prod.sh nota_debito
+#   ./scripts/test-curls-prod.sh liquidacion
+#   ./scripts/test-curls-prod.sh guia_remision
+#   ./scripts/test-curls-prod.sh retencion
+#   ./scripts/test-curls-prod.sh todos
 # ============================================================================
 
-BASE_URL="http://localhost:8080/v1"
-AUTH="Authorization: Bearer k49_XmtdOWobngZ9NVYIwE1cPAkG"
+# API key: se toma de la variable de entorno KEY49_API_KEY (no hardcodear claves)
+API_KEY="${KEY49_API_KEY:?Define KEY49_API_KEY con tu API key}"
+BASE_URL="${KEY49_BASE_URL:-https://key49.apx5.com/v1}"
+AUTH="Authorization: Bearer $API_KEY"
 CT="Content-Type: application/json"
 TODAY=$(date +%Y-%m-%d)
 FISCAL_PERIOD=$(date +%m/%Y)
@@ -29,7 +31,7 @@ factura() {
     -d '{
       "establishment": "001",
       "issue_point": "999",
-      "sequence_number": "000000027",
+      "sequence_number": "000000029",
       "issue_date": "'"$TODAY"'",
       "recipient": {
         "id_type": "04",

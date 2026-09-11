@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ╔══════════════════════════════════════════════════════════════╗
 # ║  Key49 — Generador de Contraseñas para .env.prod            ║
-# ║  Uso: ./docker/generate-secrets.sh                          ║
+# ║  Uso: ./scripts/generate-secrets.sh                         ║
 # ╚══════════════════════════════════════════════════════════════╝
 set -euo pipefail
 

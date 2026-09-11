@@ -2,7 +2,7 @@
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║  Key49 — Script de Instalación Completa en VPS Ubuntu          ║
 # ║  Para ser ejecutado por Pi (agente de IA) en el servidor       ║
-# ║  Uso: sudo bash setup-vps.sh                                   ║
+# ║  Uso: sudo bash scripts/setup-vps.sh                       ║
 # ╚══════════════════════════════════════════════════════════════════╝
 set -euo pipefail
 
@@ -19,7 +19,7 @@ err()  { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 #  PASO 0: Verificar que somos root o tenemos sudo
 # ═══════════════════════════════════════════════════════════════════
 if [ "$EUID" -ne 0 ]; then
-    err "Este script debe ejecutarse como root o con sudo: sudo bash setup-vps.sh"
+    err "Este script debe ejecutarse como root o con sudo: sudo bash scripts/setup-vps.sh"
 fi
 
 echo ""

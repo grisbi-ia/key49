@@ -854,7 +854,7 @@ Key49 tiene **dos formas** de construir la imagen según el escenario:
 
 | Escenario | Dockerfile | Cómo se construye | Cuándo usarlo |
 | --------- | ---------- | ----------------- | ------------- |
-| **VPS de producción** | `Dockerfile.jvm` | Copia `target/quarkus-app/` ya compilado en local (`./package-for-vps.sh`) | Deploy real → [`DEPLOY-VPS.md`](DEPLOY-VPS.md) |
+| **VPS de producción** | `Dockerfile.jvm` | Copia `target/quarkus-app/` ya compilado en local (`./scripts/package-for-vps.sh`) | Deploy real → [`DEPLOY-VPS.md`](DEPLOY-VPS.md) |
 | **Local / genérico** | `Dockerfile` (multi-stage) | Maven compila dentro de la imagen | Pruebas locales o entornos sin artefacto previo |
 
 #### VPS de producción (recomendado)
@@ -865,7 +865,7 @@ está en [`DEPLOY-VPS.md`](DEPLOY-VPS.md).
 
 ```bash
 # En local: compilar y empaquetar
-./package-for-vps.sh
+./scripts/package-for-vps.sh
 
 # En el VPS: construir y desplegar (instantáneo)
 docker build -t key49:latest -f Dockerfile.jvm .
