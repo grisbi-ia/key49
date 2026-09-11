@@ -7,6 +7,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.22] - 2026-09-11
+
+### Agregado
+
+- **Búsqueda por N.º de documento en el portal**: el buscador del dashboard ahora también encuentra por `establecimiento-puntoEmisión-secuencial` (p. ej. `003-502-000002423`) y por secuencial, además de nombre, RUC y clave de acceso.
+
 ## [0.31.21] - 2026-09-11
 
 ### Corregido

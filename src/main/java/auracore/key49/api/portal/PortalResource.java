@@ -1016,7 +1016,11 @@ public class PortalResource {
             sb.append(" AND d.issueDate <= :dateTo");
         }
         if (q != null && !q.isBlank()) {
-            sb.append(" AND (d.recipientName LIKE :q OR d.recipientId LIKE :qExact OR d.accessKey LIKE :qExact)");
+            sb.append(" AND (d.recipientName LIKE :q"
+                    + " OR d.recipientId LIKE :qExact"
+                    + " OR d.accessKey LIKE :qExact"
+                    + " OR d.sequenceNumber LIKE :q"
+                    + " OR concat(d.establishment, '-', d.issuePoint, '-', d.sequenceNumber) LIKE :q)");
         }
         return sb.toString();
     }

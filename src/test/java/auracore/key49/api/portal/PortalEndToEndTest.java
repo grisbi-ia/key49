@@ -315,6 +315,20 @@ class PortalEndToEndTest {
     }
 
     @Test
+    @Order(6)
+    void shouldSearchByDocumentNumber() {
+        RestAssured.given()
+                .cookie("KEY49_SESSION", sessionCookie)
+                .queryParam("q", "001-001-000000001")
+                .when()
+                .get("/portal/")
+                .then()
+                .statusCode(200)
+                .body(containsString("ACME Corp"))
+                .body(not(containsString("Beta Inc.")));
+    }
+
+    @Test
     @Order(7)
     void shouldRenderDocumentDetail() {
         RestAssured.given()
