@@ -5,6 +5,21 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Corregido
+
+- **Tests**: `AdminAuthFilterTest` y `AuditLogAdminResourceTest` leen el token de admin desde la configuración (`key49.admin.token`) en vez de hardcodearlo, evitando la contaminación del archivo `.env` local. `NotifyConsumerTest` alineado con el reprocesamiento de documentos `NOTIFIED` (reenvío de email).
+
+### Cambiado
+
+- **Documentación**: guía de despliegue en VPS reescrita (`docs/DEPLOY-VPS.md`) con los métodos manual y asistido por agente, verificación, rollback y acceso a la base de datos por túnel SSH. Consolidación de la documentación en `docs/` y eliminación de archivos duplicados u obsoletos.
+- **Scripts**: los ejecutables operativos se centralizan en `scripts/` y las claves de API de los scripts de prueba se parametrizan vía `KEY49_API_KEY` / `KEY49_BASE_URL`.
+
+### Eliminado
+
+- Script obsoleto `docker/deploy.sh` y documentos `DEPLOY-NOVEDADES.md` y `docker/README.md`, reemplazados por la documentación actual.
+
 ## [0.31.12] - 2026-06-12
 
 ### Corregido
@@ -12,6 +27,85 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 - **`AlertStateRepository`**: migrado de API Redis de bajo nivel (`io.vertx.mutiny.redis.client.Redis`) a API de alto nivel (`io.quarkus.redis.datasource.RedisDataSource`) para compatibilidad con RESP3. Corrige error `Multi is a Map` que impedía persistir estado de alertas y causaba spam de emails cada 60s.
 - **`AuthorizeConsumer`**: agregado mensaje de error del SRI al log de scheduling de reintentos (`error=%s`). Agregado WARN cuando el SRI responde sin autorizar pero sin errores de negocio. Agregado método `summarizeMessages()` que captura todos los mensajes del SRI (ERROR, ADVERTENCIA, INFORMATIVO) para diagnóstico inmediato.
 - **`SriMessage.isBusinessError()`**: agregado código 96 (*"El contribuyente no es Agente de Retención"*) como error de negocio no reintentable. Evita 6 reintentos innecesarios para tenants que emiten comprobantes de retención sin ser agentes de retención.
+
+## [0.31.11] - 2026-06-10
+
+### Corregido
+
+- **Validación de RUC (persona jurídica)**: se acepta el dígito verificador tanto en la posición 9 como en la 10 del RUC, cubriendo sociedades que antes eran rechazadas por una validación demasiado estricta.
+
+## [0.31.10] - 2026-06-10
+
+### Corregido
+
+- **Módulo 11 para RUC**: cuando el residuo del cálculo es 10 u 11, el dígito verificador se mapea a `0` según el estándar del SRI.
+
+### Agregado
+
+- **Documentación**: guía de integración de la clave de acceso pre-generada, con ejemplo y tabla de validación de componentes.
+
+## [0.31.9] - 2026-06-10
+
+### Corregido
+
+- **Reenvío de email**: se limpia `emailError` al reenviar con éxito, evitando que el usuario vea un mensaje de error antiguo.
+
+## [0.31.8] - 2026-06-10
+
+### Corregido
+
+- **`NotifyConsumer`**: permite reprocesar documentos ya en estado `NOTIFIED`, habilitando el reenvío de email para comprobantes previamente notificados.
+
+## [0.31.7] - 2026-06-10
+
+### Corregido
+
+- **Portal**: la sección de estado del email se muestra aunque el envío falle, con el mensaje de error y un botón para reintentar.
+
+## [0.31.6] - 2026-06-10
+
+### Agregado
+
+- **Portal**: botón **"Reenviar email"** en el detalle de un documento autorizado.
+
+### Corregido
+
+- **Empaquetado para VPS**: el tar incluye el prefijo `key49/` para extraerlo directamente en `/opt`.
+
+## [0.31.5] - 2026-06-10
+
+### Cambiado
+
+- **`PlunkClient`**: se reutiliza el `HttpClient` entre peticiones, evitando la resolución DNS y el handshake TLS en cada envío de email.
+
+## [0.31.4] - 2026-06-10
+
+### Corregido
+
+- **Plunk**: timeout de conexión aumentado a 15 s para evitar fallos por handshake SSL lento.
+
+## [0.31.3] - 2026-06-10
+
+### Cambiado
+
+- **RIDE**: se reemplaza el código QR por **código de barras Code 128** en todos los comprobantes electrónicos.
+
+## [0.31.2] - 2026-06-10
+
+### Cambiado
+
+- **OpenTelemetry**: la exportación OTLP se deshabilita por defecto en producción para evitar advertencias de conexión al arranque.
+- **Documentación**: procedimiento seguro de actualización en el VPS con protección de secretos.
+
+### Corregido
+
+- **Tests**: `InvoiceServiceTest` corregido para el nuevo parámetro `accessKey`.
+
+## [0.31.1] - 2026-06-10
+
+### Agregado
+
+- **Portal**: la versión del aplicativo se muestra al pie de la página de login, permitiendo verificar rápidamente qué versión está desplegada.
 
 ## [0.31.0] - 2026-06-09
 
