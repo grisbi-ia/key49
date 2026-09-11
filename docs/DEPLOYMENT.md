@@ -2,6 +2,11 @@
 
 Guía paso a paso para desplegar Key49 desde cero en un ambiente de pruebas.
 
+> 🚀 **¿Despliegue en PRODUCCIÓN (VPS)?** Ver [`DEPLOY-VPS.md`](../DEPLOY-VPS.md):
+> métodos manual y asistido por agente (Pi), verificación, rollback y acceso a
+> la base de datos por túnel SSH. Esta guía cubre la puesta en marcha de
+> infraestructura y ambientes de prueba.
+
 ---
 
 ## Índice

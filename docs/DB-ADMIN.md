@@ -24,8 +24,10 @@ Operaciones comunes de administración de PostgreSQL para Key49.
 
 ## Conexión
 
+### Desarrollo local (PostgreSQL en Docker)
+
 ```bash
-# Variables de conexión
+# Variables de conexión (entorno de desarrollo)
 DB_HOST=localhost
 DB_PORT=5433
 DB_NAME=key49
@@ -35,6 +37,47 @@ export PGPASSWORD=1234abcd
 # Conectar
 psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME
 ```
+
+### Producción (túnel SSH)
+
+En producción PostgreSQL **no está expuesto a Internet**: el
+`docker-compose.prod.yml` lo publica solo en `127.0.0.1:5432` del VPS. Para
+conectarse desde tu equipo hay que abrir un **túnel SSH**.
+
+| Parámetro | Valor |
+| --------- | ----- |
+| Host (desde el VPS) | `127.0.0.1:5432` |
+| Base de datos | `key49` |
+| Usuario | `key49` |
+| Contraseña | `KEY49_DB_PASSWORD` en `/opt/key49/.env.prod` |
+
+```bash
+# 1) Abrir el túnel (elegir un puerto local libre, ej. 15432)
+ssh -i ~/.ssh/key49_vps -o IdentitiesOnly=yes \
+    -L 15432:127.0.0.1:5432 root@key49.apx5.com -N &
+
+# 2) Recuperar la contraseña sin imprimirla
+export PGPASSWORD=$(ssh -i ~/.ssh/key49_vps root@key49.apx5.com \
+  "grep -m1 '^KEY49_DB_PASSWORD=' /opt/key49/.env.prod | cut -d= -f2-")
+
+# 3) Conectar y consultar
+psql -h 127.0.0.1 -p 15432 -U key49 -d key49 -c "SELECT current_database(), current_user;"
+
+# 4) Cerrar el túnel al terminar
+pkill -f "15432:127.0.0.1:5432"
+unset PGPASSWORD
+```
+
+> **PgBouncer (6432)** es el pooler de la aplicación en modo transacción; **no**
+> es adecuado para sesiones administrativas de `psql`. Para administración usar
+> PostgreSQL directo por el túnel.
+>
+> Procedimiento completo, clientes gráficos (DBeaver/pgAdmin) y acceso vía
+> agente: ver **`DEPLOY-VPS.md` §8 — Acceso a la base de datos por SSH**.
+
+> Los ejemplos de este documento usan las variables `$DB_HOST` / `$DB_PORT` /
+> `$DB_USER`. En producción, ajustarlas a `127.0.0.1` / `15432` / `key49`
+> (según el túnel) antes de ejecutarlos.
 
 ---
 
