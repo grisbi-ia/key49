@@ -6,6 +6,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import auracore.key49.core.model.OutboxEvent;
+import auracore.key49.core.model.enums.DocumentStatus;
 import auracore.key49.core.repository.DocumentRepository;
 import auracore.key49.core.repository.TenantRepository;
 import auracore.key49.core.tenant.TenantConnectionManager;
@@ -48,6 +49,9 @@ public class ReconciliationPoller {
     @ConfigProperty(name = "key49.reconcile.batch-size", defaultValue = "100")
     int batchSize;
 
+    @ConfigProperty(name = "key49.reconcile.stale-minutes", defaultValue = "10")
+    int staleMinutes;
+
     @Scheduled(every = "${key49.reconcile.poll-interval:2m}",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void pollReconciliations() {
@@ -81,8 +85,46 @@ public class ReconciliationPoller {
                 log.infof("ReconciliationPoller: %d document(s) queued for reconciliation (tenant=%s)",
                         count, schemaName);
             }
+            recoverStaleTransient(schemaName);
         } catch (Exception ex) {
             log.errorf(ex, "ReconciliationPoller: error reconciling tenant=%s", schemaName);
+        }
+    }
+
+    /**
+     * Recupera documentos atascados en estados transitorios (CREATED/SIGNED/SENT)
+     * que no avanzaron desde {@code staleMinutes} (p. ej. reinicio del proceso
+     * entre etapas): reencola la etapa correspondiente.
+     */
+    private void recoverStaleTransient(String schemaName) {
+        var recovered = connectionManager.withTenantTransaction(schemaName, em -> {
+            var docs = documentRepository.findStaleTransient(staleMinutes);
+            int n = 0;
+            for (var doc : docs) {
+                String eventType;
+                switch (doc.status) {
+                    case CREATED -> eventType = "doc.sign";
+                    case SIGNED -> eventType = "doc.send";
+                    case SENT -> {
+                        // Ya enviado al SRI: reconciliar autorización
+                        doc.transitionTo(DocumentStatus.RECEIVED);
+                        eventType = "doc.authorize";
+                    }
+                    default -> eventType = null;
+                }
+                if (eventType != null) {
+                    doc.updatedAt = Instant.now();
+                    em.persist(OutboxEvent.create(doc.id, eventType, "{}"));
+                    n++;
+                    log.infof("ReconciliationPoller: recovering stale %s document %s as %s (tenant=%s)",
+                            doc.status, doc.id, eventType, schemaName);
+                }
+            }
+            return n;
+        });
+        if (recovered != null && recovered > 0) {
+            log.infof("ReconciliationPoller: %d stale document(s) recovered (tenant=%s)",
+                    recovered, schemaName);
         }
     }
 }

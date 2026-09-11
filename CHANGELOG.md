@@ -7,6 +7,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.19] - 2026-09-11
+
+### Agregado
+
+- **Recuperación de documentos atascados**: `ReconciliationPoller` ahora también detecta documentos en estados transitorios (`CREATED`, `SIGNED`, `SENT`) sin avance desde `KEY49_RECONCILE_STALE_MINUTES` (10 min) y reencola su etapa (`doc.sign`, `doc.send` o `RECEIVED` + `doc.authorize`). Cubre casos como un reinicio del proceso entre etapas (p. ej. un documento que quedó en `SIGNED` sin enviarse).
+- **Reproceso en lote** extendido a `CREATED`/`SIGNED`/`SENT` (antes solo `FAILED`/`RECEIVED`/`RETRY`).
+
 ## [0.31.18] - 2026-09-11
 
 ### Corregido

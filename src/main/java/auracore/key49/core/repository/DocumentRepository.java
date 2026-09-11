@@ -40,4 +40,16 @@ public class DocumentRepository implements PanacheRepositoryBase<Document, UUID>
         return find("status = ?1 AND nextRetryAt <= ?2 AND updatedAt >= ?3",
                 DocumentStatus.RECEIVED, now, cutoff).list();
     }
+
+    /**
+     * Documentos atascados en un estado transitorio (CREATED/SIGNED/SENT) que no
+     * han avanzado desde hace más de {@code staleMinutes}. Su recuperación
+     * reencola la etapa correspondiente.
+     */
+    public List<Document> findStaleTransient(int staleMinutes) {
+        var cutoff = Instant.now().minus(Duration.ofMinutes(staleMinutes));
+        return find("status IN ?1 AND updatedAt <= ?2",
+                List.of(DocumentStatus.CREATED, DocumentStatus.SIGNED, DocumentStatus.SENT),
+                cutoff).list();
+    }
 }

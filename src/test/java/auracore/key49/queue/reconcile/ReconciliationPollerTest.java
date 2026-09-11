@@ -38,7 +38,9 @@ class ReconciliationPollerTest {
     public static class NoScheduler implements QuarkusTestProfile {
         @Override
         public Map<String, String> getConfigOverrides() {
-            return Map.of("quarkus.scheduler.enabled", "false");
+            return Map.of(
+                    "quarkus.scheduler.enabled", "false",
+                    "key49.reconcile.stale-minutes", "10");
         }
     }
 
@@ -94,6 +96,28 @@ class ReconciliationPollerTest {
         assertNextRetryAtNull(docDue);
     }
 
+    @Test
+    @DisplayName("recupera documentos atascados en CREATED/SIGNED/SENT")
+    void shouldRecoverStaleTransientDocuments() throws Exception {
+        UUID created;
+        UUID signed;
+        UUID sent;
+        UUID fresh;
+        try (var conn = dataSource.getConnection()) {
+            created = insertTransientDoc(conn, "000000101", "CREATED", "now() - interval '1 hour'");
+            signed = insertTransientDoc(conn, "000000102", "SIGNED", "now() - interval '1 hour'");
+            sent = insertTransientDoc(conn, "000000103", "SENT", "now() - interval '1 hour'");
+            fresh = insertTransientDoc(conn, "000000104", "SIGNED", "now()");
+        }
+
+        poller.pollReconciliations();
+
+        assertOutbox(created, "doc.sign");
+        assertOutbox(signed, "doc.send");
+        assertOutbox(sent, "doc.authorize");
+        assertNoOutbox(fresh);
+    }
+
     // ── Helpers ──
 
     private UUID insertDoc(Connection conn, String seq, String status,
@@ -110,6 +134,29 @@ class ReconciliationPollerTest {
                     ?, ?, ?, now(), %s, '<factura>signed</factura>',
                     50.00, 0.00, 0.00, 57.50, 7.50, now(), now())
                 """.formatted(SCHEMA, nextRetryAtExpr))) {
+            ps.setString(1, docId.toString());
+            ps.setString(2, seq);
+            ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
+            ps.setString(4, status);
+            ps.setString(5, accessKey);
+            ps.executeUpdate();
+        }
+        return docId;
+    }
+
+    private UUID insertTransientDoc(Connection conn, String seq, String status,
+            String updatedAtExpr) throws SQLException {
+        var docId = UUID.randomUUID();
+        var accessKey = "%049d".formatted(6000 + Long.parseLong(seq));
+        try (var ps = conn.prepareStatement("""
+                INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                    sequence_number, recipient_id_type, recipient_id, recipient_name,
+                    issue_date, status, access_key, original_xml, created_at, updated_at,
+                    subtotal_before_tax, total_discount, tip, total_amount, vat_amount)
+                VALUES (?::uuid, '01', '001', '001', ?, '04', '1792146739001', 'Test Corp',
+                    ?, ?, ?, '<factura>signed</factura>', now(), %s,
+                    50.00, 0.00, 0.00, 57.50, 7.50)
+                """.formatted(SCHEMA, updatedAtExpr))) {
             ps.setString(1, docId.toString());
             ps.setString(2, seq);
             ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));

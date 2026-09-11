@@ -505,11 +505,11 @@ del cliente de autorización la **excluye** (`@CircuitBreaker(skipOn = ...)`).
 De lo contrario, una tanda de comprobantes no registrados abriría el CB y
 bloquearía la reconciliación de los que **sí** están autorizados.
 
-### 6. Reconciliación y reproceso en lote
+### 6. Reconciliación, recuperación y reproceso en lote
 
-- `ReconciliationPoller` (cada `KEY49_RECONCILE_POLL_INTERVAL`, 2 min): reencola
-  `doc.authorize` para documentos `RECEIVED` con reconciliación vencida, **sin
-  reenviarlos**.
+- `ReconciliationPoller` (cada `KEY49_RECONCILE_POLL_INTERVAL`, 2 min):
+  - Reencola `doc.authorize` para documentos `RECEIVED` con reconciliación vencida, **sin reenviarlos**.
+  - Recupera documentos **atascados** en estados transitorios (`CREATED` → `doc.sign`, `SIGNED` → `doc.send`, `SENT` → `RECEIVED` + `doc.authorize`) que no avanzaron desde `KEY49_RECONCILE_STALE_MINUTES` (10 min) — p. ej. un reinicio del proceso entre etapas.
 - Reproceso en lote: `POST /v1/documents/reprocess` (tenant) y
   `POST /v1/admin/documents/reprocess?tenant_id=` (admin); página
   `/portal/settings/reprocess`. Los documentos ya enviados se reconcilian; los

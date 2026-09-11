@@ -31,9 +31,9 @@ import jakarta.persistence.EntityManager;
  *   <li>{@code RECEIVED} o documento ya enviado al SRI ({@code sriSubmissionDate != null}):
  *       se marca {@code RECEIVED} y se encola {@code doc.authorize} para
  *       <b>reconciliar</b> su autorización sin reenviarlo.</li>
- *   <li>{@code RETRY} sin envío previo: se encola {@code doc.send}.</li>
- *   <li>{@code FAILED} sin envío previo: se marca {@code CREATED} y se encola
- *       {@code doc.sign} (re-firma y reenvía).</li>
+ *   <li>{@code RETRY} o {@code SIGNED} sin envío previo: se encola {@code doc.send}.</li>
+ *   <li>{@code CREATED} o {@code FAILED} sin envío previo: se marca {@code CREATED}
+ *       y se encola {@code doc.sign} (re-firma y reenvía).</li>
  *   <li>{@code REJECTED}: no reprocesable (requiere un comprobante nuevo).</li>
  * </ul>
  */
@@ -118,17 +118,21 @@ public class DocumentReprocessService {
         doc.updatedAt = Instant.now();
 
         String eventType;
-        if (original == DocumentStatus.RECEIVED || doc.sriSubmissionDate != null) {
+        if (original == DocumentStatus.RECEIVED
+                || original == DocumentStatus.SENT
+                || doc.sriSubmissionDate != null) {
             // Ya fue enviado al SRI: reconciliar autorización sin reenviar.
             if (original != DocumentStatus.RECEIVED) {
                 doc.transitionTo(DocumentStatus.RECEIVED);
             }
             eventType = "doc.authorize";
-        } else if (original == DocumentStatus.RETRY) {
+        } else if (original == DocumentStatus.RETRY || original == DocumentStatus.SIGNED) {
             eventType = "doc.send";
         } else {
-            // FAILED sin envío previo: re-firmar y reenviar (vuelve al pipeline).
-            doc.transitionTo(DocumentStatus.CREATED);
+            // CREATED o FAILED sin envío previo: re-firmar y reenviar.
+            if (original == DocumentStatus.FAILED) {
+                doc.transitionTo(DocumentStatus.CREATED);
+            }
             eventType = "doc.sign";
         }
 
@@ -139,7 +143,10 @@ public class DocumentReprocessService {
     private boolean isReprocessable(DocumentStatus status) {
         return status == DocumentStatus.FAILED
                 || status == DocumentStatus.RECEIVED
-                || status == DocumentStatus.RETRY;
+                || status == DocumentStatus.RETRY
+                || status == DocumentStatus.CREATED
+                || status == DocumentStatus.SIGNED
+                || status == DocumentStatus.SENT;
     }
 
     private Set<DocumentStatus> resolveStatuses(ReprocessRequest request) {
