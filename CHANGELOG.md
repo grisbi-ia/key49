@@ -7,6 +7,16 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Agregado
+
+- **Reproceso en lote de documentos**: `POST /v1/documents/reprocess` (tenant) y `POST /v1/admin/documents/reprocess?tenant_id=<uuid>` (admin) reencolan documentos `FAILED`/`RECEIVED`/`RETRY` con filtros por estado, tipo de documento y rango de fechas. Los documentos ya enviados al SRI se **reconcilian** (se consulta su autorización) sin reenviarse; los nunca enviados se re-firman y reenvían. Página de portal en `/portal/settings/reprocess`.
+- **Reconciliación automática de autorización**: `ReconciliationPoller` reintenta periódicamente la consulta de autorización de documentos `RECEIVED` pendientes en el SRI, sin convertirlos en `FAILED` y sin reenviarlos.
+
+### Corregido
+
+- **Código SRI 43 (`CLAVE ACCESO REGISTRADA`)**: ya no se trata como error. El comprobante ya está en el SRI, por lo que se transiciona a `RECEIVED` y se reconcilia su autorización (antes agotaba reintentos, quedaba `FAILED` y contaminaba las métricas).
+- **Autorización pendiente en el SRI** (código 70 `EN PROCESAMIENTO` o respuesta sin `<autorizacion>`): el documento permanece en `RECEIVED` con una reconciliación programada, en lugar de agotar reintentos y pasar a `FAILED`.
+
 ## [0.31.13] - 2026-09-11
 
 ### Corregido

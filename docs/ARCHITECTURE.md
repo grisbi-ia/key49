@@ -423,8 +423,10 @@ Cada transición de estado está validada en código. No se permite transición 
 | `RETRY`       | `SIGNED`       | Re-procesamiento tras espera (vuelve a firmar si es necesario)           | Retry mechanism     |
 | `RETRY`       | `SENT`         | Re-envío al SRI tras espera                                              | Retry mechanism     |
 | `RETRY`       | `FAILED`       | Reintentos agotados (max 6)                                              | Retry mechanism     |
+| `RETRY`       | `RECEIVED`     | Reconciliación de autorización (documento ya en el SRI)                  | Reproceso            |
 | `REJECTED`    | `CREATED`      | Reciclaje: cliente reenvía documento con datos corregidos                | API REST            |
 | `FAILED`      | `CREATED`      | Reciclaje: cliente reenvía documento con datos corregidos                | API REST            |
+| `FAILED`      | `RECEIVED`     | Reconciliación de autorización (documento ya en el SRI)                  | Reproceso            |
 
 ### Reciclaje de documentos fallidos
 
@@ -439,6 +441,13 @@ El reciclaje:
 
 Si el documento existente está en un estado **activo** (`CREATED`, `SIGNED`, `SENT`, `RECEIVED`, `RETRY`) o **completado** (`AUTHORIZED`, `NOTIFIED`, `VOIDED`), el sistema devuelve HTTP 409 con información del documento existente (id, estado, clave de acceso si disponible).
 
+### Reconciliación y reproceso en lote
+
+Un documento puede quedar pendiente de autorización en el SRI (código `70` "en procesamiento", o una respuesta sin `<autorizacion>`) o marcado como `FAILED` aunque el comprobante **ya esté registrado** (código `43` "CLAVE ACCESO REGISTRADA"). En el código 43 el comprobante ya está emitido, por lo que tratarlo como error contamina las métricas. Para recuperarlos **sin reenviarlos**:
+
+- **Reconciliación automática**: `ReconciliationPoller` reencola `doc.authorize` para documentos `RECEIVED` con `next_retry_at` vencido (y antigüedad acotada). Los pendientes no consumen el presupuesto de reintentos de error ni pasan a `FAILED`.
+- **Reproceso en lote**: `POST /v1/documents/reprocess` (tenant) y `POST /v1/admin/documents/reprocess?tenant_id=<uuid>` (admin) reencolan documentos `FAILED`/`RECEIVED`/`RETRY` con filtros. Si el documento ya fue enviado al SRI (`sri_submission_date != null`), se marca `RECEIVED` y se **reconcilia**; si nunca se envió, se re-firma y reenvía. Los `REJECTED` no se reprocesan.
+
 ### Transiciones prohibidas (ejemplos)
 
 - `AUTHORIZED` → `CREATED` (no se puede volver atrás)
@@ -447,7 +456,7 @@ Si el documento existente está en un estado **activo** (`CREATED`, `SIGNED`, `S
 ### Estados terminales
 
 - **Terminales absolutos**: `VOIDED` (no permiten ninguna transición)
-- **Terminales reciclables**: `REJECTED`, `FAILED` (solo permiten transición a `CREATED` vía reciclaje de documento)
+- **Terminales reciclables**: `REJECTED` (solo permite transición a `CREATED` vía reciclaje) y `FAILED` (permite `CREATED` para reciclaje o `RECEIVED` para reconciliar la autorización con el SRI).
 
 ### Implementación
 
@@ -465,9 +474,9 @@ public enum DocumentStatus {
         RECEIVED,   Set.of(AUTHORIZED, REJECTED, RETRY),
         AUTHORIZED, Set.of(NOTIFIED, VOIDED),
         NOTIFIED,   Set.of(VOIDED),
-        RETRY,      Set.of(SIGNED, SENT, FAILED),
+        RETRY,      Set.of(SIGNED, SENT, RECEIVED, AUTHORIZED, FAILED),
         REJECTED,   Set.of(CREATED),
-        FAILED,     Set.of(CREATED),
+        FAILED,     Set.of(CREATED, RECEIVED),
         VOIDED,     Set.of()
     );
 

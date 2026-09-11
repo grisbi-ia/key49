@@ -25,6 +25,7 @@ import auracore.key49.core.Key49Constants;
 import auracore.key49.core.model.enums.SriEnvironment;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.sri.SriException;
+import auracore.key49.sri.SriPendingException;
 import auracore.key49.sri.client.SriAuthorizationClient;
 import auracore.key49.sri.model.AuthorizationStatus;
 import auracore.key49.sri.model.SriAuthorizationResponse;
@@ -64,6 +65,8 @@ class AuthorizeConsumerIntegrationTest {
     private UUID docIdBusinessError;
     private UUID docIdInfraError;
     private UUID docIdRetriesExhausted;
+    private UUID docIdPending;
+    private UUID docIdInProcessing;
 
     @BeforeAll
     void setup() throws Exception {
@@ -116,6 +119,14 @@ class AuthorizeConsumerIntegrationTest {
                 ps.setString(1, docIdRetriesExhausted.toString());
                 ps.executeUpdate();
             }
+
+            // Documentos recibidos cuya autorización aún está pendiente en el SRI
+            docIdPending = UUID.randomUUID();
+            insertReceivedDocument(conn, docIdPending, "000000007",
+                    ACCESS_KEY.substring(0, 48) + "7");
+            docIdInProcessing = UUID.randomUUID();
+            insertReceivedDocument(conn, docIdInProcessing, "000000008",
+                    ACCESS_KEY.substring(0, 48) + "8");
         }
     }
 
@@ -195,6 +206,37 @@ class AuthorizeConsumerIntegrationTest {
     }
 
     @Test
+    @Order(7)
+    @DisplayName("autorización pendiente (sin <autorizacion>) → permanece RECEIVED con reconciliación")
+    void shouldKeepReceived_whenAuthorizationPending() throws Exception {
+        when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
+                .thenThrow(new SriPendingException("No 'autorizacion' element"));
+
+        authorizeConsumer.process(toJson(docIdPending));
+
+        assertDocumentStatus(docIdPending, "RECEIVED");
+        assertNextRetryAtSet(docIdPending);
+    }
+
+    @Test
+    @Order(8)
+    @DisplayName("SRI responde 70 (en procesamiento) → permanece RECEIVED con reconciliación")
+    void shouldKeepReceived_whenInProcessing() throws Exception {
+        var messages = List.of(
+                new SriMessage("70", "CLAVE DE ACCESO EN PROCESAMIENTO", null, "ERROR"));
+        var response = new SriAuthorizationResponse(
+                AuthorizationStatus.NO_AUTORIZADO, null, null,
+                ACCESS_KEY.substring(0, 48) + "8", null, messages);
+        when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
+                .thenReturn(response);
+
+        authorizeConsumer.process(toJson(docIdInProcessing));
+
+        assertDocumentStatus(docIdInProcessing, "RECEIVED");
+        assertNextRetryAtSet(docIdInProcessing);
+    }
+
+    @Test
     @Order(5)
     @DisplayName("tenant inexistente no genera excepción")
     void shouldHandleNonExistentTenant() {
@@ -247,6 +289,20 @@ class AuthorizeConsumerIntegrationTest {
             ps.setString(4, status);
             ps.setString(5, accessKey);
             ps.executeUpdate();
+        }
+    }
+
+    private void assertNextRetryAtSet(UUID docId) throws SQLException {
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(
+                     "SELECT next_retry_at FROM %s.documents WHERE document_id = ?::uuid"
+                             .formatted(TENANT_SCHEMA))) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertNotNull(rs.getTimestamp("next_retry_at"),
+                        "Debe programarse una reconciliación (next_retry_at)");
+            }
         }
     }
 

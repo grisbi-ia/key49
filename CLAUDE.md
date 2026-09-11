@@ -99,7 +99,12 @@ Códigos: 35 (ya registrado), 45 (fecha fuera de rango), 52 (estructura inválid
 
 ### Errores que SÍ se reintentan
 
-Timeouts, conexión rechazada, HTTP 500 del SRI, código 43 (clave duplicada → regenerar clave).
+Timeouts, conexión rechazada, HTTP 500 del SRI.
+
+### Códigos SRI especiales
+
+- **43 (`CLAVE ACCESO REGISTRADA`)**: NO es un error. El comprobante ya está registrado en el SRI. Se transiciona a `RECEIVED` y se **reconcilia** su autorización (consultar el servicio de Autorización). No se reenvía ni se regenera la clave de acceso (regenerarla crearía un comprobante duplicado).
+- **70 (`CLAVE DE ACCESO EN PROCESAMIENTO`)**: estado transitorio. El documento permanece en `RECEIVED` y se reconcilia más tarde.
 
 ### Ambiente de Pruebas SRI
 

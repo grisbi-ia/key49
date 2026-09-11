@@ -1,0 +1,58 @@
+{#include portal/layout}
+{#title}Reprocesar documentos{/title}
+{#body}
+<h3>Reprocesar documentos</h3>
+
+{#if error}
+<article aria-label="Error" style="border-left: 4px solid #ff4136; padding: 1rem; margin-bottom: 1rem;">
+    <p style="color: #ff4136; margin: 0;"><strong>{error}</strong></p>
+</article>
+{/if}
+
+{#if successMsg}
+<article aria-label="Resultado" style="border-left: 4px solid #2ecc40; padding: 1rem; margin-bottom: 1rem;">
+    <p style="margin: 0;"><strong>{successMsg}</strong></p>
+    {#if result}
+    <p style="margin: 0.5rem 0 0;">
+        Coincidentes: <strong>{result.matched}</strong> ·
+        Reencolados: <strong>{result.queued}</strong> ·
+        Omitidos: <strong>{result.skipped}</strong>
+    </p>
+    {/if}
+</article>
+{/if}
+
+<p>
+    Reencola documentos atascados o fallidos para que Key49 los vuelva a procesar.
+    Los documentos <strong>ya enviados al SRI</strong> se <em>reconcilian</em> (se consulta su
+    autorización) <strong>sin reenviarse</strong>; los nunca enviados se re-firman y reenvían.
+    Los documentos <code>REJECTED</code> no se reprocesan (requieren un comprobante nuevo).
+</p>
+
+<form method="post" action="/portal/settings/reprocess">
+    <article>
+        <header><strong>Filtros</strong></header>
+        <fieldset>
+            <legend>Estados a reprocesar</legend>
+            <label><input type="checkbox" name="statuses" value="FAILED" checked> FAILED</label>
+            <label><input type="checkbox" name="statuses" value="RECEIVED" checked> RECEIVED</label>
+            <label><input type="checkbox" name="statuses" value="RETRY" checked> RETRY</label>
+        </fieldset>
+        <div class="grid">
+            <label>Emitidos desde
+                <input type="date" name="date_from">
+            </label>
+            <label>Emitidos hasta
+                <input type="date" name="date_to">
+            </label>
+            <label>Límite del lote
+                <input type="number" name="limit" value="500" min="1" max="2000">
+            </label>
+        </div>
+        <small>El límite máximo por lote es 2000. Si hay más documentos, repita la operación.</small>
+    </article>
+    <button type="submit">Reprocesar en lote</button>
+</form>
+
+{/body}
+{/include}

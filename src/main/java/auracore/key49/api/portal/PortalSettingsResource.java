@@ -6,7 +6,9 @@ import java.net.Socket;
 import java.net.URI;
 import java.nio.file.Files;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -14,9 +16,13 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import auracore.key49.api.dto.ReprocessRequest;
+import auracore.key49.api.dto.ReprocessResult;
+import auracore.key49.api.exception.BusinessException;
 import auracore.key49.api.portal.PortalSessionService.PortalSession;
 import auracore.key49.core.Key49Constants;
 import auracore.key49.core.service.AuditService;
+import auracore.key49.core.service.DocumentReprocessService;
 import auracore.key49.core.service.PasswordHasher;
 import auracore.key49.core.service.TenantAdminService;
 import auracore.key49.core.service.TenantAdminService.UpdateTenantData;
@@ -24,10 +30,10 @@ import auracore.key49.signer.CertificateEncryptor;
 import auracore.key49.signer.CertificateMetadataExtractor;
 import auracore.key49.signer.SigningException;
 import auracore.key49.storage.ObjectStorageService;
-import io.quarkus.qute.Location;
-import io.quarkus.qute.Template;
+import io.quarkus.qute.Location;import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.FormParam;
@@ -72,6 +78,10 @@ public class PortalSettingsResource {
     Template settingsWebhook;
 
     @Inject
+    @Location("portal/settings-reprocess")
+    Template settingsReprocess;
+
+    @Inject
     @Location("portal/settings-delete")
     Template settingsDelete;
 
@@ -83,6 +93,9 @@ public class PortalSettingsResource {
 
     @Inject
     AuditService auditService;
+
+    @Inject
+    DocumentReprocessService reprocessService;
 
     @Inject
     ObjectStorageService storageService;
@@ -633,6 +646,61 @@ public class PortalSettingsResource {
                 + encodeQuery("Configuración de webhook actualizada correctamente"))).build();
     }
 
+    // ── Reproceso en lote ──
+    @GET
+    @Path("/reprocess")
+    @Produces(MediaType.TEXT_HTML)
+    public TemplateInstance reprocessPage(@QueryParam("error") String error,
+            @QueryParam("success") String success,
+            @QueryParam("matched") Integer matched,
+            @QueryParam("queued") Integer queued,
+            @QueryParam("skipped") Integer skipped) {
+        var session = getSession();
+        ReprocessResult result = matched == null ? null
+                : new ReprocessResult(matched, queued != null ? queued : 0,
+                        skipped != null ? skipped : 0, java.util.Map.of());
+        return settingsReprocess.data("session", session)
+                .data("error", error)
+                .data("successMsg", success)
+                .data("result", result);
+    }
+
+    @POST
+    @Path("/reprocess")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
+    public Response doReprocess(
+            @FormParam("statuses") List<String> statuses,
+            @FormParam("date_from") String dateFrom,
+            @FormParam("date_to") String dateTo,
+            @FormParam("limit") Integer limit,
+            @Context HttpServerRequest httpRequest) {
+
+        var session = getSession();
+        try {
+            var request = new ReprocessRequest(statuses, null,
+                    parseDateOrNull(dateFrom), parseDateOrNull(dateTo), limit);
+            var result = reprocessService.reprocess(session.schemaName(), request);
+
+            auditService.record(session.tenantId(), "portal", "document.reprocess",
+                    "document", null, AuditService.resolveIp(httpRequest),
+                    new JsonObject().put("matched", result.matched())
+                            .put("queued", result.queued()).encode());
+
+            log.infof("Batch reprocess via portal | tenantId=%s matched=%d queued=%d",
+                    session.tenantId(), result.matched(), result.queued());
+
+            return Response.seeOther(URI.create("/portal/settings/reprocess?success="
+                    + encodeQuery("Reproceso iniciado")
+                    + "&matched=" + result.matched()
+                    + "&queued=" + result.queued()
+                    + "&skipped=" + result.skipped())).build();
+        } catch (BusinessException e) {
+            return Response.seeOther(URI.create("/portal/settings/reprocess?error="
+                    + encodeQuery(e.getMessage()))).build();
+        }
+    }
+
     // ── Eliminar cuenta ──
     @GET
     @Path("/delete")
@@ -692,6 +760,17 @@ public class PortalSettingsResource {
     }
 
     // ── Helpers ──
+    private static LocalDate parseDateOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
     private PortalSession getSession() {
         return (PortalSession) requestContext.getProperty(PortalAuthFilter.PORTAL_SESSION_ATTR);
     }

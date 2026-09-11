@@ -34,4 +34,23 @@ public record SriMessage(
                 || identifier.equals("52") || identifier.equals("65")
                 || identifier.equals("96"));
     }
+
+    /**
+     * Indica si el mensaje corresponde al código {@code 43} ("CLAVE ACCESO
+     * REGISTRADA"), es decir, el comprobante con esa clave ya fue recibido por
+     * el SRI. No es un error para Key49: el documento debe reconciliarse
+     * consultando su autorización, sin reenviarlo.
+     */
+    public boolean isAlreadyRegistered() {
+        return "ERROR".equalsIgnoreCase(type) && "43".equals(identifier);
+    }
+
+    /**
+     * Indica si el mensaje corresponde al código {@code 70} ("CLAVE DE ACCESO
+     * EN PROCESAMIENTO"): el SRI aún está procesando el comprobante. Es un
+     * estado transitorio que debe reintentarse más tarde.
+     */
+    public boolean isInProcessing() {
+        return "ERROR".equalsIgnoreCase(type) && "70".equals(identifier);
+    }
 }

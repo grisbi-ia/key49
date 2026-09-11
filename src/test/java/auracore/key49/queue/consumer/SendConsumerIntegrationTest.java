@@ -9,6 +9,7 @@ import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -64,6 +65,7 @@ class SendConsumerIntegrationTest {
     private UUID docIdInfraError;
     private UUID docIdRetriesExhausted;
     private UUID docIdNoXml;
+    private UUID docIdAlreadyRegistered;
 
     @BeforeAll
     void setup() throws Exception {
@@ -124,6 +126,10 @@ class SendConsumerIntegrationTest {
                 ps.setString(1, docIdNoXml.toString());
                 ps.executeUpdate();
             }
+
+            // Documento cuyo comprobante ya está registrado en el SRI (código 43)
+            docIdAlreadyRegistered = UUID.randomUUID();
+            insertSignedDocument(conn, docIdAlreadyRegistered, "000000006", "SIGNED", "6");
         }
     }
 
@@ -221,13 +227,30 @@ class SendConsumerIntegrationTest {
 
     @Test
     @Order(6)
+    @DisplayName("SRI responde código 43 (clave acceso registrada) → RECEIVED y reconcilia, sin error")
+    void shouldReconcile_whenAccessKeyAlreadyRegistered() throws Exception {
+        var messages = List.of(
+                new SriMessage("43", "CLAVE ACCESO REGISTRADA", null, "ERROR"));
+        var response = new SriReceptionResponse(ReceptionStatus.DEVUELTA, null, messages);
+        when(sriReceptionClient.send(any(String.class), eq(SriEnvironment.TEST)))
+                .thenReturn(response);
+
+        sendConsumer.process(toJson(docIdAlreadyRegistered));
+
+        assertDocumentStatus(docIdAlreadyRegistered, "RECEIVED");
+        assertOutboxEventCreated(docIdAlreadyRegistered, "doc.authorize");
+        assertNoErrorCode(docIdAlreadyRegistered);
+    }
+
+    @Test
+    @Order(7)
     @DisplayName("tenant inexistente no genera excepción")
     void shouldHandleNonExistentTenant() {
         sendConsumer.process(toJson(UUID.randomUUID(), "tenant_inexistente"));
     }
 
     @Test
-    @Order(7)
+    @Order(8)
     @DisplayName("documento inexistente no genera excepción")
     void shouldHandleNonExistentDocument() {
         sendConsumer.process(toJson(UUID.randomUUID(), TENANT_SCHEMA));
@@ -297,6 +320,19 @@ class SendConsumerIntegrationTest {
                 assertTrue(rs.next());
                 assertEquals(expectedErrorCode, rs.getString("last_error_code"));
                 assertNotNull(rs.getString("last_error_message"));
+            }
+        }
+    }
+
+    private void assertNoErrorCode(UUID docId) throws SQLException {
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(
+                     "SELECT last_error_code FROM %s.documents WHERE document_id = ?::uuid"
+                             .formatted(TENANT_SCHEMA))) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertNull(rs.getString("last_error_code"));
             }
         }
     }

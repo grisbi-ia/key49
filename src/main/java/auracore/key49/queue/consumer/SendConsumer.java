@@ -153,7 +153,22 @@ public class SendConsumer {
             if (response.isReceived()) {
                 doc.transitionTo(DocumentStatus.SENT);
                 doc.transitionTo(DocumentStatus.RECEIVED);
+                doc.nextRetryAt = null;
                 log.infof("SendConsumer: document %s received by SRI", doc.id);
+                var outbox = OutboxEvent.create(doc.id, "doc.authorize", "{}");
+                em.persist(outbox);
+
+            } else if (hasAlreadyRegistered(response.messages())) {
+                // Código 43 "CLAVE ACCESO REGISTRADA": el SRI ya tiene el comprobante con
+                // esta clave de acceso. NO es un error: no se reenvía, se consulta su
+                // autorización (reconciliación). Evita marcarlo como FAILED.
+                doc.transitionTo(DocumentStatus.SENT);
+                doc.transitionTo(DocumentStatus.RECEIVED);
+                doc.nextRetryAt = null;
+                doc.lastErrorCode = null;
+                doc.lastErrorMessage = null;
+                log.infof("SendConsumer: document %s already registered at SRI (code 43) — reconciling authorization",
+                        doc.id);
                 var outbox = OutboxEvent.create(doc.id, "doc.authorize", "{}");
                 em.persist(outbox);
 
@@ -246,6 +261,10 @@ public class SendConsumer {
         } catch (JsonProcessingException e) {
             return messages.toString();
         }
+    }
+
+    static boolean hasAlreadyRegistered(List<SriMessage> messages) {
+        return messages.stream().anyMatch(SriMessage::isAlreadyRegistered);
     }
 
     static String extractFirstErrorCode(List<SriMessage> messages) {

@@ -3,12 +3,12 @@ package auracore.key49.queue.consumer;
 /**
  * SQL DDL helpers compartidos por los tests de integración de consumers.
  */
-final class TestSchemaHelper {
+public final class TestSchemaHelper {
 
     private TestSchemaHelper() {
     }
 
-    static String documentsTableSql(String schema) {
+    public static String documentsTableSql(String schema) {
         return """
                 CREATE TABLE IF NOT EXISTS %s.documents (
                     document_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,7 +70,7 @@ final class TestSchemaHelper {
                 """.formatted(schema, schema, schema, schema);
     }
 
-    static String outboxTableSql(String schema) {
+    public static String outboxTableSql(String schema) {
         return """
                 CREATE TABLE IF NOT EXISTS %s.outbox (
                     outbox_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,7 +85,7 @@ final class TestSchemaHelper {
                 """.formatted(schema);
     }
 
-    static String webhookDeliveriesTableSql(String schema) {
+    public static String webhookDeliveriesTableSql(String schema) {
         return """
                 CREATE TABLE IF NOT EXISTS %s.webhook_deliveries (
                     webhook_delivery_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

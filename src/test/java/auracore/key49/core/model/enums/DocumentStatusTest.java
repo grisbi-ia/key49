@@ -28,8 +28,10 @@ class DocumentStatusTest {
         "RETRY, SENT",
         "RETRY, AUTHORIZED",
         "RETRY, FAILED",
+        "RETRY, RECEIVED",
         "REJECTED, CREATED",
-        "FAILED, CREATED"
+        "FAILED, CREATED",
+        "FAILED, RECEIVED"
     })
     void shouldAllowValidTransition(DocumentStatus from, DocumentStatus to) {
         assertTrue(from.canTransitionTo(to),
@@ -70,8 +72,8 @@ class DocumentStatusTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = DocumentStatus.class, names = {"REJECTED", "FAILED"})
-    void retryableTerminalsShouldOnlyTransitionToCreated(DocumentStatus status) {
+    @EnumSource(value = DocumentStatus.class, names = {"REJECTED"})
+    void rejectedShouldOnlyTransitionToCreated(DocumentStatus status) {
         assertTrue(status.isTerminal());
         assertTrue(status.isRetryableTerminal());
         assertTrue(status.canTransitionTo(DocumentStatus.CREATED));
@@ -81,6 +83,17 @@ class DocumentStatusTest {
                         "Expected %s -> %s to be invalid".formatted(status, target));
             }
         }
+    }
+
+    @Test
+    void failedIsTerminalAndCanReconcile() {
+        assertTrue(DocumentStatus.FAILED.isTerminal());
+        assertTrue(DocumentStatus.FAILED.isRetryableTerminal());
+        // Reintento completo (re-firmar) o reconciliación de autorización
+        assertTrue(DocumentStatus.FAILED.canTransitionTo(DocumentStatus.CREATED));
+        assertTrue(DocumentStatus.FAILED.canTransitionTo(DocumentStatus.RECEIVED));
+        // No puede saltar directo a AUTHORIZED
+        assertFalse(DocumentStatus.FAILED.canTransitionTo(DocumentStatus.AUTHORIZED));
     }
 
     @ParameterizedTest

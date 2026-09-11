@@ -1,9 +1,11 @@
 package auracore.key49.queue.consumer;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.exceptions.CircuitBreakerOpenException;
 import org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
@@ -24,6 +26,7 @@ import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.retry.RetryDelayCalculator;
 import auracore.key49.sri.SriException;
+import auracore.key49.sri.SriPendingException;
 import auracore.key49.sri.client.SriAuthorizationClient;
 import auracore.key49.sri.model.SriAuthorizationResponse;
 import auracore.key49.sri.model.SriMessage;
@@ -68,6 +71,9 @@ public class AuthorizeConsumer {
 
     @Inject
     InFlightTracker tracker;
+
+    @ConfigProperty(name = "key49.reconcile.interval", defaultValue = "10m")
+    Duration reconcileInterval;
 
     @Incoming("doc-authorize-in")
     @Blocking
@@ -124,6 +130,8 @@ public class AuthorizeConsumer {
                 } catch (TimeoutException ex) {
                     handleInfraError(event,
                             new SriException("SRI authorization timeout exceeded", ex));
+                } catch (SriPendingException ex) {
+                    handlePending(event, ex.getMessage());
                 } catch (SriException ex) {
                     handleInfraError(event, ex);
                 }
@@ -179,12 +187,42 @@ public class AuthorizeConsumer {
 
             } else {
                 var sriSummary = summarizeMessages(response.messages());
-                log.warnf("AuthorizeConsumer: document %s not authorized (no business errors), SRI messages=%s",
+                log.infof("AuthorizeConsumer: document %s pending at SRI (not yet authorized), messages=%s",
                         doc.id, sriSummary);
-                handleRetryTransition(doc, em, event.tenantSchemaName(),
-                        sriSummary,
-                        "AuthorizeConsumer");
+                handlePendingTransition(doc, em, event.tenantSchemaName(), sriSummary);
             }
+            return null;
+        });
+    }
+
+    /**
+     * Reintenta la autorización más tarde sin consumir el presupuesto de reintentos
+     * de error: mantiene el documento en {@code RECEIVED} y programa una
+     * reconciliación. El {@code ReconciliationPoller} volverá a consultar el SRI.
+     * Para estados que no admiten volver a RECEIVED se aplica el reintento normal.
+     */
+    private void handlePendingTransition(Document doc, EntityManager em,
+            String schemaName, String reason) {
+        if (doc.status == DocumentStatus.RECEIVED) {
+            doc.lastErrorMessage = reason;
+            doc.nextRetryAt = Instant.now().plus(reconcileInterval);
+            doc.updatedAt = Instant.now();
+            log.infof("AuthorizeConsumer: document %s pending authorization, next reconcile at %s",
+                    doc.id, doc.nextRetryAt);
+            return;
+        }
+        handleRetryTransition(doc, em, schemaName, reason, "AuthorizeConsumer");
+    }
+
+    private void handlePending(DocumentEvent event, String reason) {
+        log.infof("AuthorizeConsumer: document %s authorization pending at SRI: %s",
+                event.documentId(), reason);
+        connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+            var doc = em.find(Document.class, event.documentId());
+            if (doc == null) {
+                return null;
+            }
+            handlePendingTransition(doc, em, event.tenantSchemaName(), reason);
             return null;
         });
     }

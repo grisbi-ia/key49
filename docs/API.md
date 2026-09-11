@@ -1022,6 +1022,51 @@ recipient_id, recipient_name, total_amount, status, issue_date, authorization_da
 
 ---
 
+## Reproceso en lote de documentos
+
+Reencola documentos `FAILED`, `RECEIVED` o `RETRY` para volver a procesarlos. Los documentos **ya enviados al SRI** se **reconcilian** (se consulta su autorización) **sin reenviarse**; los nunca enviados se re-firman y reenvían. Los `REJECTED` no son reprocesables.
+
+### `POST /v1/documents/reprocess` (tenant autenticado)
+
+Reencola documentos del tenant de la API key. El tenant se toma del contexto de autenticación (nunca del body).
+
+**Body (todos los campos son opcionales):**
+
+```json
+{
+  "statuses": ["FAILED", "RECEIVED", "RETRY"],
+  "document_types": ["01"],
+  "date_from": "2026-09-01",
+  "date_to": "2026-09-11",
+  "limit": 500
+}
+```
+
+- `statuses`: por defecto `FAILED`, `RECEIVED`, `RETRY`. Enviar `REJECTED` devuelve `400`.
+- `limit`: por defecto `500`, máximo `2000`.
+
+**Respuesta `200`:**
+
+```json
+{
+  "data": {
+    "matched": 38,
+    "queued": 38,
+    "skipped": 0,
+    "by_status": { "FAILED": 27, "RECEIVED": 11 }
+  },
+  "meta": { "request_id": "req_...", "timestamp": "..." }
+}
+```
+
+### `POST /v1/admin/documents/reprocess?tenant_id=<uuid>` (admin)
+
+Mismo body. Requiere `X-Admin-Token` y el `tenant_id` como query param. Devuelve los mismos contadores (sin datos de documentos).
+
+> El portal del tenant ofrece la misma operación en **`/portal/settings/reprocess`**.
+
+---
+
 ## 9. Consulta SRI — `GET /v1/sri/authorize/:accessKey`
 
 Consulta el estado de autorización de un comprobante directamente al SRI.
