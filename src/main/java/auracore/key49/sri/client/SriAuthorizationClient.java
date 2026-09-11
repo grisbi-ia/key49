@@ -12,6 +12,7 @@ import org.eclipse.microprofile.faulttolerance.Timeout;
 
 import auracore.key49.core.model.enums.SriEnvironment;
 import auracore.key49.sri.SriException;
+import auracore.key49.sri.SriNotRegisteredException;
 import auracore.key49.sri.config.SriEndpoints;
 import auracore.key49.sri.model.SriAuthorizationResponse;
 import auracore.key49.sri.parser.SriAuthorizationResponseParser;
@@ -72,7 +73,8 @@ public class SriAuthorizationClient {
             requestVolumeThreshold = 10,
             failureRatio = 0.5,
             delay = 30000,
-            successThreshold = 3
+            successThreshold = 3,
+            skipOn = SriNotRegisteredException.class
     )
     @Timeout(25000)
     public SriAuthorizationResponse authorize(String accessKey, SriEnvironment environment) {

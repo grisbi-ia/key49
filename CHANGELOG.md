@@ -7,6 +7,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.17] - 2026-09-11
+
+### Corregido
+
+- **Circuit breaker de autorización**: el resultado `NO_REGISTRADA` (`numeroComprobantes=0`) ya no abre el circuit breaker. Se agrega `skipOn = SriNotRegisteredException.class` para que los resultados permanentes esperados no cuenten como fallos. Con muchos comprobantes no registrados, el CB se abría y bloqueaba la reconciliación de los comprobantes que sí estaban autorizados.
+
 ## [0.31.16] - 2026-09-11
 
 ### Corregido
