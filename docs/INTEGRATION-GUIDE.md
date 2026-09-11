@@ -216,12 +216,18 @@ curl -s https://key49.apx5.com/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851 
 | `CREATED` | Creado, entrando a la cola de firma |
 | `SIGNED` | XML firmado con XAdES-BES |
 | `SENT` | Enviado al SRI |
-| `RECEIVED` | SRI confirmó recepción |
-| `AUTHORIZED` | ✅ **Autorizado por el SRI** — ¡listo! |
-| `NOTIFIED` | Email con PDF + XML enviado al receptor |
-| `REJECTED` | ❌ Rechazado por el SRI |
-| `FAILED` | ❌ Reintentos agotados |
+| `RECEIVED` | SRI confirmó recepción (pendiente de autorización) |
+| `AUTHORIZED` | ✅ **Autorizado por el SRI** |
+| `NOTIFIED` | Email con PDF + XML enviado al receptor (estado final) |
+| `REJECTED` | ❌ Rechazado (error de negocio del SRI, o `NO_REG` de Key49) |
+| `FAILED` | ❌ Reintentos de infraestructura agotados |
+| `RETRY` | ⏳ Reintentando con backoff |
 | `VOIDED` | Anulado localmente |
+
+> **Key49 reprocesa automáticamente**: reintenta errores de infraestructura, reconcilia
+autorizaciones pendientes en el SRI y recupera documentos atascados. En el flujo
+normal **no necesitas hacer nada**; solo se considera emitido cuando llega a
+`AUTHORIZED`/`NOTIFIED`.
 
 ### Polling para autorización
 
@@ -305,23 +311,34 @@ Si reenvías el mismo `X-Idempotency-Key` con un body diferente:
 
 ### Errores del SRI (en el status del documento)
 
-Cuando `status = REJECTED`, revisa `sri_messages` en el GET del documento:
+Cuando `status = REJECTED`, revisa `sri_messages` y `last_error_code` en el GET del documento:
 
 ```json
 {
   "data": {
     "status": "REJECTED",
+    "last_error_code": "45",
     "sri_messages": [
-      {
-        "code": "43",
-        "message": "CLAVE DE ACCESO REGISTRADA"
-      }
+      { "identifier": "45", "message": "ERROR SECUENCIAL REGISTRADO", "type": "ERROR" }
     ]
   }
 }
 ```
 
-**Códigos SRI que no se reintentan:** 35 (ya registrado), 45 (fecha fuera de rango), 52 (estructura inválida), 65 (fecha futura).
+| Código / señal | Significado | Estado resultante | Acción |
+|---|---|---|---|
+| `35` | Comprobante ya registrado | `REJECTED` | Usar nueva numeración |
+| `45` | Error secuencial registrado | `REJECTED` | Usar nueva numeración |
+| `52` | Estructura XML inválida | `REJECTED` | Corregir datos y reemitir |
+| `65` | Fecha futura | `REJECTED` | Corregir fecha |
+| `96` | No es agente de retención | `REJECTED` | — |
+| `NO_REG` | Clave no registrada en el SRI (envío antiguo) | `REJECTED` | Investigar en el portal del SRI |
+| `43` | Clave acceso registrada (recepción) | `RECEIVED` → reconcilia | **No reemitir** |
+| `70` | Clave de acceso en procesamiento | `RECEIVED` → reconcilia | Esperar |
+
+> ⚠️ El servicio de autorización del SRI solo devuelve autorizaciones **recientes**
+> (~del mismo día). Para comprobantes antiguos puede responder `numeroComprobantes=0`
+> aunque estén autorizados; verificar en el portal del SRI antes de reemitir.
 
 ---
 
@@ -437,7 +454,87 @@ try {
 
 ---
 
-## 10. Checklist para el Agente Pi
+## 10. Webhooks
+
+Si configuras un webhook en el portal del tenant, Key49 envía un `POST` con firma
+HMAC-SHA256 (header `X-Key49-Signature`) ante estos eventos:
+
+| Evento | Cuándo se dispara |
+|---|---|
+| `document.authorized` | El SRI autorizó el comprobante |
+| `document.rejected` | El SRI rechazó el comprobante (error de negocio) |
+| `document.failed` | Se agotaron los reintentos de infraestructura |
+| `document.voided` | Anulación local del comprobante |
+
+**Payload (resumen):**
+
+```json
+{
+  "event": "document.failed",
+  "document_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "access_key": "1109202601...",
+  "document_type": "01",
+  "status": "FAILED",
+  "timestamp": "2026-09-11T18:00:00Z"
+}
+```
+
+> Usa `document.failed` como **señal** de que un documento agotó los reintentos. Si
+> la causa ya se resolvió (SRI caído, red, etc.), reprocésalo (siguiente sección).
+
+---
+
+## 11. Reproceso de documentos
+
+Key49 reprocesa **automáticamente** (reintentos, reconciliación y recuperación de
+atascados). Solo conviene forzarlo manualmente cuando:
+
+- Hay documentos en `FAILED` tras una **caída prolongada del SRI** ya resuelta.
+- Después de una **incidencia externa** (SRI, red, certificado renovado).
+- Se quiere **forzar** la reconciliación de un rango concreto.
+
+### `POST /v1/documents/reprocess` (API key del tenant)
+
+```bash
+curl -X POST https://key49.apx5.com/v1/documents/reprocess \
+  -H "Authorization: Bearer k49_XXXX" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "statuses": ["FAILED","RECEIVED","RETRY","SIGNED"],
+    "document_types": ["01"],
+    "date_from": "2026-09-01",
+    "date_to": "2026-09-11",
+    "limit": 500
+  }'
+```
+
+| Campo | Descripción |
+|---|---|
+| `statuses` | Estados a reprocesar. Por defecto `FAILED`, `RECEIVED`, `RETRY` (también acepta `CREATED`, `SIGNED`, `SENT`). |
+| `document_types` | Tipos de documento (`01`, `03`, ...) |
+| `date_from` / `date_to` | Rango por fecha de emisión |
+| `limit` | Máximo por lote (por defecto 500, máx 2000) |
+
+**Respuesta:**
+
+```json
+{ "data": { "matched": 12, "queued": 12, "skipped": 0, "by_status": { "FAILED": 12 } } }
+```
+
+**Comportamiento:**
+
+- **Idempotente**: no genera duplicados ante el SRI.
+- Documentos **ya enviados** → se **reconcilian** (consultan su autorización), **no se reenvían**.
+- Documentos **nunca enviados** → se re-firman y reenvían.
+- **`REJECTED` de negocio** (45, 52, 65...) **no se reprocesan** → requieren un comprobante nuevo.
+- Solo tu tenant (derivado del API key).
+
+> El mismo reproceso está disponible desde el portal del tenant en
+> `/portal/settings/reprocess`.
+
+---
+
+## 12. Checklist para el Agente Pi
 
 Antes de enviar facturas, verifica:
 
