@@ -7,6 +7,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.18] - 2026-09-11
+
+### Corregido
+
+- **Métricas del portal (`/portal/metrics`)**: se separa **"Rechazados"** de **"Fallidos"** (antes el portal agrupaba `REJECTED + FAILED` bajo "Fallidos", lo que confundía). La tarjeta "Rechazados" ahora muestra el desglose:
+  - **Ya en el SRI** (códigos `45`/`35`/`43`: secuencial o clave ya registrada) → **no re-emitir** (el comprobante ya está emitido).
+  - **A revisar** (códigos `NO_REG`, `52`, `65`, `96`, ...).
+- **`VOIDED`** ahora cuenta como autorizado en las métricas del portal (consistente con el API `/v1/metrics/summary`).
+
 ## [0.31.17] - 2026-09-11
 
 ### Corregido

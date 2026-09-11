@@ -869,22 +869,37 @@ public class PortalResource {
             @SuppressWarnings("unchecked")
             var rows = (List<Object[]>) em.createNativeQuery(
                     "SELECT status, count(*) FROM documents GROUP BY status").getResultList();
-            long authorized = 0, inProcess = 0, failed = 0, total = 0;
+            long authorized = 0, inProcess = 0, rejected = 0, failed = 0, total = 0;
             for (var row : rows) {
                 var status = (String) row[0];
                 var count = ((Number) row[1]).longValue();
                 total += count;
                 switch (status) {
-                    case "AUTHORIZED", "NOTIFIED" ->
-                        authorized += count;
-                    case "REJECTED", "FAILED" ->
-                        failed += count;
-                    default ->
-                        inProcess += count;
+                    case "AUTHORIZED", "NOTIFIED", "VOIDED" -> authorized += count;
+                    case "REJECTED" -> rejected += count;
+                    case "FAILED" -> failed += count;
+                    default -> inProcess += count;
+                }
+            }
+            // Desglose de RECHAZADOS: los que el SRI ya tiene (45/35/43 — ya emitidos,
+            // NO re-emitir) vs los que requieren revisión (NO_REG, 52, 65, 96, ...).
+            @SuppressWarnings("unchecked")
+            var rejRows = (List<Object[]>) em.createNativeQuery(
+                    "SELECT COALESCE(last_error_code,''), count(*) FROM documents "
+                    + "WHERE status='REJECTED' GROUP BY last_error_code").getResultList();
+            long rejectedAtSri = 0, rejectedReview = 0;
+            for (var row : rejRows) {
+                var code = (String) row[0];
+                var count = ((Number) row[1]).longValue();
+                if ("45".equals(code) || "35".equals(code) || "43".equals(code)) {
+                    rejectedAtSri += count;
+                } else {
+                    rejectedReview += count;
                 }
             }
             return Map.of("authorized", authorized, "inProcess", inProcess,
-                    "failed", failed, "total", total);
+                    "rejected", rejected, "failed", failed, "total", total,
+                    "rejectedAtSri", rejectedAtSri, "rejectedReview", rejectedReview);
         });
 
         // 2. Documents per day (last 30 days)
@@ -941,6 +956,9 @@ public class PortalResource {
         return metrics.data("session", session)
                 .data("authorized", statusCounts.get("authorized"))
                 .data("inProcess", statusCounts.get("inProcess"))
+                .data("rejected", statusCounts.get("rejected"))
+                .data("rejectedAtSri", statusCounts.get("rejectedAtSri"))
+                .data("rejectedReview", statusCounts.get("rejectedReview"))
                 .data("failed", statusCounts.get("failed"))
                 .data("total", statusCounts.get("total"))
                 .data("dailyData", dailyData)

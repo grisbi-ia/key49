@@ -13,6 +13,16 @@
         <p class="metric-value">{inProcess}</p>
     </article>
     <article class="metric-card">
+        <header style="background:#ff851b;color:#fff;padding:0.5rem 1rem">Rechazados ⚠</header>
+        <p class="metric-value">{rejected}</p>
+        {#if rejected > 0}
+        <small>
+            Ya en el SRI, <strong>no re-emitir</strong>: {rejectedAtSri}<br>
+            A revisar: {rejectedReview}
+        </small>
+        {/if}
+    </article>
+    <article class="metric-card">
         <header style="background:#ff4136;color:#fff;padding:0.5rem 1rem">Fallidos ✗</header>
         <p class="metric-value">{failed}</p>
     </article>
