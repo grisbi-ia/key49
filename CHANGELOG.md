@@ -7,6 +7,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.23] - 2026-09-11
+
+### Agregado
+
+- **Recuperación automática de documentos `FAILED` por infraestructura**: `ReconciliationPoller` reencola los `FAILED` sin código de negocio (circuit breaker, timeout, conexión) tras `KEY49_RECOVER_FAILED_COOLDOWN_MINUTES` (15 min), dentro de `KEY49_RECOVER_FAILED_MAX_AGE_HOURS` (24 h). Si el documento ya fue enviado se reconcilia; si no, se re-firma. Los `FAILED`/`REJECTED` por error de negocio no se tocan. Antes, un `FAILED` por una caída temporal del SRI requería reproceso manual.
+
 ## [0.31.22] - 2026-09-11
 
 ### Agregado

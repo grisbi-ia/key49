@@ -52,6 +52,12 @@ public class ReconciliationPoller {
     @ConfigProperty(name = "key49.reconcile.stale-minutes", defaultValue = "10")
     int staleMinutes;
 
+    @ConfigProperty(name = "key49.recover.failed.cooldown-minutes", defaultValue = "15")
+    int recoverFailedCooldownMinutes;
+
+    @ConfigProperty(name = "key49.recover.failed.max-age-hours", defaultValue = "24")
+    int recoverFailedMaxAgeHours;
+
     @Scheduled(every = "${key49.reconcile.poll-interval:2m}",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void pollReconciliations() {
@@ -86,6 +92,7 @@ public class ReconciliationPoller {
                         count, schemaName);
             }
             recoverStaleTransient(schemaName);
+            recoverFailedInfra(schemaName);
         } catch (Exception ex) {
             log.errorf(ex, "ReconciliationPoller: error reconciling tenant=%s", schemaName);
         }
@@ -124,6 +131,44 @@ public class ReconciliationPoller {
         });
         if (recovered != null && recovered > 0) {
             log.infof("ReconciliationPoller: %d stale document(s) recovered (tenant=%s)",
+                    recovered, schemaName);
+        }
+    }
+
+    /**
+     * Recupera documentos {@code FAILED} por error de infraestructura (sin código de
+     * negocio) tras un cooldown, dentro de una ventana maxima de antiguedad. Los
+     * {@code FAILED} por error de negocio no se tocan.
+     */
+    private void recoverFailedInfra(String schemaName) {
+        var recovered = connectionManager.withTenantTransaction(schemaName, em -> {
+            var docs = documentRepository.findRecoverableFailed(
+                    recoverFailedCooldownMinutes, recoverFailedMaxAgeHours);
+            int n = 0;
+            for (var doc : docs) {
+                doc.retryCount = 0;
+                doc.nextRetryAt = null;
+                doc.lastErrorMessage = null;
+                doc.updatedAt = Instant.now();
+                String eventType;
+                if (doc.sriSubmissionDate != null) {
+                    // Ya fue enviado: reconciliar autorizacion
+                    doc.transitionTo(DocumentStatus.RECEIVED);
+                    eventType = "doc.authorize";
+                } else {
+                    // Nunca enviado: re-firmar y reenviar
+                    doc.transitionTo(DocumentStatus.CREATED);
+                    eventType = "doc.sign";
+                }
+                em.persist(OutboxEvent.create(doc.id, eventType, "{}"));
+                n++;
+                log.infof("ReconciliationPoller: recovering FAILED document %s as %s (tenant=%s)",
+                        doc.id, eventType, schemaName);
+            }
+            return n;
+        });
+        if (recovered != null && recovered > 0) {
+            log.infof("ReconciliationPoller: %d FAILED document(s) recovered (tenant=%s)",
                     recovered, schemaName);
         }
     }

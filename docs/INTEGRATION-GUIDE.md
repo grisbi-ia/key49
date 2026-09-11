@@ -225,9 +225,10 @@ curl -s https://key49.apx5.com/v1/invoices/d290f1ee-6c54-4b01-90e6-d701748f0851 
 | `VOIDED` | Anulado localmente |
 
 > **Key49 reprocesa automáticamente**: reintenta errores de infraestructura, reconcilia
-autorizaciones pendientes en el SRI y recupera documentos atascados. En el flujo
-normal **no necesitas hacer nada**; solo se considera emitido cuando llega a
-`AUTHORIZED`/`NOTIFIED`.
+autorizaciones pendientes en el SRI, recupera documentos atascados y **recupera los
+`FAILED` por infraestructura** (circuit breaker, timeout, conexión) tras un cooldown.
+En el flujo normal **no necesitas hacer nada**; solo se considera emitido cuando llega
+a `AUTHORIZED`/`NOTIFIED`.
 
 ### Polling para autorización
 
@@ -486,10 +487,12 @@ HMAC-SHA256 (header `X-Key49-Signature`) ante estos eventos:
 
 ## 11. Reproceso de documentos
 
-Key49 reprocesa **automáticamente** (reintentos, reconciliación y recuperación de
-atascados). Solo conviene forzarlo manualmente cuando:
+Key49 reprocesa **automáticamente** (reintentos, reconciliación, recuperación de
+atascados y de `FAILED` por infraestructura tras un cooldown). Solo conviene
+forzarlo manualmente cuando:
 
-- Hay documentos en `FAILED` tras una **caída prolongada del SRI** ya resuelta.
+- Hay documentos en `FAILED` por una **caída prolongada del SRI** (más allá de la
+  ventana de 24 h) ya resuelta.
 - Después de una **incidencia externa** (SRI, red, certificado renovado).
 - Se quiere **forzar** la reconciliación de un rango concreto.
 

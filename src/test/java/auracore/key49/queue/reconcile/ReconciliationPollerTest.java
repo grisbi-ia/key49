@@ -40,7 +40,9 @@ class ReconciliationPollerTest {
         public Map<String, String> getConfigOverrides() {
             return Map.of(
                     "quarkus.scheduler.enabled", "false",
-                    "key49.reconcile.stale-minutes", "10");
+                    "key49.reconcile.stale-minutes", "10",
+                    "key49.recover.failed.cooldown-minutes", "15",
+                    "key49.recover.failed.max-age-hours", "24");
         }
     }
 
@@ -118,6 +120,25 @@ class ReconciliationPollerTest {
         assertNoOutbox(fresh);
     }
 
+    @Test
+    @DisplayName("recupera FAILED por infraestructura (con cooldown), no los de negocio")
+    void shouldRecoverFailedInfraOnly() throws Exception {
+        UUID infraOld;
+        UUID businessFailed;
+        UUID infraRecent;
+        try (var conn = dataSource.getConnection()) {
+            infraOld = insertFailedDoc(conn, "000000201", "now() - interval '30 minutes'", null);
+            businessFailed = insertFailedDoc(conn, "000000202", "now() - interval '30 minutes'", "45");
+            infraRecent = insertFailedDoc(conn, "000000203", "now() - interval '1 minute'", null);
+        }
+
+        poller.pollReconciliations();
+
+        assertOutbox(infraOld, "doc.sign");
+        assertNoOutbox(businessFailed);
+        assertNoOutbox(infraRecent);
+    }
+
     // ── Helpers ──
 
     private UUID insertDoc(Connection conn, String seq, String status,
@@ -139,6 +160,31 @@ class ReconciliationPollerTest {
             ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
             ps.setString(4, status);
             ps.setString(5, accessKey);
+            ps.executeUpdate();
+        }
+        return docId;
+    }
+
+    private UUID insertFailedDoc(Connection conn, String seq, String updatedAtExpr,
+            String errorCode) throws SQLException {
+        var docId = UUID.randomUUID();
+        var accessKey = "%049d".formatted(7000 + Long.parseLong(seq));
+        try (var ps = conn.prepareStatement("""
+                INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                    sequence_number, recipient_id_type, recipient_id, recipient_name,
+                    issue_date, status, access_key, original_xml, created_at, updated_at,
+                    last_error_code, last_error_message, retry_count, max_retries,
+                    subtotal_before_tax, total_discount, tip, total_amount, vat_amount)
+                VALUES (?::uuid, '01', '001', '001', ?, '04', '1792146739001', 'Test Corp',
+                    ?, 'FAILED', ?, '<factura>signed</factura>', now(), %s,
+                    %s, 'SRI circuit breaker open', 6, 6,
+                    50.00, 0.00, 0.00, 57.50, 7.50)
+                """.formatted(SCHEMA, updatedAtExpr,
+                        errorCode == null ? "NULL" : "'" + errorCode + "'"))) {
+            ps.setString(1, docId.toString());
+            ps.setString(2, seq);
+            ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
+            ps.setString(4, accessKey);
             ps.executeUpdate();
         }
         return docId;

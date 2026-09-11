@@ -52,4 +52,18 @@ public class DocumentRepository implements PanacheRepositoryBase<Document, UUID>
                 List.of(DocumentStatus.CREATED, DocumentStatus.SIGNED, DocumentStatus.SENT),
                 cutoff).list();
     }
+
+    /**
+     * Documentos {@code FAILED} por error de infraestructura (sin código de negocio)
+     * que llevan más de {@code cooldownMinutes} sin reintentarse y dentro de la
+     * ventana de {@code maxAgeHours}. Se recuperan automáticamente.
+     */
+    public List<Document> findRecoverableFailed(int cooldownMinutes, int maxAgeHours) {
+        var now = Instant.now();
+        var cooldownCutoff = now.minus(Duration.ofMinutes(cooldownMinutes));
+        var maxAgeCutoff = now.minus(Duration.ofHours(maxAgeHours));
+        return find("status = ?1 AND updatedAt <= ?2 AND updatedAt >= ?3"
+                + " AND (lastErrorCode IS NULL OR lastErrorCode = '')",
+                DocumentStatus.FAILED, cooldownCutoff, maxAgeCutoff).list();
+    }
 }

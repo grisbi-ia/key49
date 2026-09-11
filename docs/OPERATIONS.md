@@ -499,6 +499,14 @@ El SRI **rechaza o redirige consultas paralelas**. Por eso:
 > fiscal la otorga la **autorización**. Marcar un 43 como `FAILED` contaminaba
 > las métricas; ahora se reconcilia.
 
+> ⚠️ **Ventana de consulta del SRI**: el servicio de autorización solo devuelve
+> autorizaciones **recientes** (~del mismo día); para comprobantes más antiguos
+> responde `numeroComprobantes=0` **aunque estén autorizados**. Por eso `NO_REG`
+> solo es fiable para envíos del día; para documentos antiguos el estado no se
+> puede determinar por esta vía (verificar en el portal del SRI). Si en recepción
+> el SRI respondió `43`/`70` (el comprobante está/estuvo en el SRI), no debe
+> tratarse como rechazo.
+
 ### 5. Circuit breaker y resultados permanentes
 
 `NO_REGISTRADA` se lanza como `SriNotRegisteredException` y el circuit breaker
@@ -511,6 +519,7 @@ bloquearía la reconciliación de los que **sí** están autorizados.
 - `ReconciliationPoller` (cada `KEY49_RECONCILE_POLL_INTERVAL`, 2 min):
   - Reencola `doc.authorize` para documentos `RECEIVED` con reconciliación vencida, **sin reenviarlos**.
   - Recupera documentos **atascados** en estados transitorios (`CREATED` → `doc.sign`, `SIGNED` → `doc.send`, `SENT` → `RECEIVED` + `doc.authorize`) que no avanzaron desde `KEY49_RECONCILE_STALE_MINUTES` (10 min) — p. ej. un reinicio del proceso entre etapas.
+  - Recupera documentos **`FAILED` por infraestructura** (sin código de negocio: circuit breaker, timeout, conexión) tras `KEY49_RECOVER_FAILED_COOLDOWN_MINUTES` (15 min), dentro de `KEY49_RECOVER_FAILED_MAX_AGE_HOURS` (24 h). Los `FAILED`/`REJECTED` por error de **negocio** no se tocan.
 - Reproceso en lote: `POST /v1/documents/reprocess` (tenant) y
   `POST /v1/admin/documents/reprocess?tenant_id=` (admin); página
   `/portal/settings/reprocess`. Los documentos ya enviados se reconcilian; los
