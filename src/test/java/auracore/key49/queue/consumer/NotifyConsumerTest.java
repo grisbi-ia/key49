@@ -326,18 +326,23 @@ class NotifyConsumerTest {
         }
 
         @Test
-        @DisplayName("documento ya NOTIFIED se ignora")
-        void shouldSkipAlreadyNotifiedDocument() {
+        @DisplayName("documento ya NOTIFIED se reprocesa para reenvío de email")
+        void shouldReprocessAlreadyNotifiedDocument() {
             doc.status = DocumentStatus.NOTIFIED;
 
             when(tenantCacheService.findBySchemaName(TENANT_SCHEMA)).thenReturn(tenant);
             setupConnectionManager(doc);
+            when(rideDataMapper.generateRide(any(), any())).thenReturn(RIDE_PDF);
+            when(objectStorageService.store(anyString(), any(LocalDate.class), anyString(),
+                    anyString(), any(DocumentArtifact.class), any(byte[].class)))
+                    .thenReturn("path/file");
 
             notifyConsumer.process(buildEvent(docId));
 
-            // Should not attempt RIDE, email, or webhook
-            verify(rideDataMapper, never()).generateRide(any(), any());
-            verify(emailService, never()).sendDocumentDelivery(any(), any());
+            // Reenvío: se regenera el RIDE y se reenvía el email sin transicionar de nuevo
+            verify(rideDataMapper).generateRide(any(), any());
+            verify(emailService).sendDocumentDelivery(any(EmailData.class), any(Tenant.class));
+            assertEquals(DocumentStatus.NOTIFIED, doc.status);
         }
 
         @Test

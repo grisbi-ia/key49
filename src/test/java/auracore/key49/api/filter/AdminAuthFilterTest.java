@@ -2,16 +2,20 @@ package auracore.key49.api.filter;
 
 import static org.hamcrest.Matchers.equalTo;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
+import jakarta.inject.Inject;
 
 @QuarkusTest
 class AdminAuthFilterTest {
 
-    private static final String VALID_TOKEN = "test-admin-token";
+    @Inject
+    @ConfigProperty(name = "key49.admin.token")
+    String validToken;
 
     @Test
     @DisplayName("rechaza request sin X-Admin-Token")
@@ -27,7 +31,7 @@ class AdminAuthFilterTest {
     @DisplayName("rechaza request con token inválido")
     void rejectsInvalidToken() {
         RestAssured.given()
-                .header("X-Admin-Token", "wrong-token")
+                .header("X-Admin-Token", validToken + "-invalid")
                 .when().get("/v1/admin/test")
                 .then()
                 .statusCode(403)
@@ -38,7 +42,7 @@ class AdminAuthFilterTest {
     @DisplayName("permite request con token válido")
     void allowsValidToken() {
         RestAssured.given()
-                .header("X-Admin-Token", VALID_TOKEN)
+                .header("X-Admin-Token", validToken)
                 .when().get("/v1/admin/test")
                 .then()
                 .statusCode(200)

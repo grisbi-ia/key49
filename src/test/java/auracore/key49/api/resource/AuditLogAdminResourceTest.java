@@ -18,6 +18,7 @@ import auracore.key49.core.service.AuditService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * Test de integración para el endpoint GET /v1/admin/audit-log. Inserta
@@ -28,8 +29,11 @@ import jakarta.inject.Inject;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class AuditLogAdminResourceTest {
 
-    private static final String ADMIN_TOKEN = "test-admin-token";
     private static final String ADMIN_ENDPOINT = "/v1/admin/audit-log";
+
+    @Inject
+    @ConfigProperty(name = "key49.admin.token")
+    String adminToken;
 
     @Inject
     AuditService auditService;
@@ -97,7 +101,7 @@ class AuditLogAdminResourceTest {
     @Order(2)
     void returnsAllEntries() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .when().get(ADMIN_ENDPOINT)
                 .then()
                 .statusCode(200)
@@ -110,7 +114,7 @@ class AuditLogAdminResourceTest {
     @Order(3)
     void filtersByTenantId() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("tenant_id", tenantIdB.toString())
                 .when().get(ADMIN_ENDPOINT)
                 .then()
@@ -124,7 +128,7 @@ class AuditLogAdminResourceTest {
     @Order(4)
     void filtersByAction() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("action", "document.voided")
                 .when().get(ADMIN_ENDPOINT)
                 .then()
@@ -139,7 +143,7 @@ class AuditLogAdminResourceTest {
         // Use today's date (Ecuador timezone) to capture records inserted in @BeforeAll
         var today = java.time.LocalDate.now(auracore.key49.core.Key49Constants.EC_ZONE).toString();
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("date_from", today)
                 .queryParam("date_to", today)
                 .when().get(ADMIN_ENDPOINT)
@@ -152,7 +156,7 @@ class AuditLogAdminResourceTest {
     @Order(6)
     void paginatesResults() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("per_page", 2)
                 .queryParam("page", 1)
                 .when().get(ADMIN_ENDPOINT)
@@ -168,7 +172,7 @@ class AuditLogAdminResourceTest {
     @Order(7)
     void returnsCorrectResponseShape() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("tenant_id", tenantIdB.toString())
                 .when().get(ADMIN_ENDPOINT)
                 .then()
@@ -185,7 +189,7 @@ class AuditLogAdminResourceTest {
     @Order(8)
     void returnsEmptyForFutureDateRange() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("date_from", "2099-01-01")
                 .queryParam("date_to", "2099-12-31")
                 .when().get(ADMIN_ENDPOINT)
@@ -199,7 +203,7 @@ class AuditLogAdminResourceTest {
     @Order(9)
     void combinedFilters() {
         RestAssured.given()
-                .header("X-Admin-Token", ADMIN_TOKEN)
+                .header("X-Admin-Token", adminToken)
                 .queryParam("tenant_id", tenantIdA.toString())
                 .queryParam("action", "api_key.created")
                 .when().get(ADMIN_ENDPOINT)
