@@ -34,7 +34,7 @@ import jakarta.inject.Inject;
 public class SriReceptionClient {
 
     static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
-    static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
+    static final Duration READ_TIMEOUT = Duration.ofSeconds(25);
 
     private static final String SOAP_ACTION = "";
     private static final String CONTENT_TYPE = "text/xml; charset=utf-8";
@@ -73,7 +73,7 @@ public class SriReceptionClient {
             delay = 30000,
             successThreshold = 3
     )
-    @Timeout(3000)
+    @Timeout(25000)
     public SriReceptionResponse send(String signedXml, SriEnvironment environment) {
         if (signedXml == null || signedXml.isBlank()) {
             throw new SriException("Signed XML must not be null or blank");
@@ -88,32 +88,13 @@ public class SriReceptionClient {
         var soapEnvelope = buildSoapEnvelope(base64Xml);
 
         try {
-            var request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(READ_TIMEOUT)
-                    .header("Content-Type", CONTENT_TYPE)
-                    .header("SOAPAction", SOAP_ACTION)
-                    .POST(HttpRequest.BodyPublishers.ofString(soapEnvelope, StandardCharsets.UTF_8))
-                    .build();
-
-            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-
-            if (response.statusCode() != 200) {
-                throw new SriException("SRI returned HTTP " + response.statusCode());
-            }
-
+            // SriSoapHttp maneja el 302 intermitente del SRI reintentando el endpoint
+            var response = SriSoapHttp.post(httpClient, url, soapEnvelope, READ_TIMEOUT);
             return SriReceptionResponseParser.parse(response.body());
         } catch (SriException e) {
             throw e;
-        } catch (java.net.http.HttpConnectTimeoutException e) {
-            throw new SriException("Connection timeout to SRI reception service", e);
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new SriException("Read timeout from SRI reception service", e);
-        } catch (java.io.IOException e) {
-            throw new SriException("I/O error communicating with SRI reception service", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SriException("Interrupted while communicating with SRI reception service", e);
+        } catch (Exception e) {
+            throw new SriException("Unexpected error communicating with SRI reception service", e);
         }
     }
 

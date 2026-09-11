@@ -7,6 +7,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.16] - 2026-09-11
+
+### Corregido
+
+- **SRI `302` intermitente**: los clientes de Recepción y Autorización reintentan el endpoint ante el `302` transitorio del SRI (que redirige a una IP cuyo certificado no coincide con el host) en lugar de fallar. Era la causa raíz de los circuit breakers abiertos y de documentos marcados `FAILED`.
+- **Consultas de autorización secuenciales**: prefetch de la cola de autorización reducido a `1` y espaciado configurable (`key49.sri.authorization.throttle-ms`, 300 ms por defecto). El SRI rechaza/redirige las consultas paralelas.
+- **`numeroComprobantes=0` → `NO_REGISTRADA` (permanente)**: el SRI no tiene la clave registrada; el documento pasa a `REJECTED` con código `NO_REG` (no se reintenta ni reconcilia). `NO AUTORIZADO` sin código `70` también es permanente. Solo el código `70` ("en procesamiento") se reconcilia.
+- **Timeouts SRI**: subidos a 25 s (conexión 5 s) en ambos clientes, alineados con el tiempo real de respuesta del servicio.
+
 ## [0.31.15] - 2026-09-11
 
 ### Corregido

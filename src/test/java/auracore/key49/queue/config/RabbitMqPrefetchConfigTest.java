@@ -43,9 +43,9 @@ class RabbitMqPrefetchConfigTest {
     }
 
     @Test
-    @DisplayName("Prefetch de autorización debe ser 5 (SOAP SRI lento)")
-    void authorizePrefetchShouldBe5() {
-        assertEquals(5, authorizePrefetch);
+    @DisplayName("Prefetch de autorización debe ser 1 (el SRI rechaza consultas paralelas)")
+    void authorizePrefetchShouldBe1() {
+        assertEquals(1, authorizePrefetch);
     }
 
     @Test

@@ -26,6 +26,7 @@ import auracore.key49.core.tenant.TenantConnectionManager;
 import auracore.key49.queue.event.DocumentEvent;
 import auracore.key49.queue.retry.RetryDelayCalculator;
 import auracore.key49.sri.SriException;
+import auracore.key49.sri.SriNotRegisteredException;
 import auracore.key49.sri.SriPendingException;
 import auracore.key49.sri.client.SriAuthorizationClient;
 import auracore.key49.sri.model.SriAuthorizationResponse;
@@ -132,6 +133,8 @@ public class AuthorizeConsumer {
                             new SriException("SRI authorization timeout exceeded", ex));
                 } catch (SriPendingException ex) {
                     handlePending(event, ex.getMessage());
+                } catch (SriNotRegisteredException ex) {
+                    handleNotRegistered(event, ex.getMessage());
                 } catch (SriException ex) {
                     handleInfraError(event, ex);
                 }
@@ -173,24 +176,62 @@ public class AuthorizeConsumer {
                 var outbox = OutboxEvent.create(doc.id, "doc.notify", "{}");
                 em.persist(outbox);
 
-            } else if (response.hasBusinessErrors()) {
-                var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
-                        ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
-                doc.transitionTo(targetStatus);
-                quotaService.releaseQuota(em, event.tenantSchemaName());
-                doc.lastErrorCode = SendConsumer.extractFirstErrorCode(response.messages());
-                doc.lastErrorMessage = SendConsumer.extractErrorSummary(response.messages());
-                documentMetrics.recordRejected(event.tenantSchemaName(),
-                        doc.lastErrorCode != null ? doc.lastErrorCode : "SRI_REJECTED");
-                log.warnf("AuthorizeConsumer: document %s %s: %s",
-                        doc.id, targetStatus, doc.lastErrorMessage);
+            } else if (response.hasBusinessErrors() || !hasInProcessing(response.messages())) {
+                // NO AUTORIZADO sin mensaje de "en procesamiento" (código 70): permanente.
+                var code = response.hasBusinessErrors()
+                        ? SendConsumer.extractFirstErrorCode(response.messages())
+                        : "NO_AUTORIZADO";
+                var message = response.hasBusinessErrors()
+                        ? SendConsumer.extractErrorSummary(response.messages())
+                        : summarizeMessages(response.messages());
+                markRejected(doc, em, event.tenantSchemaName(), code, message);
 
             } else {
                 var sriSummary = summarizeMessages(response.messages());
-                log.infof("AuthorizeConsumer: document %s pending at SRI (not yet authorized), messages=%s",
+                log.infof("AuthorizeConsumer: document %s pending at SRI (in processing), messages=%s",
                         doc.id, sriSummary);
                 handlePendingTransition(doc, em, event.tenantSchemaName(), sriSummary);
             }
+            return null;
+        });
+    }
+
+    private static boolean hasInProcessing(List<SriMessage> messages) {
+        return messages != null && messages.stream().anyMatch(SriMessage::isInProcessing);
+    }
+
+    /**
+     * Marca el documento como rechazado (o fallido si no admite REJECTED) con el
+     * código/motivo indicado. Estado terminal: no se reintenta.
+     */
+    private void markRejected(Document doc, EntityManager em, String schemaName,
+            String code, String message) {
+        var targetStatus = doc.status.canTransitionTo(DocumentStatus.REJECTED)
+                ? DocumentStatus.REJECTED : DocumentStatus.FAILED;
+        doc.transitionTo(targetStatus);
+        quotaService.releaseQuota(em, schemaName);
+        doc.lastErrorCode = code;
+        doc.lastErrorMessage = message;
+        doc.nextRetryAt = null;
+        doc.updatedAt = Instant.now();
+        documentMetrics.recordRejected(schemaName, code != null ? code : "SRI_REJECTED");
+        log.warnf("AuthorizeConsumer: document %s %s (code=%s): %s",
+                doc.id, targetStatus, code, message);
+    }
+
+    /**
+     * El SRI no tiene registrada la clave de acceso ({@code numeroComprobantes=0}):
+     * estado permanente, se marca rechazado para que el contribuyente investigue.
+     */
+    private void handleNotRegistered(DocumentEvent event, String reason) {
+        log.warnf("AuthorizeConsumer: document %s NOT registered at SRI — marking rejected (NO_REG)",
+                event.documentId());
+        connectionManager.withTenantTransaction(event.tenantSchemaName(), em -> {
+            var doc = em.find(Document.class, event.documentId());
+            if (doc == null) {
+                return null;
+            }
+            markRejected(doc, em, event.tenantSchemaName(), "NO_REG", reason);
             return null;
         });
     }

@@ -11,7 +11,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 
 import auracore.key49.sri.SriException;
-import auracore.key49.sri.SriPendingException;
+import auracore.key49.sri.SriNotRegisteredException;
 import auracore.key49.sri.model.AuthorizationStatus;
 import auracore.key49.sri.model.SriAuthorizationResponse;
 import auracore.key49.sri.model.SriMessage;
@@ -61,8 +61,8 @@ public final class SriAuthorizationResponseParser {
         // Find the <autorizacion> element (first one)
         var autorizaciones = document.getElementsByTagName("autorizacion");
         if (autorizaciones.getLength() == 0) {
-            throw new SriPendingException(
-                    "No 'autorizacion' element in SRI response — comprobante aún no autorizado");
+            throw new SriNotRegisteredException(
+                    "SRI no tiene registrada la clave de acceso (numeroComprobantes=0)");
         }
 
         var autorizacion = (Element) autorizaciones.item(0);

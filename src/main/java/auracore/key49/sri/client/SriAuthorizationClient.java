@@ -32,17 +32,18 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class SriAuthorizationClient {
 
-    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
-    static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
+    static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    static final Duration READ_TIMEOUT = Duration.ofSeconds(25);
 
-    private static final String SOAP_ACTION = "";
-    private static final String CONTENT_TYPE = "text/xml; charset=utf-8";
     private static final String AUTHORIZATION_NS = "http://ec.gob.sri.ws.autorizacion";
 
     private final HttpClient httpClient;
 
     @Inject
     SriEndpoints sriEndpoints;
+
+    @org.eclipse.microprofile.config.inject.ConfigProperty(name = "key49.sri.authorization.throttle-ms", defaultValue = "300")
+    long throttleMs;
 
     public SriAuthorizationClient() {
         this.httpClient = HttpClient.newBuilder()
@@ -73,7 +74,7 @@ public class SriAuthorizationClient {
             delay = 30000,
             successThreshold = 3
     )
-    @Timeout(5000)
+    @Timeout(25000)
     public SriAuthorizationResponse authorize(String accessKey, SriEnvironment environment) {
         if (accessKey == null || accessKey.isBlank()) {
             throw new SriException("Access key must not be null or blank");
@@ -89,32 +90,26 @@ public class SriAuthorizationClient {
         var soapEnvelope = buildSoapEnvelope(accessKey);
 
         try {
-            var request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(READ_TIMEOUT)
-                    .header("Content-Type", CONTENT_TYPE)
-                    .header("SOAPAction", SOAP_ACTION)
-                    .POST(HttpRequest.BodyPublishers.ofString(soapEnvelope, StandardCharsets.UTF_8))
-                    .build();
-
-            var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-
-            if (response.statusCode() != 200) {
-                throw new SriException("SRI returned HTTP " + response.statusCode());
-            }
-
+            // SriSoapHttp maneja el 302 intermitente del SRI reintentando el endpoint
+            var response = SriSoapHttp.post(httpClient, url, soapEnvelope, READ_TIMEOUT);
+            // Espaciado entre consultas (el SRI rechaza consultas paralelas)
+            throttle();
             return SriAuthorizationResponseParser.parse(response.body());
         } catch (SriException e) {
             throw e;
-        } catch (java.net.http.HttpConnectTimeoutException e) {
-            throw new SriException("Connection timeout to SRI authorization service", e);
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new SriException("Read timeout from SRI authorization service", e);
-        } catch (java.io.IOException e) {
-            throw new SriException("I/O error communicating with SRI authorization service", e);
+        } catch (Exception e) {
+            throw new SriException("Unexpected error communicating with SRI authorization service", e);
+        }
+    }
+
+    private void throttle() {
+        if (throttleMs <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(throttleMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new SriException("Interrupted while communicating with SRI authorization service", e);
         }
     }
 
