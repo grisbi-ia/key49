@@ -34,6 +34,13 @@ class SriValidatorTest {
             assertTrue(SriValidator.isValidCedula("1710034065"));
         }
 
+        @Test
+        void shouldAcceptNaturalizedPersonCedulaWithThirdDigit6() {
+            // Persona naturalizada (venezolana) cedulada en Ecuador: tercer dígito 6,
+            // válida en el Registro Civil y con módulo 10 correcto.
+            assertTrue(SriValidator.isValidCedula("1760612893"));
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {
                 "0000000000",  // dígitos todos cero, provincia 00 inválida
@@ -42,7 +49,8 @@ class SriValidatorTest {
                 "171003406",   // solo 9 dígitos
                 "17100340651",  // 11 dígitos
                 "abcdefghij",  // no numérico
-                "1760000000",  // tercer dígito 6, no natural
+                "1760000000",  // checksum incorrecto (tercer dígito 6 permitido)
+                "1770000000",  // tercer dígito 7 inválido para cédula
         })
         void shouldRejectInvalidCedulas(String cedula) {
             assertFalse(SriValidator.isValidCedula(cedula));

@@ -345,7 +345,7 @@ Validar en la capa API (resource/filter) antes de que el request llegue a servic
 | `issue_point`       | `^\d{3}$`     | Exactamente 3 dígitos numéricos              |
 | `sequence_number`   | `^\d{9}$`     | Exactamente 9 dígitos numéricos              |
 | RUC                 | `^\d{13}$`    | 13 dígitos, termina en `001`, tercer dígito válido (0-5 natural, 6 pública, 9 jurídica). **No se aplica módulo 11** |
-| Cédula              | `^\d{10}$`    | 10 dígitos + dígito verificador módulo 10    |
+| Cédula              | `^\d{10}$`    | 10 dígitos, provincia 01-24 o 30, tercer dígito 0-6 (6 = naturalizado/refugiado) y dígito verificador módulo 10 |
 | Pasaporte           | `.{3,20}`     | 3 a 20 caracteres alfanuméricos              |
 | `issue_date`        | `yyyy-MM-dd`  | Debe ser la fecha actual (America/Guayaquil) |
 | `tax.code`          | `1-5`         | Debe existir en enum `TaxType`               |
@@ -379,6 +379,9 @@ al SRI al recibir el comprobante:
 // Si resultado == 10 → dígito = 0
 // Comparar con último dígito
 ```
+
+Tercer dígito: `0-5` persona natural ecuatoriana, `6` persona naturalizada o
+refugiada cedulada en Ecuador. Los dígitos `7-9` no corresponden a cédulas.
 
 ---
 

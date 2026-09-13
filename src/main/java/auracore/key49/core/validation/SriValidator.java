@@ -39,6 +39,11 @@ public final class SriValidator {
 
     /**
      * Valida una cédula ecuatoriana (10 dígitos, módulo 10).
+     *
+     * <p>El tercer dígito se acepta en 0-6: 0-5 para personas naturales
+     * ecuatorianas y 6 para personas naturalizadas / refugiadas ceduladas en
+     * Ecuador — el Registro Civil les asigna cédulas que cumplen módulo 10 pero
+     * cuyo tercer dígito es 6. Los dígitos 7-9 no corresponden a cédulas.</p>
      */
     public static boolean isValidCedula(String cedula) {
         if (cedula == null || !cedula.matches("^\\d{10}$")) {
@@ -49,9 +54,9 @@ public final class SriValidator {
         if (province < 1 || (province > 24 && province != 30)) {
             return false;
         }
-        // Tercer dígito debe ser 0-5 para persona natural
+        // Tercer dígito: 0-5 persona natural, 6 naturalizado/refugiado.
         int thirdDigit = cedula.charAt(2) - '0';
-        if (thirdDigit > 5) {
+        if (thirdDigit > 6) {
             return false;
         }
 
