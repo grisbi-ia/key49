@@ -145,4 +145,19 @@ class ConsumerHelperTest {
         assertEquals(false, new SriMessage("35", "Info", null, "INFORMATIVO").isBusinessError());
         assertEquals(false, new SriMessage("52", "Warning", null, "ADVERTENCIA").isBusinessError());
     }
+
+    @Test
+    void shouldTreatEnvironmentMismatch35AsTransientNotBusinessError() {
+        var mismatch = new SriMessage("35", "ARCHIVO NO CUMPLE ESTRUCTURA XML",
+                "El ambiente de la solicitud PRODUCCIÓN no coincide con el de ejecución PRUEBAS",
+                "ERROR");
+        assertEquals(true, mismatch.isEnvironmentMismatch());
+        assertEquals(false, mismatch.isBusinessError(),
+                "El 35 de desajuste de ambiente es transitorio del SRI y debe reintentarse");
+
+        // 35 sin detalle de ambiente sigue siendo error de negocio (estructura real)
+        var structure = new SriMessage("35", "ARCHIVO NO CUMPLE ESTRUCTURA XML", null, "ERROR");
+        assertEquals(false, structure.isEnvironmentMismatch());
+        assertEquals(true, structure.isBusinessError());
+    }
 }
