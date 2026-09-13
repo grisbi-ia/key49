@@ -7,6 +7,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.25] - 2026-09-12
+
 ### Corregido
 
 - **El error `35` de desajuste de ambiente del SRI es transitorio, no de negocio**: el servicio de Recepción **de producción** del SRI devuelve de forma intermitente el error `35` con detalle "El ambiente de la solicitud PRODUCCIÓN no coincide con el de ejecución PRUEBAS" para comprobantes válidos (el mismo XML responde `RECIBIDA`, `43` y `35` en segundos). Antes se clasificaba como error de negocio terminal, dejando el documento `REJECTED`/`FAILED` — a veces cuando el SRI **ya lo había registrado**. Ahora `SriMessage.isEnvironmentMismatch()` lo detecta y lo trata como transitorio: el documento va a `RETRY`; si el SRI ya lo registró, el reintento devuelve `43` y se reconcilia. El `35` sin detalle de ambiente sigue siendo error de negocio.
