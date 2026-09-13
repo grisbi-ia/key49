@@ -7,6 +7,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.24] - 2026-09-12
+
 ### Corregido
 
 - **Desalineación de ambiente SRI (código `35`)**: el endpoint SOAP de Recepción/Autorización ahora se resuelve con el ambiente embebido en la **clave de acceso firmada** del documento, no con el ambiente actual del tenant. Antes, la firma leía el tenant de la base de datos y el envío lo releía de la caché Redis; si el tenant cambiaba de ambiente entre la firma y el envío (o la caché estaba desactualizada), el comprobante se enviaba al servicio del ambiente equivocado y el SRI lo rechazaba con `35` ("el ambiente de la solicitud no coincide con el de ejecución"). Ahora el `<ambiente>` del XML y el servicio destino siempre coinciden, porque ambos derivan de la misma firma.
