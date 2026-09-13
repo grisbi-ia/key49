@@ -93,8 +93,6 @@ class SriValidatorTest {
                 "abcdefghijklm",   // no numérico
                 "1710034065000",   // no termina en 001
                 "1710034065002",   // no termina en 001
-                "1780000000001",   // tercer dígito 8 inválido
-                "1770000000001",   // tercer dígito 7 inválido
         })
         void shouldRejectInvalidRucs(String ruc) {
             assertFalse(SriValidator.isValidRuc(ruc));
@@ -112,6 +110,13 @@ class SriValidatorTest {
             // (Programa de optimización de generación de RUC). Caso real reportado:
             // CLICK SOLUCIONES S.A.S., RUC activo en el SRI.
             assertTrue(SriValidator.isValidRuc("1793200847001"));
+        }
+
+        @Test
+        void shouldAcceptNaturalPersonRucWithThirdDigit6() {
+            // El tercer dígito NO determina el tipo de contribuyente: este RUC
+            // (persona natural, cédula de tercer dígito 6) está activo en el SRI.
+            assertTrue(SriValidator.isValidRuc("0966607707001"));
         }
 
         @Test

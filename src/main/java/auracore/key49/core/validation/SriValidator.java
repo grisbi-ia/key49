@@ -9,32 +9,22 @@ public final class SriValidator {
     }
 
     /**
-     * Valida un RUC ecuatoriano.
+     * Valida un RUC ecuatoriano (13 dígitos).
      *
-     * <p>Valida únicamente la <b>estructura</b>: 13 dígitos, terminación
-     * {@code 001} y tercer dígito de tipo de contribuyente válido (0-5 persona
-     * natural, 6 entidad pública, 9 persona jurídica).</p>
-     *
-     * <p><b>No</b> valida el dígito verificador con módulo 11. El SRI comunicó
-     * oficialmente (Programa de optimización de generación y validación del
-     * número de RUC) que existen RUC válidos y activos que <b>no</b> cumplen
-     * módulo 11 y que esa validación ya no debe aplicarse, recomendando validar
-     * contra la fuente de datos. Como Key49 no consulta el padrón del SRI, delega
-     * esa verificación al propio SRI al recibir el comprobante; de lo contrario
-     * se generan falsos negativos (p. ej. {@code 1793200847001}, CLICK
-     * SOLUCIONES S.A.S., activo en el SRI).</p>
+     * <p>Valida únicamente la <b>estructura</b>: 13 dígitos y terminación
+     * {@code 001}. <b>No</b> valida el dígito verificador con módulo 11 ni infiere
+     * el tipo de contribuyente a partir del tercer dígito. El SRI comunicó
+     * oficialmente (Programa de optimización de generación y validación del número
+     * de RUC) que existen RUC válidos y activos que no cumplen módulo 11 y que esa
+     * validación ya no debe aplicarse, recomendando validar contra la fuente de
+     * datos. Además, el tercer dígito no determina el tipo: una persona
+     * naturalizada puede tener un RUC con tercer dígito 6 (el de su cédula). Como
+     * Key49 no consulta el padrón del SRI, delega la verificación final al SRI al
+     * recibir el comprobante; de lo contrario se generan falsos negativos
+     * (p. ej. {@code 1793200847001}, CLICK SOLUCIONES S.A.S., activo en el SRI).</p>
      */
     public static boolean isValidRuc(String ruc) {
-        if (ruc == null || !ruc.matches("^\\d{13}$")) {
-            return false;
-        }
-        // Los últimos 3 dígitos deben ser 001
-        if (!ruc.endsWith("001")) {
-            return false;
-        }
-        // Tercer dígito = tipo de contribuyente: 0-5 natural, 6 pública, 9 jurídica.
-        int thirdDigit = ruc.charAt(2) - '0';
-        return thirdDigit <= 6 || thirdDigit == 9;
+        return ruc != null && ruc.matches("^\\d{13}$") && ruc.endsWith("001");
     }
 
     /**
