@@ -189,6 +189,30 @@ public class SignConsumer {
         return "production".equals(tenantEnv) ? SriEnvironment.PRODUCTION : SriEnvironment.TEST;
     }
 
+    /**
+     * Resuelve el ambiente SRI a partir de la clave de acceso firmada.
+     *
+     * <p>La clave de acceso embebe el ambiente en el dígito 24 (índice 23). Como
+     * la clave y el XML se generan con el mismo ambiente al firmar, resolver el
+     * endpoint SOAP con la clave garantiza que el {@code <ambiente>} del
+     * comprobante y el servicio destino siempre coincidan, aunque el tenant
+     * cambie de ambiente después de firmar.</p>
+     *
+     * @param accessKey         clave de acceso de 49 dígitos (puede ser null)
+     * @param tenantEnvironment ambiente actual del tenant, usado como fallback
+     * @return ambiente SRI derivado de la clave o del tenant
+     */
+    static SriEnvironment resolveEnvironmentFromAccessKey(String accessKey, String tenantEnvironment) {
+        if (accessKey != null && accessKey.length() == 49 && accessKey.matches("\\d{49}")) {
+            try {
+                return SriEnvironment.fromSriCode(accessKey.substring(23, 24));
+            } catch (IllegalArgumentException ignored) {
+                // Ambiente desconocido en la clave: usar el del tenant
+            }
+        }
+        return resolveEnvironment(tenantEnvironment);
+    }
+
     private String buildXml(DocumentType docType, Document doc, Tenant tenant, String accessKey) {
         return switch (docType) {
             case INVOICE -> {

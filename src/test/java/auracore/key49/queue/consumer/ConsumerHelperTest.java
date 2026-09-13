@@ -27,6 +27,38 @@ class ConsumerHelperTest {
     }
 
     @Test
+    void shouldResolveEnvironmentFromAccessKey() {
+        // Dígito 24 (índice 23) = 1 → pruebas
+        var testKey = "0504202601179214673900110010010000000011234567813";
+        assertEquals(SriEnvironment.TEST,
+                SignConsumer.resolveEnvironmentFromAccessKey(testKey, "production"));
+
+        // Misma clave con ambiente 2 → producción, aunque el tenant sea test
+        var prodKey = testKey.substring(0, 23) + "2" + testKey.substring(24);
+        assertEquals(SriEnvironment.PRODUCTION,
+                SignConsumer.resolveEnvironmentFromAccessKey(prodKey, "test"));
+    }
+
+    @Test
+    void shouldFallbackToTenantEnvironmentWhenAccessKeyMissingOrInvalid() {
+        assertEquals(SriEnvironment.PRODUCTION,
+                SignConsumer.resolveEnvironmentFromAccessKey(null, "production"));
+        assertEquals(SriEnvironment.TEST,
+                SignConsumer.resolveEnvironmentFromAccessKey("123", "test"));
+        assertEquals(SriEnvironment.TEST,
+                SignConsumer.resolveEnvironmentFromAccessKey("no-numerica", "test"));
+    }
+
+    @Test
+    void shouldExtractXmlAmbiente() {
+        assertEquals("2", SendConsumer.extractXmlAmbiente(
+                "<factura><infoTributaria><ambiente>2</ambiente></infoTributaria></factura>"));
+        assertEquals("1", SendConsumer.extractXmlAmbiente("<ambiente> 1 </ambiente>"));
+        assertEquals(null, SendConsumer.extractXmlAmbiente("<factura>sin ambiente</factura>"));
+        assertEquals(null, SendConsumer.extractXmlAmbiente(null));
+    }
+
+    @Test
     void shouldExtractFirstErrorCode() {
         var messages = List.of(
                 new SriMessage("INFO1", "Info message", null, "INFORMATIVO"),

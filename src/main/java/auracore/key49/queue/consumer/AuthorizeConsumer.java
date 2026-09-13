@@ -102,7 +102,6 @@ public class AuthorizeConsumer {
                     log.errorf("AuthorizeConsumer: tenant not found: %s", event.tenantSchemaName());
                     return;
                 }
-                var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
                 // Read document data (read-only, outside SOAP transaction)
                 var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
@@ -125,6 +124,11 @@ public class AuthorizeConsumer {
                     log.errorf("AuthorizeConsumer: no access key for document %s", input.id);
                     return;
                 }
+
+                // Consultar la autorización en el mismo ambiente en que se firmó y
+                // envió el comprobante (ambiente embebido en la clave de acceso).
+                var sriEnv = SignConsumer.resolveEnvironmentFromAccessKey(
+                        input.accessKey, tenant.environment);
 
                 // SOAP call (blocking, outside transaction)
                 try {

@@ -87,19 +87,29 @@ public class SendConsumer {
                     log.errorf("SendConsumer: tenant not found: %s", event.tenantSchemaName());
                     return;
                 }
-                var sriEnv = SignConsumer.resolveEnvironment(tenant.environment);
 
                 // Read document data (read-only, outside SOAP transaction)
                 var input = connectionManager.withTenantSession(event.tenantSchemaName(), em -> {
                     var doc = em.find(Document.class, event.documentId());
                     return doc != null
-                            ? new SendInput(doc.id, doc.originalXml, doc.status)
+                            ? new SendInput(doc.id, doc.originalXml, doc.accessKey, doc.status)
                             : null;
                 });
 
                 if (input == null) {
                     log.warnf("SendConsumer: document not found: %s", event.documentId());
                     return;
+                }
+
+                // El endpoint SOAP se resuelve con el ambiente embebido en la clave
+                // de acceso firmada, no con el del tenant actual: así el <ambiente>
+                // del XML y el servicio destino nunca se desalinean si el tenant
+                // cambia de ambiente entre la firma y el envío.
+                var sriEnv = SignConsumer.resolveEnvironmentFromAccessKey(
+                        input.accessKey, tenant.environment);
+                if (!sriEnv.equals(SignConsumer.resolveEnvironment(tenant.environment))) {
+                    log.warnf("SendConsumer: document %s was signed for %s but tenant is now %s — using the document's environment",
+                            input.id, sriEnv, tenant.environment);
                 }
                 if (!input.status.canTransitionTo(DocumentStatus.SENT)) {
                     log.warnf("SendConsumer: skip document %s in state %s",
@@ -109,6 +119,19 @@ public class SendConsumer {
                 if (input.signedXml == null || input.signedXml.isBlank()) {
                     log.errorf("SendConsumer: no signed XML for document %s", input.id);
                     markFailed(event, "No signed XML available");
+                    return;
+                }
+
+                // Guarda de consistencia: el <ambiente> del comprobante firmado debe
+                // coincidir con el ambiente del servicio SRI destino. Sin esto, un
+                // XML de un ambiente enviado al otro produce rechazos silenciosos
+                // (SRI 35 "el ambiente de la solicitud no coincide").
+                var xmlAmbiente = extractXmlAmbiente(input.signedXml);
+                if (xmlAmbiente != null && !xmlAmbiente.equals(sriEnv.sriCode())) {
+                    log.errorf("SendConsumer: document %s declares ambiente=%s in XML but target endpoint is %s — refusing to send",
+                            input.id, xmlAmbiente, sriEnv.sriCode());
+                    markFailed(event, "Ambiente del XML (%s) no coincide con el ambiente SRI del endpoint (%s)"
+                            .formatted(xmlAmbiente, sriEnv.sriCode()));
                     return;
                 }
 
@@ -283,7 +306,27 @@ public class SendConsumer {
                 .orElse("Unknown error");
     }
 
-    record SendInput(UUID id, String signedXml, DocumentStatus status) {
+    /**
+     * Extrae el valor de {@code <ambiente>} del XML firmado, o {@code null} si no
+     * está presente. Permite validar que el comprobante y el endpoint destino
+     * apunten al mismo ambiente SRI antes de enviarlo.
+     */
+    static String extractXmlAmbiente(String signedXml) {
+        if (signedXml == null) {
+            return null;
+        }
+        var start = signedXml.indexOf("<ambiente>");
+        if (start < 0) {
+            return null;
+        }
+        var end = signedXml.indexOf("</ambiente>", start);
+        if (end < 0) {
+            return null;
+        }
+        return signedXml.substring(start + "<ambiente>".length(), end).trim();
+    }
+
+    record SendInput(UUID id, String signedXml, String accessKey, DocumentStatus status) {
 
     }
 }
