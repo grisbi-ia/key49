@@ -17,7 +17,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ValidRuc {
 
-    String message() default "RUC inválido: debe tener 13 dígitos y pasar validación módulo 11";
+    String message() default "RUC inválido: debe tener 13 dígitos, terminar en 001 y tener un tipo de contribuyente válido";
 
     Class<?>[] groups() default {};
 

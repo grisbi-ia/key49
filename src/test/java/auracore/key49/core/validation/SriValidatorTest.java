@@ -99,9 +99,18 @@ class SriValidatorTest {
         }
 
         @Test
-        void shouldRejectRucWithInvalidCheckDigit() {
-            // Cambiar un dígito para invalidar el checksum
-            assertFalse(SriValidator.isValidRuc("1790016918001"));
+        void shouldAcceptRucThatDoesNotSatisfyModulo11() {
+            // El SRI ya no garantiza que el dígito verificador cumpla módulo 11
+            // (Programa de optimización de generación de RUC). Caso real reportado:
+            // CLICK SOLUCIONES S.A.S., RUC activo en el SRI.
+            assertTrue(SriValidator.isValidRuc("1793200847001"));
+        }
+
+        @Test
+        void shouldRejectRucWithInvalidStructure() {
+            assertFalse(SriValidator.isValidRuc("179320084700"));   // 12 dígitos
+            assertFalse(SriValidator.isValidRuc("17932008470012")); // 14 dígitos
+            assertFalse(SriValidator.isValidRuc("1793200847000"));  // no termina en 001
         }
     }
 

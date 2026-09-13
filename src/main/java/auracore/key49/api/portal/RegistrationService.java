@@ -104,7 +104,7 @@ public class RegistrationService {
 
         String trimmed = ruc.strip();
         if (!SriValidator.isValidRuc(trimmed)) {
-            return new RucCheckResult(false, false, "RUC inválido (debe ser 13 dígitos con módulo 11 válido)");
+            return new RucCheckResult(false, false, "RUC inválido (debe ser 13 dígitos terminados en 001)");
         }
 
         var existing = tenantRepository.findByRuc(trimmed);

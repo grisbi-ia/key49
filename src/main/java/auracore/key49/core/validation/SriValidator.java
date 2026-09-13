@@ -9,7 +9,20 @@ public final class SriValidator {
     }
 
     /**
-     * Valida un RUC ecuatoriano (13 dígitos, módulo 11 para persona natural/jurídica/pública).
+     * Valida un RUC ecuatoriano.
+     *
+     * <p>Valida únicamente la <b>estructura</b>: 13 dígitos, terminación
+     * {@code 001} y tercer dígito de tipo de contribuyente válido (0-5 persona
+     * natural, 6 entidad pública, 9 persona jurídica).</p>
+     *
+     * <p><b>No</b> valida el dígito verificador con módulo 11. El SRI comunicó
+     * oficialmente (Programa de optimización de generación y validación del
+     * número de RUC) que existen RUC válidos y activos que <b>no</b> cumplen
+     * módulo 11 y que esa validación ya no debe aplicarse, recomendando validar
+     * contra la fuente de datos. Como Key49 no consulta el padrón del SRI, delega
+     * esa verificación al propio SRI al recibir el comprobante; de lo contrario
+     * se generan falsos negativos (p. ej. {@code 1793200847001}, CLICK
+     * SOLUCIONES S.A.S., activo en el SRI).</p>
      */
     public static boolean isValidRuc(String ruc) {
         if (ruc == null || !ruc.matches("^\\d{13}$")) {
@@ -19,25 +32,9 @@ public final class SriValidator {
         if (!ruc.endsWith("001")) {
             return false;
         }
-        // El tercer dígito determina el tipo de contribuyente
+        // Tercer dígito = tipo de contribuyente: 0-5 natural, 6 pública, 9 jurídica.
         int thirdDigit = ruc.charAt(2) - '0';
-        if (thirdDigit < 0 || thirdDigit > 9) {
-            return false;
-        }
-        if (thirdDigit <= 5) {
-            // Persona natural: validar con módulo 10 (cédula en los primeros 10 dígitos)
-            return isValidCedula(ruc.substring(0, 10));
-        } else if (thirdDigit == 6) {
-            // Entidad pública: coeficientes [3,2,7,6,5,4,3,2], módulo 11, dígito verificador en posición 8
-            return validateModulo11(ruc, new int[]{3, 2, 7, 6, 5, 4, 3, 2}, 8);
-        } else if (thirdDigit == 9) {
-            // Persona jurídica: coeficientes [4,3,2,7,6,5,4,3,2], módulo 11
-            // Algunos RUC tienen dígito verificador en posición 9, otros en 10
-            return validateModulo11(ruc, new int[]{4, 3, 2, 7, 6, 5, 4, 3, 2}, 9)
-                    || validateModulo11(ruc, new int[]{4, 3, 2, 7, 6, 5, 4, 3, 2}, 10);
-        }
-        // Tercer dígito 7 u 8 no son válidos
-        return false;
+        return thirdDigit <= 6 || thirdDigit == 9;
     }
 
     /**
@@ -112,18 +109,5 @@ public final class SriValidator {
      */
     public static boolean isValidSequenceNumber(String sequenceNumber) {
         return sequenceNumber != null && sequenceNumber.matches("^\\d{9}$");
-    }
-
-    private static boolean validateModulo11(String number, int[] coefficients, int checkDigitPos) {
-        int sum = 0;
-        for (int i = 0; i < coefficients.length; i++) {
-            sum += (number.charAt(i) - '0') * coefficients[i];
-        }
-        int remainder = sum % 11;
-        int checkDigit = (remainder == 0) ? 0 : 11 - remainder;
-        if (checkDigit == 10 || checkDigit == 11) {
-            checkDigit = 0;
-        }
-        return checkDigit == (number.charAt(checkDigitPos) - '0');
     }
 }

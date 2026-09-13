@@ -344,7 +344,7 @@ Validar en la capa API (resource/filter) antes de que el request llegue a servic
 | `establishment`     | `^\d{3}$`     | Exactamente 3 dígitos numéricos              |
 | `issue_point`       | `^\d{3}$`     | Exactamente 3 dígitos numéricos              |
 | `sequence_number`   | `^\d{9}$`     | Exactamente 9 dígitos numéricos              |
-| RUC                 | `^\d{13}$`    | 13 dígitos + dígito verificador módulo 11    |
+| RUC                 | `^\d{13}$`    | 13 dígitos, termina en `001`, tercer dígito válido (0-5 natural, 6 pública, 9 jurídica). **No se aplica módulo 11** |
 | Cédula              | `^\d{10}$`    | 10 dígitos + dígito verificador módulo 10    |
 | Pasaporte           | `.{3,20}`     | 3 a 20 caracteres alfanuméricos              |
 | `issue_date`        | `yyyy-MM-dd`  | Debe ser la fecha actual (America/Guayaquil) |
@@ -353,14 +353,23 @@ Validar en la capa API (resource/filter) antes de que el request llegue a servic
 | `payment_method`    | `01-20`       | Debe existir en enum `PaymentMethod`         |
 | `recipient.id_type` | `04,05,06,07` | Debe existir en enum `IdentificationType`    |
 
-### Algoritmo de validación de RUC (módulo 11)
+### Validación de RUC (estructura, sin módulo 11)
+
+**No** se valida el dígito verificador del RUC con módulo 11. El SRI comunicó
+officialmente (Programa de optimización de generación y validación del número de
+RUC) que existen RUC válidos y activos que **no** cumplen módulo 11, y recomendó
+validar contra la fuente de datos en lugar del algoritmo. Como Key49 no consulta
+el padrón del SRI, se valida solo la estructura y se delega la verificación final
+al SRI al recibir el comprobante:
 
 ```java
-// Posiciones: coeficientes [4,3,2,7,6,5,4,3,2] aplicados a los primeros 9 dígitos
-// Sumar productos, módulo 11, restar de 11
-// Si resultado == 11 → dígito = 0; si resultado == 10 → RUC inválido
-// Comparar con dígito en posición 9 (0-indexed)
+// 13 dígitos + terminación "001" + tercer dígito = tipo de contribuyente
+// 0-5 persona natural · 6 entidad pública · 9 persona jurídica (7 y 8 no válidos)
 ```
+
+> Ejemplo real: RUC `1793200847001` (CLICK SOLUCIONES S.A.S.) está ACTIVO en el
+> SRI pero su dígito verificador no cumple módulo 11. Validarlo por algoritmo
+> producía falsos negativos (`HTTP 400`). Ver `SriValidator.isValidRuc`.
 
 ### Algoritmo de validación de Cédula (módulo 10)
 

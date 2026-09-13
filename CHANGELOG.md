@@ -7,6 +7,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Corregido
+
+- **Falsos rechazos de RUC válidos (tipo `04`)**: la validación de RUC ya **no aplica módulo 11**. El SRI comunicó oficialmente (Programa de optimización de generación y validación del número de RUC) que existen RUC válidos y activos que **no** cumplen módulo 11 y que esa validación no debe aplicarse, recomendando validar contra la fuente de datos. `SriValidator.isValidRuc` ahora valida solo la estructura (13 dígitos, terminación `001`, tercer dígito de tipo de contribuyente válido) y delega la verificación final al SRI. Corrige el `HTTP 400 VALIDATION_ERROR` / `Invalid identification for type 04` (p. ej. RUC `1793200847001`, CLICK SOLUCIONES S.A.S., activo en el SRI).
+
 ## [0.31.25] - 2026-09-12
 
 ### Corregido
