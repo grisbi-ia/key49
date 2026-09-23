@@ -69,6 +69,7 @@ class AuthorizeConsumerIntegrationTest {
     private UUID docIdInProcessing;
     private UUID docIdNotRegisteredRecent;
     private UUID docIdNotRegisteredOld;
+    private UUID docIdNotRegisteredNoReception;
 
     @BeforeAll
     void setup() throws Exception {
@@ -151,6 +152,12 @@ class AuthorizeConsumerIntegrationTest {
                 ps.setString(1, docIdNotRegisteredOld.toString());
                 ps.executeUpdate();
             }
+
+            // NO_REG sin confirmación de recepción (sri_submission_date NULL) → no
+            // debe marcarse NO_REG: se mantiene RECEIVED y se reconcilia.
+            docIdNotRegisteredNoReception = UUID.randomUUID();
+            insertReceivedDocument(conn, docIdNotRegisteredNoReception, "000000011",
+                    ACCESS_KEY.substring(0, 49 - 1) + "1");
         }
     }
 
@@ -275,6 +282,19 @@ class AuthorizeConsumerIntegrationTest {
         authorizeConsumer.process(toJson(docIdNotRegisteredOld));
 
         assertDocumentStatus(docIdNotRegisteredOld, "REJECTED");
+    }
+
+    @Test
+    @Order(11)
+    @DisplayName("NO_REG sin confirmación de recepción → permanece RECEIVED (no NO_REG)")
+    void shouldKeepReceived_whenNotRegisteredWithoutReceptionConfirmation() throws Exception {
+        when(sriAuthorizationClient.authorize(any(String.class), eq(SriEnvironment.TEST)))
+                .thenThrow(new auracore.key49.sri.SriNotRegisteredException("numeroComprobantes=0"));
+
+        authorizeConsumer.process(toJson(docIdNotRegisteredNoReception));
+
+        assertDocumentStatus(docIdNotRegisteredNoReception, "RECEIVED");
+        assertNextRetryAtSet(docIdNotRegisteredNoReception);
     }
 
     @Test

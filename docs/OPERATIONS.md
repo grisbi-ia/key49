@@ -268,7 +268,7 @@ Solo los **errores de infraestructura** se reintentan. Los **errores de negocio*
 | 52                            | Estructura XML inválida        | REJECTED     |
 | 65                            | Fecha futura                   | REJECTED     |
 | Otros errores de negocio      | Validación de datos SRI        | REJECTED     |
-| `numeroComprobantes=0`        | Clave no registrada en autorización | REJECTED (`NO_REG`) |
+| `numeroComprobantes=0` (envío antiguo) | Clave no registrada en autorización | REJECTED (`NO_REG`) → re-emisión automática (ver §6) |
 | `NO AUTORIZADO` (sin código 70) | Sin autorización            | REJECTED     |
 | Certificado inválido/expirado | Error en firma                 | FAILED       |
 | XML no generado               | Error en builder               | FAILED       |
@@ -489,10 +489,11 @@ El SRI **rechaza o redirige consultas paralelas**. Por eso:
 | Señal del SRI | Significado | Acción |
 | ------------- | ----------- | ------ |
 | `estado=AUTORIZADO` + `<comprobante>` | Autorizado | `AUTHORIZED` → `NOTIFIED` |
-| `numeroComprobantes=0` (envío con más de `KEY49_SRI_NOT_REG_MIN_AGE`, 10 min) | Clave **no registrada** en autorización | `REJECTED` (código `NO_REG`), terminal |
-| `numeroComprobantes=0` (envío reciente) | Autorización del SRI aún **no disponible** (es asíncrona) | Permanece `RECEIVED` y se **reconcilia** |
+| `numeroComprobantes=0` (envío con más de `KEY49_SRI_NOT_REG_MIN_AGE`, 10 min) | Clave **no registrada** en autorización | `REJECTED` (código `NO_REG`) → **se re-emite automáticamente** (ver §6) |
+| `numeroComprobantes=0` (envío reciente **o** recepción sin confirmar) | Autorización del SRI aún **no disponible** (es asíncrona) | Permanece `RECEIVED` y se **reconcilia** |
 | `estado=NO AUTORIZADO` (sin mensaje 70) | Sin autorización | `REJECTED`, terminal |
 | mensaje `70` ("en procesamiento") | El SRI aún procesa | Permanece `RECEIVED` y se **reconcilia** |
+| `DEVUELTA` con `70` u otro transitorio (**recepción**) | El SRI **no** confirmó la recepción | `RETRY` y se **reenvía la recepción** (`doc.send`); no se marca `sriSubmissionDate` |
 | Código `43` ("CLAVE ACCESO REGISTRADA", recepción) | El comprobante ya está en el SRI | `RECEIVED` + reconciliar autorización (**no reenviar**) |
 
 > **43 ≠ emitido.** Recepción registrada no implica autorización. La validez
@@ -520,10 +521,12 @@ bloquearía la reconciliación de los que **sí** están autorizados.
   - Reencola `doc.authorize` para documentos `RECEIVED` con reconciliación vencida, **sin reenviarlos**.
   - Recupera documentos **atascados** en estados transitorios (`CREATED` → `doc.sign`, `SIGNED` → `doc.send`, `SENT` → `RECEIVED` + `doc.authorize`) que no avanzaron desde `KEY49_RECONCILE_STALE_MINUTES` (10 min) — p. ej. un reinicio del proceso entre etapas.
   - Recupera documentos **`FAILED` por infraestructura** (sin código de negocio: circuit breaker, timeout, conexión) tras `KEY49_RECOVER_FAILED_COOLDOWN_MINUTES` (15 min), dentro de `KEY49_RECOVER_FAILED_MAX_AGE_HOURS` (24 h). Los `FAILED`/`REJECTED` por error de **negocio** no se tocan.
+  - **Re-emite** los documentos `REJECTED` con código `NO_REG` (clave no encontrada en el SRI): los re-firma y reenvía a recepción, acotado por `KEY49_RECOVER_NO_REG_COOLDOWN_MINUTES` (15 min), `KEY49_RECOVER_NO_REG_MAX_AGE_HOURS` (24 h) y `KEY49_RECOVER_NO_REG_MAX_ATTEMPTS` (3). Así un comprobante no queda atascado sin intervención humana. Reenviar es seguro: si el SRI ya lo tuviera responde `43` (ya registrado) y se reconcilia.
 - Reproceso en lote: `POST /v1/documents/reprocess` (tenant) y
   `POST /v1/admin/documents/reprocess?tenant_id=` (admin); página
   `/portal/settings/reprocess`. Los documentos ya enviados se reconcilian; los
-  nunca enviados se re-firman. Los `REJECTED` no se reprocesan.
+  nunca enviados se re-firman. Los `REJECTED` de negocio no se reprocesan; los
+  `NO_REG` se re-emiten (o se reconcilian si la recepción ya estaba confirmada).
 
 ---
 

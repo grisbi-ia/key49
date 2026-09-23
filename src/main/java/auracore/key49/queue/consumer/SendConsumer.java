@@ -170,10 +170,16 @@ public class SendConsumer {
             }
 
             doc.sriMessages = serializeMessages(response.messages());
-            doc.sriSubmissionDate = Instant.now();
             doc.updatedAt = Instant.now();
 
+            // `sriSubmissionDate` marca que el SRI CONFIRMÓ la recepción del
+            // comprobante (RECIBIDA o código 43). No se marca ante una DEVUELTA
+            // transitoria (p. ej. 70 "CLAVE DE ACCESO EN PROCESAMIENTO"): si se
+            // marca, el RetryPoller cree que el comprobante ya fue enviado y
+            // reencola `doc.authorize` en lugar de reenviarlo a recepción, dejando
+            // el comprobante sin registrar en el SRI de forma permanente.
             if (response.isReceived()) {
+                doc.sriSubmissionDate = Instant.now();
                 doc.transitionTo(DocumentStatus.SENT);
                 doc.transitionTo(DocumentStatus.RECEIVED);
                 doc.nextRetryAt = null;
@@ -185,6 +191,7 @@ public class SendConsumer {
                 // Código 43 "CLAVE ACCESO REGISTRADA": el SRI ya tiene el comprobante con
                 // esta clave de acceso. NO es un error: no se reenvía, se consulta su
                 // autorización (reconciliación). Evita marcarlo como FAILED.
+                doc.sriSubmissionDate = Instant.now();
                 doc.transitionTo(DocumentStatus.SENT);
                 doc.transitionTo(DocumentStatus.RECEIVED);
                 doc.nextRetryAt = null;
@@ -208,6 +215,11 @@ public class SendConsumer {
                         doc.id, targetStatus, doc.lastErrorMessage);
 
             } else {
+                // DEVUELTA transitoria (p. ej. código 70 "CLAVE DE ACCESO EN
+                // PROCESAMIENTO") o error sin código de negocio: el SRI NO confirmó
+                // la recepción. Se reintenta el ENVÍO (doc.send), no la autorización,
+                // para que el comprobante llegue a registrarse. Reenviar es seguro:
+                // si el SRI ya lo tuviera respondería 43 (ya manejado arriba).
                 handleRetryTransition(doc, em, event.tenantSchemaName(),
                         extractErrorSummary(response.messages()), "SendConsumer");
             }

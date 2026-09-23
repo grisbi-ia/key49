@@ -58,6 +58,15 @@ public class ReconciliationPoller {
     @ConfigProperty(name = "key49.recover.failed.max-age-hours", defaultValue = "24")
     int recoverFailedMaxAgeHours;
 
+    @ConfigProperty(name = "key49.recover.no-reg.cooldown-minutes", defaultValue = "15")
+    int recoverNoRegCooldownMinutes;
+
+    @ConfigProperty(name = "key49.recover.no-reg.max-age-hours", defaultValue = "24")
+    int recoverNoRegMaxAgeHours;
+
+    @ConfigProperty(name = "key49.recover.no-reg.max-attempts", defaultValue = "3")
+    int recoverNoRegMaxAttempts;
+
     @Scheduled(every = "${key49.reconcile.poll-interval:2m}",
             concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void pollReconciliations() {
@@ -93,6 +102,7 @@ public class ReconciliationPoller {
             }
             recoverStaleTransient(schemaName);
             recoverFailedInfra(schemaName);
+            recoverNoReg(schemaName);
         } catch (Exception ex) {
             log.errorf(ex, "ReconciliationPoller: error reconciling tenant=%s", schemaName);
         }
@@ -169,6 +179,39 @@ public class ReconciliationPoller {
         });
         if (recovered != null && recovered > 0) {
             log.infof("ReconciliationPoller: %d FAILED document(s) recovered (tenant=%s)",
+                    recovered, schemaName);
+        }
+    }
+
+    /**
+     * Recupera documentos {@code REJECTED} con código {@code NO_REG}: Key49 no
+     * encontró la clave de acceso en el SRI. Se re-emiten (re-firma y reenvío) de
+     * forma acotada — cooldown, ventana máxima y número de intentos — para que un
+     * comprobante no quede atascado sin intervención humana. Reenviar es seguro:
+     * si el SRI ya lo tuviera respondería 43 (ya registrado) y se reconcilia.
+     */
+    private void recoverNoReg(String schemaName) {
+        var recovered = connectionManager.withTenantTransaction(schemaName, em -> {
+            var docs = documentRepository.findRecoverableNoReg(
+                    recoverNoRegCooldownMinutes, recoverNoRegMaxAgeHours, recoverNoRegMaxAttempts);
+            int n = 0;
+            for (var doc : docs) {
+                doc.retryCount++;
+                doc.nextRetryAt = null;
+                doc.lastErrorCode = null;
+                doc.lastErrorMessage = null;
+                doc.updatedAt = Instant.now();
+                // Re-emitir: REJECTED → CREATED → re-firma (doc.sign) → reenvío.
+                doc.transitionTo(DocumentStatus.CREATED);
+                em.persist(OutboxEvent.create(doc.id, "doc.sign", "{}"));
+                n++;
+                log.infof("ReconciliationPoller: re-emitting NO_REG document %s as doc.sign (attempt %d/%d, tenant=%s)",
+                        doc.id, doc.retryCount, recoverNoRegMaxAttempts, schemaName);
+            }
+            return n;
+        });
+        if (recovered != null && recovered > 0) {
+            log.infof("ReconciliationPoller: %d NO_REG document(s) re-emitted (tenant=%s)",
                     recovered, schemaName);
         }
     }

@@ -245,19 +245,23 @@ public class AuthorizeConsumer {
             if (doc == null) {
                 return null;
             }
-            boolean recentlySubmitted = doc.sriSubmissionDate != null
+            boolean receptionConfirmed = doc.sriSubmissionDate != null;
+            boolean recentlySubmitted = receptionConfirmed
                     && doc.sriSubmissionDate.isAfter(Instant.now().minus(notRegisteredMinAge));
-            if (recentlySubmitted) {
-                // El SRI genera la autorizacion de forma asincrona: un
-                // numeroComprobantes=0 inmediato al envio NO significa NO registrada.
+            if (!receptionConfirmed || recentlySubmitted) {
+                // Sin confirmación de recepción, o envío reciente: la autorización
+                // del SRI es asíncrona y puede no estar disponible aún. NO se marca
+                // NO_REG (que es terminal); se mantiene RECEIVED y se reconcilia.
+                // Marcar NO_REG aquí atascaba comprobantes que el SRI todavía no
+                // había procesado (p. ej. recepción con código 70 "en procesamiento").
                 if (doc.status != DocumentStatus.RECEIVED) {
                     doc.transitionTo(DocumentStatus.RECEIVED);
                 }
                 doc.lastErrorMessage = reason;
                 doc.nextRetryAt = Instant.now().plus(Duration.ofMinutes(1));
                 doc.updatedAt = Instant.now();
-                log.infof("AuthorizeConsumer: document %s submitted recently (%s) — not registered yet, reconcile soon",
-                        doc.id, doc.sriSubmissionDate);
+                log.infof("AuthorizeConsumer: document %s not registered yet (receptionConfirmed=%s, submitted=%s) — reconcile soon",
+                        doc.id, receptionConfirmed, doc.sriSubmissionDate);
                 return null;
             }
             markRejected(doc, em, event.tenantSchemaName(), "NO_REG", reason);

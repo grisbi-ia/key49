@@ -120,6 +120,15 @@ public class DocumentReprocessService {
             doc.nextRetryAt = null;
             doc.lastErrorMessage = null;
             doc.updatedAt = Instant.now();
+            if (doc.sriSubmissionDate == null) {
+                // La recepción nunca fue confirmada por el SRI: reconciliar la
+                // autorización no sirve (seguiría devolviendo numeroComprobantes=0).
+                // Se re-emite: re-firma y reenvía a recepción.
+                doc.lastErrorCode = null;
+                doc.transitionTo(DocumentStatus.CREATED);
+                em.persist(OutboxEvent.create(doc.id, "doc.sign", "{}"));
+                return "doc.sign";
+            }
             doc.transitionTo(DocumentStatus.RECEIVED);
             em.persist(OutboxEvent.create(doc.id, "doc.authorize", "{}"));
             return "doc.authorize";

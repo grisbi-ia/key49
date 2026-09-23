@@ -139,7 +139,50 @@ class ReconciliationPollerTest {
         assertNoOutbox(infraRecent);
     }
 
+    @Test
+    @DisplayName("re-emite REJECTED/NO_REG vencidos (con cooldown y máximo de intentos)")
+    void shouldReEmitStaleNoRegDocuments() throws Exception {
+        UUID noRegOld;
+        UUID noRegRecent;
+        UUID noRegExhausted;
+        try (var conn = dataSource.getConnection()) {
+            noRegOld = insertNoRegDoc(conn, "000000301", "now() - interval '30 minutes'", 0);
+            noRegRecent = insertNoRegDoc(conn, "000000302", "now() - interval '1 minute'", 0);
+            noRegExhausted = insertNoRegDoc(conn, "000000303", "now() - interval '30 minutes'", 3);
+        }
+
+        poller.pollReconciliations();
+
+        assertOutbox(noRegOld, "doc.sign");
+        assertNoOutbox(noRegRecent);
+        assertNoOutbox(noRegExhausted);
+    }
+
     // ── Helpers ──
+
+    private UUID insertNoRegDoc(Connection conn, String seq, String updatedAtExpr,
+            int retryCount) throws SQLException {
+        var docId = UUID.randomUUID();
+        var accessKey = "%049d".formatted(9000 + Long.parseLong(seq));
+        try (var ps = conn.prepareStatement("""
+                INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                    sequence_number, recipient_id_type, recipient_id, recipient_name,
+                    issue_date, status, access_key, last_error_code, last_error_message,
+                    retry_count, original_xml, created_at, updated_at,
+                    subtotal_before_tax, total_discount, tip, total_amount, vat_amount)
+                VALUES (?::uuid, '01', '001', '001', ?, '04', '1792146739001', 'Test Corp',
+                    ?, 'REJECTED', ?, 'NO_REG', 'SRI no tiene registrada la clave de acceso',
+                    %d, '<factura>signed</factura>', now(), %s,
+                    50.00, 0.00, 0.00, 57.50, 7.50)
+                """.formatted(SCHEMA, retryCount, updatedAtExpr))) {
+            ps.setString(1, docId.toString());
+            ps.setString(2, seq);
+            ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
+            ps.setString(4, accessKey);
+            ps.executeUpdate();
+        }
+        return docId;
+    }
 
     private UUID insertDoc(Connection conn, String seq, String status,
             String nextRetryAtExpr, long accessKeySeed) throws SQLException {

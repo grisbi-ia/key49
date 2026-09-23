@@ -66,6 +66,7 @@ class SendConsumerIntegrationTest {
     private UUID docIdRetriesExhausted;
     private UUID docIdNoXml;
     private UUID docIdAlreadyRegistered;
+    private UUID docIdInProcessing;
 
     @BeforeAll
     void setup() throws Exception {
@@ -130,6 +131,10 @@ class SendConsumerIntegrationTest {
             // Documento cuyo comprobante ya está registrado en el SRI (código 43)
             docIdAlreadyRegistered = UUID.randomUUID();
             insertSignedDocument(conn, docIdAlreadyRegistered, "000000006", "SIGNED", "6");
+
+            // Documento cuya recepción responde DEVUELTA con código 70 (en procesamiento)
+            docIdInProcessing = UUID.randomUUID();
+            insertSignedDocument(conn, docIdInProcessing, "000000007", "SIGNED", "7");
         }
     }
 
@@ -243,6 +248,24 @@ class SendConsumerIntegrationTest {
     }
 
     @Test
+    @Order(9)
+    @DisplayName("DEVUELTA con código 70 (en procesamiento) → RETRY sin confirmar recepción (se reenvía)")
+    void shouldRetryWithoutConfirmingReception_whenInProcessing() throws Exception {
+        var messages = List.of(
+                new SriMessage("70", "CLAVE DE ACCESO EN PROCESAMIENTO",
+                        "La clave de acceso esta en procesamiento", "ERROR"));
+        var response = new SriReceptionResponse(ReceptionStatus.DEVUELTA, null, messages);
+        when(sriReceptionClient.send(any(String.class), eq(SriEnvironment.TEST)))
+                .thenReturn(response);
+
+        sendConsumer.process(toJson(docIdInProcessing));
+
+        assertDocumentStatus(docIdInProcessing, "RETRY");
+        assertNoSriSubmissionDate(docIdInProcessing);
+        assertNoOutboxFor(docIdInProcessing);
+    }
+
+    @Test
     @Order(7)
     @DisplayName("tenant inexistente no genera excepción")
     void shouldHandleNonExistentTenant() {
@@ -320,6 +343,33 @@ class SendConsumerIntegrationTest {
                 assertTrue(rs.next());
                 assertEquals(expectedErrorCode, rs.getString("last_error_code"));
                 assertNotNull(rs.getString("last_error_message"));
+            }
+        }
+    }
+
+    private void assertNoSriSubmissionDate(UUID docId) throws SQLException {
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(
+                     "SELECT sri_submission_date FROM %s.documents WHERE document_id = ?::uuid"
+                             .formatted(TENANT_SCHEMA))) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertNull(rs.getTimestamp("sri_submission_date"),
+                        "No debe marcarse sri_submission_date ante una DEVUELTA transitoria");
+            }
+        }
+    }
+
+    private void assertNoOutboxFor(UUID docId) throws SQLException {
+        try (var conn = dataSource.getConnection();
+             var ps = conn.prepareStatement(
+                     "SELECT count(*) FROM %s.outbox WHERE aggregate_id = ?::uuid"
+                             .formatted(TENANT_SCHEMA))) {
+            ps.setString(1, docId.toString());
+            try (var rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                assertEquals(0, rs.getInt(1), "No debe reencolarse autorización");
             }
         }
     }

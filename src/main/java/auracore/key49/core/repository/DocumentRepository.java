@@ -66,4 +66,19 @@ public class DocumentRepository implements PanacheRepositoryBase<Document, UUID>
                 + " AND (lastErrorCode IS NULL OR lastErrorCode = '')",
                 DocumentStatus.FAILED, cooldownCutoff, maxAgeCutoff).list();
     }
+
+    /**
+     * Documentos {@code REJECTED} con código {@code NO_REG} (Key49 no encontró la
+     * clave en el SRI) que deben re-emitirse automáticamente. Se acotan por
+     * cooldown, ventana máxima de antigüedad y número de intentos para no
+     * reencolar indefinidamente.
+     */
+    public List<Document> findRecoverableNoReg(int cooldownMinutes, int maxAgeHours, int maxAttempts) {
+        var now = Instant.now();
+        var cooldownCutoff = now.minus(Duration.ofMinutes(cooldownMinutes));
+        var maxAgeCutoff = now.minus(Duration.ofHours(maxAgeHours));
+        return find("status = ?1 AND lastErrorCode = 'NO_REG' AND updatedAt <= ?2"
+                + " AND updatedAt >= ?3 AND retryCount < ?4",
+                DocumentStatus.REJECTED, cooldownCutoff, maxAgeCutoff, maxAttempts).list();
+    }
 }

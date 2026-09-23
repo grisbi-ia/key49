@@ -51,6 +51,8 @@ class DocumentReprocessServiceTest {
     private UUID docRetry;
     private UUID docRejected;
     private UUID docOtherTenant;
+    private UUID docNoRegNotSubmitted;
+    private UUID docNoRegSubmitted;
 
     @BeforeAll
     void setup() throws Exception {
@@ -66,6 +68,11 @@ class DocumentReprocessServiceTest {
             docRetry = insertDoc(conn, SCHEMA_A, "000000004", "RETRY", false, 1004);
             docRejected = insertDoc(conn, SCHEMA_A, "000000005", "REJECTED", false, 1005);
             docOtherTenant = insertDoc(conn, SCHEMA_B, "000000006", "FAILED", true, 2001);
+
+            // NO_REG en SCHEMA_B: sin recepción confirmada → re-emitir;
+            // con recepción confirmada → reconciliar autorización.
+            docNoRegNotSubmitted = insertNoRegDoc(conn, SCHEMA_B, "000000007", false, 2002);
+            docNoRegSubmitted = insertNoRegDoc(conn, SCHEMA_B, "000000008", true, 2003);
         }
     }
 
@@ -126,6 +133,24 @@ class DocumentReprocessServiceTest {
     }
 
     @Test
+    @Order(5)
+    @DisplayName("REJECTED/NO_REG: re-emite sin recepción confirmada, reconcilia si la hubo")
+    void shouldReprocessNoRegAccordingToReception() throws Exception {
+        var result = service.reprocess(SCHEMA_B,
+                new ReprocessRequest(List.of("REJECTED"), null, null, null, null));
+
+        assertEquals(2, result.matched());
+        assertEquals(2, result.queued());
+        assertEquals(0, result.skipped());
+
+        assertStatus(SCHEMA_B, docNoRegNotSubmitted, "CREATED");
+        assertOutbox(SCHEMA_B, docNoRegNotSubmitted, "doc.sign");
+
+        assertStatus(SCHEMA_B, docNoRegSubmitted, "RECEIVED");
+        assertOutbox(SCHEMA_B, docNoRegSubmitted, "doc.authorize");
+    }
+
+    @Test
     @Order(4)
     @DisplayName("estado inválido → error de validación")
     void shouldRejectInvalidStatus() {
@@ -179,6 +204,31 @@ class DocumentReprocessServiceTest {
             ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
             ps.setString(4, status);
             ps.setString(5, accessKey);
+            ps.executeUpdate();
+        }
+        return docId;
+    }
+
+    private UUID insertNoRegDoc(Connection conn, String schema, String seq,
+            boolean submitted, long accessKeySeed) throws SQLException {
+        var docId = UUID.randomUUID();
+        var accessKey = "%049d".formatted(accessKeySeed);
+        try (var ps = conn.prepareStatement("""
+                INSERT INTO %s.documents (document_id, document_type, establishment, issue_point,
+                    sequence_number, recipient_id_type, recipient_id, recipient_name,
+                    issue_date, status, access_key, sri_submission_date, last_error_code,
+                    last_error_message, original_xml,
+                    subtotal_before_tax, total_discount, tip, total_amount, vat_amount,
+                    created_at, updated_at)
+                VALUES (?::uuid, '01', '001', '001', ?, '04', '1792146739001', 'Test Corp',
+                    ?, 'REJECTED', ?, %s, 'NO_REG', 'SRI no tiene registrada la clave de acceso',
+                    '<factura>signed</factura>',
+                    50.00, 0.00, 0.00, 57.50, 7.50, now(), now())
+                """.formatted(schema, submitted ? "now()" : "NULL"))) {
+            ps.setString(1, docId.toString());
+            ps.setString(2, seq);
+            ps.setObject(3, java.time.LocalDate.now(Key49Constants.EC_ZONE));
+            ps.setString(4, accessKey);
             ps.executeUpdate();
         }
         return docId;
