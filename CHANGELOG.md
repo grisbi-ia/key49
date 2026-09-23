@@ -7,6 +7,14 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.31.27] - 2026-09-23
+
+### Corregido
+
+- **Comprobante atascado en `REJECTED`/`NO_REG` cuando el SRI respondió `70` "en procesamiento" en recepción**: la recepción podía devolver `DEVUELTA` con código `70` (el SRI aún procesa la clave). Key49 marcaba `sriSubmissionDate` de todos modos, por lo que el `RetryPoller` asumía que el comprobante ya había sido enviado y reencolaba `doc.authorize` en lugar de **reenviar a recepción** (`doc.send`). Como la autorización seguía devolviendo `numeroComprobantes=0`, al superar `KEY49_SRI_NOT_REG_MIN_AGE` (10 min) el documento se marcaba `NO_REG` → `REJECTED` de forma **terminal**, aun cuando el SRI nunca lo había registrado. Ahora `sriSubmissionDate` se marca **solo** cuando el SRI confirma la recepción (`RECIBIDA` o código `43`); una `DEVUELTA` transitoria reintenta el envío. (Incidente NEOGUAYAS, doc `003-502-000000015`.)
+- **`NO_REG` falsos por recepción no confirmada**: `AuthorizeConsumer` ya no marca `NO_REG` (terminal) cuando el documento no tiene recepción confirmada por el SRI; en ese caso permanece `RECEIVED` y se reconcilia.
+- **`NO_REG` atascado sin intervención humana**: `ReconciliationPoller` ahora **re-emite automáticamente** los documentos `REJECTED` con código `NO_REG` (re-firma y reenvía a recepción), acotado por cooldown (`KEY49_RECOVER_NO_REG_COOLDOWN_MINUTES`, 15 min), ventana (`KEY49_RECOVER_NO_REG_MAX_AGE_HOURS`, 24 h) e intentos (`KEY49_RECOVER_NO_REG_MAX_ATTEMPTS`, 3). Reenviar es seguro: si el SRI ya lo tuviera responde `43` y se reconcilia. El reproceso en lote (`/v1/documents/reprocess`) también re-emite los `NO_REG` sin recepción confirmada en lugar de solo reconciliar.
+
 ## [0.31.26] - 2026-09-12
 
 ### Corregido
